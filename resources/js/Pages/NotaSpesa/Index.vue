@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
-import Tabulator from 'tabulator-tables'
+import { TabulatorFull as Tabulator } from 'tabulator-tables'
 import 'tabulator-tables/dist/css/tabulator.min.css'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
