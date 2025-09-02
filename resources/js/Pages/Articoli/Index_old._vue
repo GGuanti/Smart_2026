@@ -1,0 +1,165 @@
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { ref, onMounted, watch } from 'vue';
+import { router, Link } from '@inertiajs/vue3';
+import { TabulatorFull as Tabulator } from 'tabulator-tables';
+
+const props = defineProps({
+  articoli: Array
+});
+
+const form = ref({
+  id: null,
+  nome: '',
+  descrizione: '',
+  prezzo: ''
+});
+
+const filters = ref({
+  nome: '',
+  prezzoMin: '',
+  prezzoMax: ''
+});
+
+const tableRef = ref(null);
+let tableInstance = null;
+
+const resetForm = () => {
+  form.value = { id: null, nome: '', descrizione: '', prezzo: '' };
+};
+
+const loading = ref(false);
+
+const submit = async () => {
+  if (loading.value) return;
+  if (!form.value.nome || form.value.prezzo === '') {
+    alert('Nome e Prezzo sono obbligatori');
+    return;
+  }
+
+  loading.value = true;
+  const method = form.value.id ? 'put' : 'post';
+  const url = form.value.id ? `/articoli/${form.value.id}` : '/articoli';
+
+  router[method](url, form.value, {
+    onSuccess: () => resetForm(),
+    onFinish: () => loading.value = false
+  });
+};
+
+const edit = (data) => {
+  form.value = { ...data };
+};
+
+const del = (id) => {
+  if (confirm('Sicuro di voler eliminare?')) {
+    router.delete(`/articoli/${id}`);
+  }
+};
+
+const applyFilters = () => {
+  if (!tableInstance) return;
+
+  tableInstance.setFilter([
+    filters.value.nome
+      ? { field: 'nome', type: 'like', value: filters.value.nome }
+      : null,
+    filters.value.prezzoMin !== ''
+      ? { field: 'prezzo', type: '>=', value: parseFloat(filters.value.prezzoMin) }
+      : null,
+    filters.value.prezzoMax !== ''
+      ? { field: 'prezzo', type: '<=', value: parseFloat(filters.value.prezzoMax) }
+      : null
+  ].filter(Boolean));
+};
+
+const resetFilters = () => {
+  filters.value = { nome: '', prezzoMin: '', prezzoMax: '' };
+  applyFilters();
+};
+
+const resetColumnLayout = () => {
+  localStorage.removeItem('TBl-Articoli');
+  window.location.reload();
+};
+
+onMounted(() => {
+  tableInstance = new Tabulator(tableRef.value, {
+    height: "600px",
+    data: props.articoli,
+    layout: "fitColumns",
+    reactiveData: true,
+    movableColumns: true,
+    resizableColumns: true,
+
+    columns: [
+      { title: "ID", field: "id", width: 60 },
+      { title: "Nome", field: "nome", sorter: "string" },
+      { title: "Descrizione", field: "descrizione" },
+      { title: "Prezzo", field: "prezzo", formatter: "money" },
+      {
+        title: "Azioni",
+        field: "azioni", // 🔑 necessario per usare getColumnLayout()
+        formatter: () => `
+          <button class='edit-btn bg-yellow-500 text-white px-2 py-1 mr-2'>✏️</button>
+
+          <button class='bg-red-500 text-white px-2 py-1'>🗑️</button>`,
+        width: 130,
+        cellClick: (e, cell) => {
+          const row = cell.getRow().getData();
+          if (e.target.textContent.includes('✏️')) edit(row);
+          if (e.target.textContent.includes('🗑️')) del(row.id);
+        }
+      }
+    ],
+    persistence: {
+      columns: true, // salva ordine/dimensione colonne
+               },
+            persistenceID: 'TBl-Articoli', // chiave in localStorage
+            persistenceMode: 'local', // usa localStorage
+                });
+
+
+});
+
+watch(() => props.articoli, (newData) => {
+  if (tableInstance) {
+    tableInstance.replaceData(newData);
+    applyFilters();
+  }
+});
+</script>
+
+<template>
+  <AuthenticatedLayout>
+    <div>
+      <h1 class="text-2xl font-bold mb-4">Elenco Articoli</h1>
+
+      <!-- 🎯 Filtri -->
+      <div class="mb-4 flex gap-2 flex-wrap items-center">
+        <input v-model="filters.nome" @input="applyFilters" placeholder="Cerca nome" class="border p-2" />
+        <input v-model.number="filters.prezzoMin" @input="applyFilters" placeholder="Prezzo min" type="number" step="0.01" class="border p-2" />
+        <input v-model.number="filters.prezzoMax" @input="applyFilters" placeholder="Prezzo max" type="number" step="0.01" class="border p-2" />
+        <button @click="resetFilters" class="bg-gray-500 text-white px-4 py-2 rounded">Reset filtri</button>
+        <button @click="resetColumnLayout" class="bg-red-500 text-white px-4 py-2 rounded">Reset colonne</button>
+      </div>
+
+      <!-- 📝 Form inserimento/modifica -->
+      <form @submit.prevent="submit" class="mb-4 flex gap-2 flex-wrap">
+        <input v-model="form.nome" placeholder="Nome" class="border p-2" />
+        <input v-model="form.descrizione" placeholder="Descrizione" class="border p-2" />
+        <input v-model.number="form.prezzo" placeholder="Prezzo" class="border p-2" type="number" step="0.01" />
+        <button class="bg-blue-500 text-white px-4 py-2 rounded">
+          {{ form.id ? 'Modifica' : 'Aggiungi' }}
+        </button>
+      </form>
+
+      <!-- 📊 Tabulator datagrid -->
+      <div ref="tableRef" class="mt-6" style="height: 400px;"></div>
+    </div>
+  </AuthenticatedLayout>
+</template>
+
+<style>
+@import "tabulator-tables/dist/css/tabulator.min.css";
+</style>
