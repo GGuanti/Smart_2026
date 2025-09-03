@@ -98,7 +98,19 @@
 </head>
 <body>
 
-
+<style>
+@font-face {
+  font-family: 'Montserrat';
+  src: url("{{ storage_path('app/fonts/Montserrat-Regular.ttf') }}") format('truetype');
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url("{{ storage_path('app/fonts/Montserrat-Bold.ttf') }}") format('truetype');
+  font-weight: 700; font-style: normal;
+}
+* { font-family: 'Montserrat', DejaVu Sans, sans-serif; }
+</style>
 <div class="header">
   <img src="{{ public_path('images/logo_placeholder.png') }}" alt="Logo">
   <h1 class="font-semibold text-lg mb-1"> <strong>Report Giornate</strong> Dal {{ \Carbon\Carbon::parse($dataInizio)->format('d/m/Y') }} al {{ \Carbon\Carbon::parse($dataFine)->format('d/m/Y') }} </h1>
