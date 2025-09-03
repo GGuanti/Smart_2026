@@ -30,39 +30,54 @@ class AllegatiController extends Controller
     }
 
     public function store(Request $request, string $idProg)
-    {
-        $request->validate([
-            'file' => ['required','file','mimetypes:image/jpeg,application/pdf','max:20480'], // 20MB
-        ], [
-            'file.mimetypes' => 'Sono ammessi solo file JPG o PDF.',
-        ]);
+{
+    // più robusto: usa mimes (estensioni) oppure tieni i tuoi mimetypes
+    $request->validate([
+        'file' => ['required','file','mimes:jpg,jpeg,pdf','max:20480'], // 20 MB
+    ], [
+        'file.mimes' => 'Sono ammessi solo file JPG o PDF.',
+    ]);
 
-        $file = $request->file('file');
+    $file = $request->file('file');
 
-        // cartella: allegati/{IdProg}
-        $folder = 'allegati/' . trim($idProg);
-        // nome pulito + univoco
-        $base   = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $ext    = $file->getClientOriginalExtension();
-        $safe   = Str::slug($base) ?: 'file';
-        $name   = $safe . '-' . now()->format('YmdHis') . '.' . strtolower($ext);
+    // cartella: storage/app/public/allegati/{IdProg}
+    $folder = 'allegati/' . trim($idProg);
 
-        $path = $file->storeAs($folder, $name, 'public');
+    // nome pulito + timestamp
+    $base = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+    $ext  = $file->getClientOriginalExtension();
+    $safe = Str::slug($base) ?: 'file';
+    $name = $safe . '-' . now()->format('YmdHis') . '.' . strtolower($ext);
 
-        $al = Allegato::create([
-            'id_prog' => $idProg,
-            'nome'    => $file->getClientOriginalName(),
-            'path'    => $path,
-            'mime'    => $file->getClientMimeType(),
-            'size'    => $file->getSize(),
-        ]);
+    // ✅ salva nel DISK public (=> storage/app/public/...)
+    $path = $file->storeAs($folder, $name, 'public');
 
-        return response()->json([
-            'id'   => $al->id,
-            'nome' => $al->nome,
-            'url'  => Storage::disk('public')->url($al->path),
-        ], 201);
-    }
+    // salva record DB
+    $al = Allegato::create([
+        'id_prog' => $idProg,
+        'nome'    => $file->getClientOriginalName(),
+        'path'    => $path,                      // es. "allegati/45998/file.pdf"
+        'mime'    => $file->getClientMimeType(), // "application/pdf"
+        'size'    => $file->getSize(),           // bytes
+    ]);
+
+    // ✅ URL web relativo: /storage/allegati/...
+    $relativeUrl = Storage::disk('public')->url($path);
+
+    // ✅ URL assoluto con host/porta presi da APP_URL
+    $absoluteUrl = url($relativeUrl);
+
+    // ritorna JSON per l’AJAX (axios)
+    return response()->json([
+        'id'         => $al->id,          // o $al->getKey()
+        'nome'       => $al->nome,
+        'url'        => $absoluteUrl,     // es. http://127.0.0.1:8001/storage/...
+        'mime'       => $al->mime,
+        'size'       => $al->size,
+        'created_at' => $al->created_at?->toDateTimeString(),
+    ], 201);
+}
+
 
     public function download(Allegato $allegato)
     {

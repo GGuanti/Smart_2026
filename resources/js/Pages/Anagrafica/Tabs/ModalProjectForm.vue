@@ -419,9 +419,7 @@ async function onUpload(e) {
         return;
     }
 
-    const idProg = (form.IdProg || props.project?.IdProg || "")
-        .toString()
-        .trim();
+    const idProg = (form.IdProg || props.project?.IdProg || "").toString().trim();
     if (!idProg) {
         toast.error("IdProg mancante");
         return;
@@ -432,31 +430,22 @@ async function onUpload(e) {
 
     uploading.value = true;
     try {
-        const url = (() => {
-            try {
+        let url = "";
+        try { url = route("allegati.store", { idProg }); }
+        catch { url = `/allegati/${encodeURIComponent(idProg)}`; }
 
-                return route("allegati.store", { idProg });
-            } catch {
-                return `/allegati/${encodeURIComponent(idProg)}`;
-            }
-        })();
-
-        router.post(url, data, {
-            forceFormData: true, // 👈 importante per FormData
-            preserveScroll: true,
-            onSuccess: async () => {
-                toast.success("✅ File caricato");
-                await loadAllegati();
-            },
-            onError: () => toast.error("❌ Errore durante il caricamento"),
-            onFinish: () => {
-                uploading.value = false;
-            },
+        // ⬇️ AJAX puro: nessuna risposta Inertia, niente pagina di conferma
+        const res = await axios.post(url, data, {
+            headers: { "Content-Type": "multipart/form-data", "Accept": "application/json" }
         });
+
+        toast.success("✅ File caricato");
+        await loadAllegati(); // ricarica elenco
     } catch (err) {
-        uploading.value = false;
         console.error("Upload error:", err);
         toast.error("❌ Errore durante il caricamento");
+    } finally {
+        uploading.value = false;
     }
 }
 

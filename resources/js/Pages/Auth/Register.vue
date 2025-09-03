@@ -53,7 +53,7 @@ const submit = () => {
         </div>
 
         <!-- 🔽 Select ruolo -->
-        <div>
+        <!--div>
           <InputLabel for="profilo" value="Ruolo" />
           <select id="profilo" v-model="form.profilo" required class="mt-1 block w-full border-gray-300 rounded shadow-sm">
             <option disabled value="">-- Seleziona un ruolo --</option>
@@ -62,7 +62,7 @@ const submit = () => {
             <option value="user">Utente</option>
           </select>
           <InputError class="mt-2" :message="form.errors.profilo" />
-        </div>
+        <-->
 
         <div class="flex items-center justify-between">
           <Link :href="route('login')" class="text-sm text-blue-600 hover:underline">Hai già un account?</Link>
