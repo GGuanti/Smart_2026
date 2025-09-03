@@ -39,7 +39,7 @@ use App\Http\Controllers\DisegniDXFController;
 // routes/web.php
 Route::get('/_diag/test-mail', function () {
     \Mail::raw('Test OK da Cloud', fn($m) =>
-        $m->to('tuo@email.it')->subject('Prova SMTP'));
+        $m->to('gguanti@gmail.com')->subject('Prova SMTP'));
     return 'ok';
 });
 
