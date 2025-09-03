@@ -95,22 +95,29 @@
 
 
     </style>
+    <style>
+@page { margin: 24mm 18mm; }
+@font-face{
+  font-family:'Montserrat';
+  src:url("{{ storage_path('app/fonts/Montserrat-Regular.ttf') }}") format('truetype');
+  font-weight:400; font-style:normal;
+}
+@font-face{
+  font-family:'Montserrat';
+  src:url("{{ storage_path('app/fonts/Montserrat-Bold.ttf') }}") format('truetype');
+  font-weight:700; font-style:normal;
+}
+html,body{ font-family:'Montserrat', 'DejaVu Sans', sans-serif; font-size:12px; }
+h1{ font-weight:700; font-size:20px; margin:0 0 12px; }
+table{ border-collapse:collapse; width:100%; }
+th,td{ border:1px solid #d33; padding:6px 8px; line-height:1.25; }
+th{ background:#d33; color:#fff; font-weight:700; }
+</style>
+
 </head>
 <body>
 
-<style>
-@font-face {
-  font-family: 'Montserrat';
-  src: url("{{ storage_path('app/fonts/Montserrat-Regular.ttf') }}") format('truetype');
-  font-weight: 400; font-style: normal;
-}
-@font-face {
-  font-family: 'Montserrat';
-  src: url("{{ storage_path('app/fonts/Montserrat-Bold.ttf') }}") format('truetype');
-  font-weight: 700; font-style: normal;
-}
-* { font-family: 'Montserrat', DejaVu Sans, sans-serif; }
-</style>
+
 <div class="header">
   <img src="{{ public_path('images/logo_placeholder.png') }}" alt="Logo">
   <h1 class="font-semibold text-lg mb-1"> <strong>Report Giornate</strong> Dal {{ \Carbon\Carbon::parse($dataInizio)->format('d/m/Y') }} al {{ \Carbon\Carbon::parse($dataFine)->format('d/m/Y') }} </h1>

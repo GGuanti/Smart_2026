@@ -14,6 +14,12 @@ return [
     'show_warnings' => false,   // Throw an Exception on warnings from dompdf
 
     'public_path' => null,  // Override the public path if needed
+    'font_dir' => storage_path('app/fonts'),       // dove stanno i TTF
+    'font_cache' => storage_path('app/fonts/cache'),
+    'default_font' => 'Montserrat',                 // tuo font
+    'dpi' => 96,                                    // blocca DPI per evitare differenze di impaginazione
+    'isHtml5ParserEnabled' => true,
+    'isRemoteEnabled' => false,                     // meglio evitare webfont/remote
 
     /*
      * Dejavu Sans font is missing glyphs for converted entities, turn it off if you need to show € and £.
