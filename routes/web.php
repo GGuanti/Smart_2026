@@ -35,6 +35,15 @@ use Illuminate\Http\Request;
 // routes/web.php
 use App\Http\Controllers\DisegniDXFController;
 
+
+// routes/web.php
+Route::get('/_diag/test-mail', function () {
+    \Mail::raw('Test OK da Cloud', fn($m) =>
+        $m->to('tuo@email.it')->subject('Prova SMTP'));
+    return 'ok';
+});
+
+
 Route::get('/disegni/{id?}', [DisegniDXFController::class, 'show'])->name('disegni.show');
 Route::post('/disegni', [DisegniDXFController::class, 'store'])->name('disegni.store');
 Route::put('/disegni/{id}', [DisegniDXFController::class, 'update'])->name('disegni.update');

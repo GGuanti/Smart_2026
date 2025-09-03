@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Report Giornate</title>
+    <title>Report Giornate ggg</title>
     <style>
  @page {
   margin-top: 5mm;
@@ -107,7 +107,7 @@
   src:url("{{ storage_path('app/fonts/Montserrat-Bold.ttf') }}") format('truetype');
   font-weight:700; font-style:normal;
 }
-html,body{ font-family:'Montserrat', 'DejaVu Sans', sans-serif; font-size:12px; }
+html,body{ font-family: sans-serif; font-size:12px; }
 h1{ font-weight:700; font-size:20px; margin:0 0 12px; }
 table{ border-collapse:collapse; width:100%; }
 th,td{ border:1px solid #d33; padding:6px 8px; line-height:1.25; }
