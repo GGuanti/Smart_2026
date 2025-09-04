@@ -35,7 +35,7 @@ use Illuminate\Http\Request;
 // routes/web.php
 use App\Http\Controllers\DisegniDXFController;
 
-
+Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])->name('contratti.report');
     Route::get   ('/allegati/open/{allegato}', [AllegatiController::class, 'show'])->name('allegati.show');
 
 // routes/web.php

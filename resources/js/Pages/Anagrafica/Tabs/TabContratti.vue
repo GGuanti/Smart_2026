@@ -10,6 +10,7 @@ import { Italian } from 'flatpickr/dist/l10n/it.js'
 const toast = useToast()
 const page = usePage()
 const currentUser = computed(() => page.props.auth.user)
+const rowId = (row) => row?.IdContratti ?? row?.IdContratto ?? row?._pk
 
 const props = defineProps({
   codCliente: String,
@@ -304,11 +305,21 @@ const addContratto = async () => {
     toast.error(`Errore validazione:\n${msgs || 'Verifica i campi'}`)
   }
 }
+const GeneraContratti = (row) => {
+  const id = rowId(row)
+  if (!id) return toast.error('ID contratto non valido')
+  // con Ziggy:
+  // window.open(route('contratti.report', id), '_blank')
+
+  // senza Ziggy:
+  window.open(`/contratti/${encodeURIComponent(id)}/report`, '_blank')
+}
 </script>
 
 <template>
   <div class="p-4 bg-white rounded shadow" @keydown.enter.prevent>
     <h2 class="text-lg font-semibold mb-4">Contratti - {{ props.nomeUtente }}</h2>
+
     <table class="w-full text-sm border">
       <thead class="bg-gray-100">
         <tr>
@@ -457,25 +468,44 @@ const addContratto = async () => {
           </td>
 
           <!-- Azioni -->
-          <td class="border p-1 text-center">
-            <div v-if="isEditing(row)">
-              <button type="button" @click="update(row.IdContratti ?? row.IdContratto ?? row._pk)" class="text-green-600 font-bold mr-1">💾</button>
-              <button type="button" @click="cancelEdit" class="text-gray-600 font-bold">✖</button>
-            </div>
-            <div v-else>
-              <button type="button" @click="edit(row)" class="text-blue-600 font-bold mr-1">✏️</button>
-              <button
-              v-if="page.props.auth.user.profilo === 'admin'"
-              type="button"
-              @click="destroy(row.IdContratti ?? row.IdContratto ?? row._pk)"
-              class="text-red-600 font-bold"
-            >
-              🗑️
-            </button>
+          <td class="p-1 border text-left">
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      @click="edit(row)"
+      class="text-blue-600 font-bold"
+    >
+      ✏️ Modifica
+    </button>
 
+    <button
+      v-if="page.props.auth.user.profilo === 'admin'"
+      type="button"
+      @click="destroy(row.IdContratti ?? row.IdContratto ?? row._pk)"
+      class="text-red-600 font-bold"
+    >
+      🗑️ Cancella
+    </button>
 
-            </div>
-          </td>
+    <button
+      v-if="page.props.auth.user.profilo === 'admin'"
+      type="button"
+  @click="GeneraContratti(row)"
+      class="text-gray-600 font-bold"
+    >
+      🖨️ Genera Contratto
+    </button>
+
+    <button
+      v-if="page.props.auth.user.profilo === 'admin'"
+      type="button"
+      @click="SalvaContratto"
+      class="text-green-600 font-bold"
+    >
+      💾 Salva Contratto
+    </button>
+  </div>
+</td>
         </tr>
 
         <!-- Nuovo contratto -->
