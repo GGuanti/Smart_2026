@@ -36,6 +36,8 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\DisegniDXFController;
 
 
+    Route::get   ('/allegati/open/{allegato}', [AllegatiController::class, 'show'])->name('allegati.show');
+
 // routes/web.php
 Route::get('/_diag/test-mail', function () {
     \Mail::raw('Test OK da Cloud', fn($m) =>

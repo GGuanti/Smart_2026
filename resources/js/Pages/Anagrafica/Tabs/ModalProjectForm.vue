@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, computed, onBeforeUnmount } from "vue";
 import { useForm, router, usePage } from "@inertiajs/vue3";
+import axios from "axios";
 import AutoComplete from "primevue/autocomplete";
 import FlatPickr from "vue-flatpickr-component";
 import "flatpickr/dist/flatpickr.css";
@@ -65,12 +66,7 @@ const clientiMap = computed(() => {
                     normalizeCode(
                         row.CodCliente ?? row.codice ?? row.code ?? ""
                     ),
-                    (
-                        row.RagioneSociale ??
-                        row.nome ??
-                        row.name ??
-                        ""
-                    ).toString(),
+                    (row.RagioneSociale ?? row.nome ?? row.name ?? "").toString(),
                 ])
                 .filter(([k, v]) => k && v)
         );
@@ -155,6 +151,9 @@ const clientiOptionsFromMap = computed(() =>
     }))
 );
 
+// pre-popolo i suggerimenti con i primi N della mappa (qualora l’utente apra il dropdown senza digitare)
+clientiSuggerimenti.value = clientiOptionsFromMap.value.slice(0, 50);
+
 /**
  * Completa lato server:
  * - chiama la rotta Ziggy 'api.clienti.search' se disponibile
@@ -190,12 +189,7 @@ async function completaClienti(e) {
                       value: normalizeCode(
                           r.codice ?? r.CodCliente ?? r.code ?? ""
                       ),
-                      label: (
-                          r.nome ??
-                          r.RagioneSociale ??
-                          r.name ??
-                          ""
-                      ).toString(),
+                      label: (r.nome ?? r.RagioneSociale ?? r.name ?? "").toString(),
                   }))
                   .filter((o) => o.value && o.label)
             : [];
@@ -216,9 +210,7 @@ async function completaClienti(e) {
         const ql = q.toLowerCase();
         clientiSuggerimenti.value = clientiOptionsFromMap.value
             .filter(
-                (o) =>
-                    o.label.toLowerCase().includes(ql) ||
-                    o.value.toLowerCase().includes(ql)
+                (o) => o.label.toLowerCase().includes(ql) || o.value.toLowerCase().includes(ql)
             )
             .slice(0, 50);
     }
@@ -261,9 +253,7 @@ function fillForm(p) {
         form.IdProgetto = p.IdProgetto ?? "";
         form.CodCliente = p?.CodCliente ?? form.CodCliente;
         form.RagioneSocialeCommittenti =
-            p?.RagioneSocialeCommittenti ??
-            clientiMap.value?.[form.CodCliente] ??
-            "";
+            p?.RagioneSocialeCommittenti ?? clientiMap.value?.[form.CodCliente] ?? "";
         form.TipologiaSimulatore = p?.TipologiaSimulatore ?? "";
         form.DescrizioneProgetto = p?.DescrizioneProgetto ?? "";
         form.Accordi = p?.Accordi ?? "";
@@ -301,40 +291,22 @@ function fillForm(p) {
         form.reset();
         form.CodCliente = props.codCliente || "";
         form.IDAttivita = props.idAttivita || "";
-        form.RagioneSocialeCommittenti =
-            clientiMap.value?.[form.CodCliente] ?? "";
+        form.RagioneSocialeCommittenti = clientiMap.value?.[form.CodCliente] ?? "";
     }
     form.clearErrors();
 
     // sync widget dopo aver impostato CodCliente
     const code = form.CodCliente;
-    selectedCliente.value = code
-        ? { value: code, label: clientiMap.value[code] ?? "" }
-        : null;
+    selectedCliente.value = code ? { value: code, label: clientiMap.value[code] ?? "" } : null;
 }
 
 // quando apro/modo cambiano/arriva project
 watch(
-    () => [
-        props.show,
-        props.editMode,
-        props.project,
-        props.codCliente,
-        props.idAttivita,
-    ],
+    () => [props.show, props.editMode, props.project, props.codCliente, props.idAttivita],
     () => {
         if (props.show) fillForm(props.project);
     },
     { immediate: true }
-);
-
-// sincronizza la ragione sociale se CodCliente cambia altrove
-watch(
-    () => form.CodCliente,
-    (code) => {
-        form.RagioneSocialeCommittenti =
-            clientiMap.value?.[code] ?? form.RagioneSocialeCommittenti;
-    }
 );
 
 const title = computed(
@@ -354,7 +326,6 @@ function saveProject(closeAfter = false) {
 
     const common = {
         preserveScroll: true,
-
         onError: () => toast.error("❌ Errore durante il salvataggio!"),
         onFinish: () => (saving.value = false),
         onSuccess,
@@ -369,7 +340,6 @@ function saveProject(closeAfter = false) {
 }
 
 /* ---------- ALLEGATI (scheda) ---------- */
-/* ---------- ALLEGATI (scheda) ---------- */
 const allegati = ref([]);
 const uploading = ref(false);
 
@@ -381,9 +351,7 @@ function isAllowedFile(file) {
 }
 
 async function loadAllegati() {
-    const idProg = (form.IdProg || props.project?.IdProg || "")
-        .toString()
-        .trim();
+    const idProg = (form.IdProg || props.project?.IdProg || "").toString().trim();
     if (!idProg) {
         allegati.value = [];
         return;
@@ -431,12 +399,17 @@ async function onUpload(e) {
     uploading.value = true;
     try {
         let url = "";
-        try { url = route("allegati.store", { idProg }); }
-        catch { url = `/allegati/${encodeURIComponent(idProg)}`; }
+        try {
+            url = route("allegati.store", { idProg });
+        } catch {
+            url = `/allegati/${encodeURIComponent(idProg)}`;
+        }
 
-        // ⬇️ AJAX puro: nessuna risposta Inertia, niente pagina di conferma
-        const res = await axios.post(url, data, {
-            headers: { "Content-Type": "multipart/form-data", "Accept": "application/json" }
+        await axios.post(url, data, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+                Accept: "application/json",
+            },
         });
 
         toast.success("✅ File caricato");
@@ -451,6 +424,7 @@ async function onUpload(e) {
 
 function apriAllegato(a) {
     // backend fornisce URL pubblico o rotta download
+
     window.open(a.url, "_blank");
 }
 
@@ -491,9 +465,7 @@ watch(
 // ================== GIORNATE (UNICA VERSIONE) ==================
 const page = usePage();
 const currentUser = computed(() => page.props?.auth?.user ?? null);
-const isAdmin = computed(
-    () => (currentUser.value?.profilo ?? "").toLowerCase() === "admin"
-);
+const isAdmin = computed(() => (currentUser.value?.profilo ?? "").toLowerCase() === "admin");
 
 const giornate = ref([]);
 const giornateLoading = ref(false);
@@ -518,33 +490,26 @@ function parseAmount(raw) {
     if (typeof raw === "number") {
         let n = raw;
         // se sembra centesimi (es. 7800) converto in euro
-        if (Number.isInteger(n) && Math.abs(n) >= 1000 && n % 100 === 0)
-            n = n / 100;
+        if (Number.isInteger(n) && Math.abs(n) >= 1000 && n % 100 === 0) n = n / 100;
         return n;
     }
     const s = String(raw).replace(/[^\d,\-\.]/g, ""); // lascia solo cifre e segni
     const n = Number(s.replace(/\./g, "").replace(",", "."));
     if (isNaN(n)) return 0;
     // euristica centesimi
-    if (Number.isInteger(n) && Math.abs(n) >= 1000 && n % 100 === 0)
-        return n / 100;
+    if (Number.isInteger(n) && Math.abs(n) >= 1000 && n % 100 === 0) return n / 100;
     return n;
 }
 
 const formatEuro = (n) =>
-    new Intl.NumberFormat("it-IT", {
-        style: "currency",
-        currency: "EUR",
-    }).format(Number(n || 0));
+    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(n || 0));
 
 // Carica dalla vista "vistagiornate" filtrando per IdProg
 async function loadGiornate() {
     giornateLoading.value = true;
     giornateError.value = "";
 
-    const idProg = (form.IdProg || props.project?.IdProg || "")
-        .toString()
-        .trim();
+    const idProg = (form.IdProg || props.project?.IdProg || "").toString().trim();
     if (!idProg) {
         giornate.value = [];
         giornateLoading.value = false;
@@ -587,8 +552,7 @@ async function loadGiornate() {
             });
 
             const iso = toYMD(g?.Data);
-            row.Data = iso;
-            row._DataIT = fmtIT(iso);
+            row.Data = iso; // ISO per sort
             row._rowId = row.IdGiornate ?? g?.id ?? `${idProg}-${i}`;
             row.Retribuzione = parseAmount(g?.Retribuzione);
             row.Diaria = Number(g?.Diaria ?? g?.DIARIA ?? 0);
@@ -615,7 +579,7 @@ function buildGiornateTable() {
     giornateTable = new Tabulator(giornateTableEl.value, {
         data: giornate.value,
         index: "_rowId",
-        height: "auto",
+        height: "420px",
         layout: "fitColumns",
         placeholder: "Nessuna giornata",
         columns: [
@@ -629,12 +593,17 @@ function buildGiornateTable() {
             { title: "IdProg", field: "IdProg" },
             { title: "IDContratto", field: "IDContratto" },
             { title: "CodCliente", field: "CodCliente", headerFilter: "input" },
-            { title: "Data", field: "_DataIT", sorter: "date" },
+            {
+                title: "Data",
+                field: "Data", // ISO YYYY-MM-DD per sort corretto
+                sorter: "date",
+                formatter: (cell) => fmtIT(cell.getValue()),
+            },
             {
                 title: "Diaria",
                 field: "Diaria",
                 hozAlign: "center",
-                sorter: "number", // Usa il valore reale
+                sorter: "number",
                 formatter: function (cell) {
                     const val = parseInt(cell.getValue());
                     return val === -1 ? "✅" : "❌";
@@ -645,7 +614,7 @@ function buildGiornateTable() {
                 field: "Retribuzione",
                 hozAlign: "right",
                 width: 140,
-                formatter: (cell) => formatEuro(cell.getValue()), // ✅ € corretto
+                formatter: (cell) => formatEuro(cell.getValue()),
                 bottomCalc: "sum",
                 bottomCalcFormatter: (cell) => formatEuro(cell.getValue()),
             },
@@ -663,8 +632,7 @@ function buildGiornateTable() {
                           hozAlign: "center",
                           width: 100,
                           formatter: () => "🗑️",
-                          cellClick: (e, cell) =>
-                              destroyGiornata(cell.getRow().getData()),
+                          cellClick: (e, cell) => destroyGiornata(cell.getRow().getData()),
                       },
                   ]
                 : []),
@@ -692,9 +660,7 @@ function destroyGiornata(row) {
     router.delete(url, {
         preserveScroll: true,
         onSuccess: () => {
-            giornate.value = giornate.value.filter(
-                (r) => (r.IdGiornate ?? r._rowId) !== id
-            );
+            giornate.value = giornate.value.filter((r) => (r.IdGiornate ?? r._rowId) !== id);
             toast.success("🗑️ Giornata eliminata");
         },
         onError: () => toast.error("❌ Errore eliminazione"),
@@ -730,10 +696,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div
-        v-if="show"
-        class="fixed inset-0 z-50 flex items-center justify-center"
-    >
+    <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-black/40" @click="$emit('close')"></div>
         <div
             class="relative bg-white w-[1100px] max-w-[95vw] h-[80vh] max-h-[95vh] rounded-2xl shadow-xl flex flex-col overflow-hidden"
@@ -744,14 +707,8 @@ onBeforeUnmount(() => {
                     {{ title }}
                 </div>
 
-                <div
-                    class="ml-auto inline-flex items-center gap-2 whitespace-nowrap"
-                >
-                    <button
-                        type="button"
-                        class="px-3 py-1.5 rounded border shrink-0"
-                        @click="$emit('close')"
-                    >
+                <div class="ml-auto inline-flex items-center gap-2 whitespace-nowrap">
+                    <button type="button" class="px-3 py-1.5 rounded border shrink-0" @click="$emit('close')">
                         Chiudi
                     </button>
                     <button
@@ -786,11 +743,7 @@ onBeforeUnmount(() => {
                         :key="t.k"
                         type="button"
                         class="px-3 py-1.5 rounded-t border-b-0 border"
-                        :class="
-                            activeTab === t.k
-                                ? 'bg-white border-gray-300 -mb-px'
-                                : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
-                        "
+                        :class="activeTab === t.k ? 'bg-white border-gray-300 -mb-px' : 'bg-gray-100 hover:bg-gray-200 border-gray-200'"
                         @click="activeTab = t.k"
                     >
                         {{ t.l }}
@@ -801,97 +754,73 @@ onBeforeUnmount(() => {
             <!-- BODY -->
             <div class="px-4 pb-4 overflow-auto">
                 <!-- TAB: GENERALI -->
-                <div
-                    v-show="activeTab === 'generali'"
-                    class="mt-3 space-y-4"
-                    @keydown.enter.stop.prevent
-                >
+                <div v-show="activeTab === 'generali'" class="mt-3 space-y-4" @keydown.enter.stop.prevent>
                     <input type="hidden" :value="form.CodCliente" />
                     <input type="hidden" :value="form.IDAttivita" />
 
                     <div class="grid grid-cols-12 gap-4">
                         <div class="col-span-3">
-                            <label class="block text-xs font-semibold"
-                                >IdProg</label
-                            >
+                            <label class="block text-xs font-semibold">IdProg</label>
                             <input
                                 v-model="form.IdProg"
                                 class="w-full border rounded px-2 py-1.5 bg-gray-100"
                                 :readonly="true"
                                 :disabled="!editMode"
                             />
-                            <p
-                                v-if="form.errors.IdProg"
-                                class="text-xs text-red-600 mt-1"
-                            >
+                            <p v-if="form.errors.IdProg" class="text-xs text-red-600 mt-1">
                                 {{ form.errors.IdProg }}
                             </p>
                         </div>
                         <div class="col-span-3">
-                            <label class="block text-xs font-semibold"
-                                >IdProgetto</label
-                            >
+                            <label class="block text-xs font-semibold">IdProgetto</label>
                             <input
                                 v-model="form.IdProgetto"
                                 class="w-full border rounded px-2 py-1.5 bg-gray-100"
                                 :readonly="true"
                                 :disabled="!editMode"
                             />
-                            <p
-                                v-if="form.errors.IdProgetto"
-                                class="text-xs text-red-600 mt-1"
-                            >
+                            <p v-if="form.errors.IdProgetto" class="text-xs text-red-600 mt-1">
                                 {{ form.errors.IdProgetto }}
                             </p>
                         </div>
 
                         <!-- Cliente (AutoComplete: mostra nome, salva codice) -->
                         <div class="col-span-9">
-                            <label class="block text-xs font-semibold"
-                                >Cliente</label
-                            >
+                            <label class="block text-xs font-semibold">Cliente</label>
                             <AutoComplete
                                 v-model="selectedCliente"
                                 :suggestions="clientiSuggerimenti"
                                 optionLabel="label"
                                 :dropdown="true"
                                 :forceSelection="true"
-                                :class="['w-full', { 'p-invalid border-red-500': !!form.errors.CodCliente || (!selectedCliente && !form.CodCliente) }]"
-
+                                :class="[
+                                    'w-full',
+                                    { 'p-invalid border-red-500': !!form.errors.CodCliente || (!selectedCliente && !form.CodCliente) },
+                                ]"
                                 placeholder="Digita le iniziali del cliente…"
                                 @complete="completaClienti"
                             />
-                            <p
-                                v-if="form.errors.CodCliente"
-                                class="text-xs text-red-600 mt-1"
-                            >
+                            <p v-if="form.errors.CodCliente" class="text-xs text-red-600 mt-1">
                                 {{ form.errors.CodCliente }}
                             </p>
                         </div>
 
                         <!-- Tipologia Simulatore -->
                         <div class="col-span-12">
-                            <label class="block text-sm font-medium mb-1"
-                                >Tipologia Simulatore</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Tipologia Simulatore</label>
                             <input
                                 v-model="form.TipologiaSimulatore"
                                 class="w-full border rounded px-2 py-1.5"
                                 placeholder="Tipologia Simulatore"
                             />
-                            <p
-                                v-if="form.errors.TipologiaSimulatore"
-                                class="text-xs text-red-600 mt-1"
-                            >
+                            <p v-if="form.errors.TipologiaSimulatore" class="text-xs text-red-600 mt-1">
                                 {{ form.errors.TipologiaSimulatore }}
                             </p>
                         </div>
 
                         <!-- Ragione Sociale (auto-compilata) -->
                         <div class="col-span-12">
-                            <label class="block text-sm font-medium mb-1"
-                                >Ragione Sociale (auto)</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Ragione Sociale (auto)</label>
                             <input
                                 v-model="form.RagioneSocialeCommittenti"
                                 class="w-full border rounded-lg p-2 bg-gray-50"
@@ -901,23 +830,15 @@ onBeforeUnmount(() => {
 
                         <!-- Descrizione -->
                         <div class="col-span-12">
-                            <label class="block text-sm font-medium mb-1"
-                                >Descrizione Progetto</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Descrizione Progetto</label>
                             <textarea
                                 v-model.trim="form.DescrizioneProgetto"
                                 rows="3"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.DescrizioneProgetto,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DescrizioneProgetto }"
                                 placeholder="Breve descrizione/accordi…"
                             />
-                            <p
-                                v-if="form.errors.DescrizioneProgetto"
-                                class="text-red-600 text-xs mt-1"
-                            >
+                            <p v-if="form.errors.DescrizioneProgetto" class="text-red-600 text-xs mt-1">
                                 {{ form.errors.DescrizioneProgetto }}
                             </p>
                         </div>
@@ -925,63 +846,40 @@ onBeforeUnmount(() => {
 
                     <div class="grid grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Data Inizio</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Data Inizio</label>
                             <FlatPickr
                                 v-model="form.DataInzProgetto"
                                 :config="FormatoData"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.DataInzProgetto,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DataInzProgetto }"
                             />
-                            <p
-                                v-if="form.errors.DataInzProgetto"
-                                class="text-red-600 text-xs mt-1"
-                            >
+                            <p v-if="form.errors.DataInzProgetto" class="text-red-600 text-xs mt-1">
                                 {{ form.errors.DataInzProgetto }}
                             </p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Data Fine</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Data Fine</label>
                             <FlatPickr
                                 v-model="form.DataFineProgetto"
                                 :config="FormatoData"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.DataFineProgetto,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DataFineProgetto }"
                             />
-                            <p
-                                v-if="form.errors.DataFineProgetto"
-                                class="text-red-600 text-xs mt-1"
-                            >
+                            <p v-if="form.errors.DataFineProgetto" class="text-red-600 text-xs mt-1">
                                 {{ form.errors.DataFineProgetto }}
                             </p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Data Pagamento</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Data Pagamento</label>
                             <FlatPickr
                                 v-model="form.DataPagamento"
                                 :config="FormatoData"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.DataPagamento,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DataPagamento }"
                             />
-                            <p
-                                v-if="form.errors.DataPagamento"
-                                class="text-red-600 text-xs mt-1"
-                            >
+                            <p v-if="form.errors.DataPagamento" class="text-red-600 text-xs mt-1">
                                 {{ form.errors.DataPagamento }}
                             </p>
                         </div>
@@ -990,61 +888,44 @@ onBeforeUnmount(() => {
                     <!-- Accordi -->
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Accordi</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Accordi</label>
                             <input
                                 v-model.trim="form.Accordi"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.Accordi,
-                                }"
+                                :class="{ 'border-red-500': form.errors.Accordi }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Percentuale</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Percentuale</label>
                             <input
                                 v-model.trim="form.Percentuale"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.Percentuale,
-                                }"
+                                :class="{ 'border-red-500': form.errors.Percentuale }"
                                 placeholder="%"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Giorni Pagamento</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Giorni Pagamento</label>
                             <input
                                 v-model.trim="form.GGPag"
-                                type="text"
+                                type="number"
+                                inputmode="numeric"
                                 class="w-full border rounded-lg p-2"
                                 :class="{ 'border-red-500': form.errors.GGPag }"
                                 placeholder="30"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Data Emissione Prev Fattura</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Data Emissione Prev Fattura</label>
                             <FlatPickr
                                 v-model="form.DataEmissionePrevFattura"
                                 :config="FormatoData"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.DataEmissionePrevFattura,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DataEmissionePrevFattura }"
                             />
-                            <p
-                                v-if="form.errors.DataEmissionePrevFattura"
-                                class="text-red-600 text-xs mt-1"
-                            >
+                            <p v-if="form.errors.DataEmissionePrevFattura" class="text-red-600 text-xs mt-1">
                                 {{ form.errors.DataEmissionePrevFattura }}
                             </p>
                         </div>
@@ -1053,49 +934,35 @@ onBeforeUnmount(() => {
                     <!-- Importo/IVA/Esenzione -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Importo Netto Concordato</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Importo Netto Concordato</label>
                             <input
                                 v-model="formattedImporto"
                                 type="text"
                                 class="w-full border rounded-lg p-2 text-right"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.ImportoNettoConcordato,
-                                }"
+                                :class="{ 'border-red-500': form.errors.ImportoNettoConcordato }"
                             />
-                            <p
-                                v-if="form.errors.ImportoNettoConcordato"
-                                class="text-xs text-red-600 mt-1"
-                            >
+                            <p v-if="form.errors.ImportoNettoConcordato" class="text-xs text-red-600 mt-1">
                                 {{ form.errors.ImportoNettoConcordato }}
                             </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Aliquota IVA</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Aliquota IVA</label>
                             <input
                                 v-model.trim="form.AliquotaIVA"
-                                type="text"
+                                type="number"
+                                step="0.01"
+                                inputmode="decimal"
                                 class="w-full border rounded-lg p-2 text-right"
-                                :class="{
-                                    'border-red-500': form.errors.AliquotaIVA,
-                                }"
+                                :class="{ 'border-red-500': form.errors.AliquotaIVA }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Esenzione IVA</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Esenzione IVA</label>
                             <input
                                 v-model.trim="form.EsenzioneIva"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.EsenzioneIva,
-                                }"
+                                :class="{ 'border-red-500': form.errors.EsenzioneIva }"
                             />
                         </div>
                     </div>
@@ -1103,9 +970,7 @@ onBeforeUnmount(() => {
                     <!-- CIG/Coproduzione/Descr. Causale -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >CIG</label
-                            >
+                            <label class="block text-sm font-medium mb-1">CIG</label>
                             <input
                                 v-model.trim="form.CIG"
                                 type="text"
@@ -1114,30 +979,21 @@ onBeforeUnmount(() => {
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Coproduzione</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Coproduzione</label>
                             <input
                                 v-model.trim="form.coproduzione"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.coproduzione,
-                                }"
+                                :class="{ 'border-red-500': form.errors.coproduzione }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Descr. Causale Fattura</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Descr. Causale Fattura</label>
                             <input
                                 v-model.trim="form.DescrCausaleFattura"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.DescrCausaleFattura,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DescrCausaleFattura }"
                             />
                         </div>
                     </div>
@@ -1145,31 +1001,21 @@ onBeforeUnmount(() => {
                     <!-- Email fattura/contatto -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Indirizzo Email Fattura</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Indirizzo Email Fattura</label>
                             <input
                                 v-model.trim="form.IndirizzoEmailFattura"
-                                type="text"
+                                type="email"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.IndirizzoEmailFattura,
-                                }"
+                                :class="{ 'border-red-500': form.errors.IndirizzoEmailFattura }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Indirizzo Email Contatto</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Indirizzo Email Contatto</label>
                             <input
                                 v-model.trim="form.IndirizzoEmailContatto"
-                                type="text"
+                                type="email"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.IndirizzoEmailContatto,
-                                }"
+                                :class="{ 'border-red-500': form.errors.IndirizzoEmailContatto }"
                             />
                         </div>
                     </div>
@@ -1177,43 +1023,30 @@ onBeforeUnmount(() => {
                     <!-- Stato/Consigliere/Giornate -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Stato Ordine</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Stato Ordine</label>
                             <input
                                 v-model.trim="form.StatoProgetto"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.StatoProgetto,
-                                }"
+                                :class="{ 'border-red-500': form.errors.StatoProgetto }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Consigliere</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Consigliere</label>
                             <input
                                 v-model.trim="form.Consigliere"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.Consigliere,
-                                }"
+                                :class="{ 'border-red-500': form.errors.Consigliere }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Giornate Importate</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Giornate Importate</label>
                             <input
                                 v-model.trim="form.ImportGiornate"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500':
-                                        form.errors.ImportGiornate,
-                                }"
+                                :class="{ 'border-red-500': form.errors.ImportGiornate }"
                             />
                         </div>
                     </div>
@@ -1221,22 +1054,16 @@ onBeforeUnmount(() => {
                     <!-- Rimborsi/logistica -->
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Pranzo</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Pranzo</label>
                             <input
                                 v-model.trim="form.Pranzo"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.Pranzo,
-                                }"
+                                :class="{ 'border-red-500': form.errors.Pranzo }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Cena</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Cena</label>
                             <input
                                 v-model.trim="form.Cena"
                                 type="text"
@@ -1245,42 +1072,31 @@ onBeforeUnmount(() => {
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Alloggio</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Alloggio</label>
                             <input
                                 v-model.trim="form.Alloggio"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.Alloggio,
-                                }"
+                                :class="{ 'border-red-500': form.errors.Alloggio }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >N. Notti</label
-                            >
+                            <label class="block text-sm font-medium mb-1">N. Notti</label>
                             <input
                                 v-model.trim="form.NNotti"
-                                type="text"
+                                type="number"
+                                inputmode="numeric"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.NNotti,
-                                }"
+                                :class="{ 'border-red-500': form.errors.NNotti }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Viaggio</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Viaggio</label>
                             <input
                                 v-model.trim="form.Viaggio"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.Viaggio,
-                                }"
+                                :class="{ 'border-red-500': form.errors.Viaggio }"
                             />
                         </div>
                     </div>
@@ -1288,9 +1104,7 @@ onBeforeUnmount(() => {
                     <!-- CUP/N. Ordine/Data Ordine -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >CUP</label
-                            >
+                            <label class="block text-sm font-medium mb-1">CUP</label>
                             <input
                                 v-model.trim="form.CUP"
                                 type="text"
@@ -1299,34 +1113,23 @@ onBeforeUnmount(() => {
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >N. Ordine</label
-                            >
+                            <label class="block text-sm font-medium mb-1">N. Ordine</label>
                             <input
                                 v-model.trim="form.NOrdineCup"
                                 type="text"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.NOrdineCup,
-                                }"
+                                :class="{ 'border-red-500': form.errors.NOrdineCup }"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                >Data Ordine</label
-                            >
+                            <label class="block text-sm font-medium mb-1">Data Ordine</label>
                             <FlatPickr
                                 v-model="form.DtOrdineCup"
                                 :config="FormatoData"
                                 class="w-full border rounded-lg p-2"
-                                :class="{
-                                    'border-red-500': form.errors.DtOrdineCup,
-                                }"
+                                :class="{ 'border-red-500': form.errors.DtOrdineCup }"
                             />
-                            <p
-                                v-if="form.errors.DtOrdineCup"
-                                class="text-red-600 text-xs mt-1"
-                            >
+                            <p v-if="form.errors.DtOrdineCup" class="text-red-600 text-xs mt-1">
                                 {{ form.errors.DtOrdineCup }}
                             </p>
                         </div>
@@ -1334,30 +1137,17 @@ onBeforeUnmount(() => {
 
                     <div class="col-span-12">
                         <label class="block text-xs font-semibold">Note</label>
-                        <textarea
-                            v-model="form.Note"
-                            rows="3"
-                            class="w-full border rounded px-2 py-1.5"
-                        ></textarea>
-                        <p
-                            v-if="form.errors.Note"
-                            class="text-xs text-red-600 mt-1"
-                        >
+                        <textarea v-model="form.Note" rows="3" class="w-full border rounded px-2 py-1.5"></textarea>
+                        <p v-if="form.errors.Note" class="text-xs text-red-600 mt-1">
                             {{ form.errors.Note }}
                         </p>
                     </div>
                 </div>
 
                 <!-- TAB: INFO PROGETTO -->
-                <div
-                    v-show="activeTab === 'info'"
-                    class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-4"
-                    @keydown.enter.stop.prevent
-                >
+                <div v-show="activeTab === 'info'" class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-4" @keydown.enter.stop.prevent>
                     <div class="md:col-span-4">
-                        <label class="block text-sm font-medium mb-1"
-                            >Titolo</label
-                        >
+                        <label class="block text-sm font-medium mb-1">Titolo</label>
                         <input
                             v-model.trim="form.Titolo"
                             type="text"
@@ -1366,9 +1156,7 @@ onBeforeUnmount(() => {
                         />
                     </div>
                     <div class="md:col-span-4">
-                        <label class="block text-sm font-medium mb-1"
-                            >Autore</label
-                        >
+                        <label class="block text-sm font-medium mb-1">Autore</label>
                         <input
                             v-model.trim="form.Autore"
                             type="text"
@@ -1377,46 +1165,32 @@ onBeforeUnmount(() => {
                         />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            >Regia</label
-                        >
+                        <label class="block text-sm font-medium mb-1">Regia</label>
                         <input
                             v-model.trim="form.RegiaCoreografia"
                             type="text"
                             class="w-full border rounded-lg p-2"
-                            :class="{
-                                'border-red-500': form.errors.RegiaCoreografia,
-                            }"
+                            :class="{ 'border-red-500': form.errors.RegiaCoreografia }"
                         />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            >N. Repliche</label
-                        >
+                        <label class="block text-sm font-medium mb-1">N. Repliche</label>
                         <input
                             v-model.trim="form.NumRepliche"
                             type="text"
                             class="w-full border rounded-lg p-2"
-                            :class="{
-                                'border-red-500': form.errors.NumRepliche,
-                            }"
+                            :class="{ 'border-red-500': form.errors.NumRepliche }"
                         />
                     </div>
                 </div>
 
-                <!-- TAB: GIORNATE -->
                 <!-- TAB: GIORNATE -->
                 <div v-show="activeTab === 'giornate'" class="mt-3 space-y-3">
                     <!-- Header / Info contesto -->
                     <div class="flex items-center justify-between">
                         <div class="text-sm text-gray-700">
                             <span class="font-semibold">Giornate</span>
-                            <span
-                                v-if="
-                                    form.IdProg || (project && project.IdProg)
-                                "
-                                class="ml-2"
-                            >
+                            <span v-if="form.IdProg || (project && project.IdProg)" class="ml-2">
                                 (IdProg: {{ form.IdProg || project?.IdProg }})
                             </span>
                         </div>
@@ -1433,18 +1207,10 @@ onBeforeUnmount(() => {
                                 🔄 Aggiorna
                             </button>
 
-                            <span
-                                class="text-sm text-gray-600"
-                                v-if="!giornateLoading"
-                            >
+                            <span class="text-sm text-gray-600" v-if="!giornateLoading">
                                 {{ giornate.length }} record
                             </span>
-                            <span
-                                class="text-sm text-gray-500"
-                                v-if="giornateLoading"
-                            >
-                                Caricamento…
-                            </span>
+                            <span class="text-sm text-gray-500" v-if="giornateLoading"> Caricamento… </span>
                         </div>
                     </div>
 
@@ -1468,15 +1234,8 @@ onBeforeUnmount(() => {
                 <!-- TAB: ELENCO ALLEGATI -->
                 <div v-show="activeTab === 'allegati'" class="mt-3 space-y-3">
                     <div class="flex items-center gap-3">
-                        <input
-                            type="file"
-                            @change="onUpload"
-                            accept=".pdf,.jpg,.jpeg"
-                        />
-
-                        <span v-if="uploading" class="text-sm text-gray-500"
-                            >Caricamento…</span
-                        >
+                        <input type="file" @change="onUpload" accept=".pdf,.jpg,.jpeg" />
+                        <span v-if="uploading" class="text-sm text-gray-500">Caricamento…</span>
                     </div>
 
                     <div class="overflow-auto border rounded">
@@ -1484,20 +1243,14 @@ onBeforeUnmount(() => {
                             <thead>
                                 <tr class="bg-gray-50">
                                     <th class="p-2 border">Nome File</th>
-                                    <th class="p-2 border w-40 text-center">
-                                        Azioni
-                                    </th>
+                                    <th class="p-2 border w-40 text-center">Azioni</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="a in allegati" :key="a.id">
                                     <td class="p-2 border">{{ a.nome }}</td>
                                     <td class="p-2 border text-center">
-                                        <button
-                                            type="button"
-                                            class="px-2 py-1 border rounded"
-                                            @click="apriAllegato(a)"
-                                        >
+                                        <button type="button" class="px-2 py-1 border rounded" @click="apriAllegato(a)">
                                             Apri
                                         </button>
                                         <button
@@ -1510,12 +1263,7 @@ onBeforeUnmount(() => {
                                     </td>
                                 </tr>
                                 <tr v-if="!allegati.length">
-                                    <td
-                                        colspan="2"
-                                        class="text-center text-gray-500 py-3"
-                                    >
-                                        Nessun allegato
-                                    </td>
+                                    <td colspan="2" class="text-center text-gray-500 py-3">Nessun allegato</td>
                                 </tr>
                             </tbody>
                         </table>
