@@ -35,6 +35,14 @@ use Illuminate\Http\Request;
 // routes/web.php
 use App\Http\Controllers\DisegniDXFController;
 
+
+Route::get('/gotenberg/test', function () {
+    $base = rtrim(env('GOTENBERG_URL', ''), '/');
+    $url  = $base . '/health';   // <-- vedi esattamente questo
+    return ['GOTENBERG_URL' => $base, 'final_url' => $url];
+});
+
+
 Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])->name('contratti.report');
     Route::get   ('/allegati/open/{allegato}', [AllegatiController::class, 'show'])->name('allegati.show');
 
