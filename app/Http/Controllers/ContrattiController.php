@@ -12,66 +12,82 @@ class ContrattiController extends Controller
 {
 
     public function generaPdf($id)
-        {
-        // 1) recupero record (adatta il nome tabella/PK ai tuoi)
-        $contratto = DB::table('contratti')
-            ->where('IdContratti', $id)
-            ->orWhere('IdContratto', $id)
-            ->first();
+{
+    // 1) Recupero record
+    $contratto = \DB::table('contratti')
+        ->where('IdContratti', $id)
+        ->orWhere('IdContratto', $id)
+        ->first();
+    if (!$contratto) abort(404, 'Contratto non trovato');
 
-        if (!$contratto) {
-            abort(404, 'Contratto non trovato');
+    // 2) Segnaposto
+    $data = [
+        'NOME'           => $contratto->NomeCognUser ?? '',
+        'COD_FISCALE'    => $contratto->CodFiscale ?? '',
+        'TIPO_CONTRATTO' => $contratto->TipoContr ?? '',
+        'PROFESSIONE'    => $contratto->Professione ?? '',
+        'CCNL'           => (string)($contratto->CCNL ?? ''),
+        'DATA_CONTRATTO' => $this->dataIt($contratto->DataContratto ?? null),
+        'DATA_INIZIO'    => $this->dataIt($contratto->DataInizio ?? null),
+        'DATA_FINE'      => $this->dataIt($contratto->DataFineContratto ?? null),
+        'STATO'          => $contratto->Stato ?? '',
+        'COD_CLIENTE'    => $contratto->CodCliente ?? '',
+    ];
+
+    // 3) Percorsi
+    $templatePath = resource_path('word/templates/Intermittente.docx');
+    if (!file_exists($templatePath)) abort(500, 'Template contratto non trovato');
+
+    $tmpDir = storage_path('app/tmp');
+    if (!is_dir($tmpDir)) mkdir($tmpDir, 0775, true);
+
+    $stamp = time();
+    $docxOut = "{$tmpDir}/contratto-{$id}-{$stamp}.docx";
+    $pdfOut  = "{$tmpDir}/contratto-{$id}-{$stamp}.pdf";
+
+    // 4) Compila DOCX
+    $tp = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
+    foreach ($data as $k => $v) $tp->setValue($k, $v);
+    $tp->saveAs($docxOut);
+
+    // 5) Se ho Gotenberg, converto lì (fedele a Word)
+    $gotenberg = rtrim(env('GOTENBERG_URL', ''), '/');
+    if ($gotenberg !== '') {
+        try {
+            $timeout = (int) (env('GOTENBERG_TIMEOUT', 60));
+            $resp = \Illuminate\Support\Facades\Http::timeout($timeout)
+                ->connectTimeout(10)
+                ->asMultipart()
+                // il campo dev’essere "files" per /forms/libreoffice/convert
+                ->attach('files', fopen($docxOut, 'r'), 'contratto.docx')
+                ->post("{$gotenberg}/forms/libreoffice/convert", [
+                    'output' => 'pdf',
+                ]);
+
+            if (!$resp->ok()) {
+                \Log::error('Gotenberg error', ['status' => $resp->status(), 'body' => $resp->body()]);
+                // fallback su Dompdf
+            } else {
+                file_put_contents($pdfOut, $resp->body());
+                return response()->file($pdfOut, ['Content-Type' => 'application/pdf'])
+                    ->deleteFileAfterSend(true);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Gotenberg exception', ['msg' => $e->getMessage()]);
+            // fallback su Dompdf
         }
-
-        // 2) mappa segnaposto del template
-        $data = [
-            'NOME'           => $contratto->NomeCognUser ?? '',
-            'IdContratto'    => $contratto->IdContratto ?? '',
-            'COD_FISCALE'    => $contratto->CodFiscale ?? '',
-            'TIPO_CONTRATTO' => $contratto->TipoContr ?? '',
-            'PROFESSIONE'    => $contratto->Professione ?? '',
-            'CCNL'           => (string)($contratto->CCNL ?? ''),
-            'DATA_CONTRATTO' => $this->dataIt($contratto->DataContratto ?? null),
-            'DATA_INIZIO'    => $this->dataIt($contratto->DataInizio ?? null),
-            'DATA_FINE'      => $this->dataIt($contratto->DataFineContratto ?? null),
-            'STATO'          => $contratto->Stato ?? '',
-            'COD_CLIENTE'    => $contratto->CodCliente ?? '',
-        ];
-
-        // 3) paths
-        $templatePath = resource_path('word/templates/Intermittente.docx'); // usa DOCX, non DOTX
-        if (!file_exists($templatePath)) {
-            abort(500, 'Template contratto non trovato');
-        }
-
-        $tmpDir = storage_path('app/tmp');
-        if (!is_dir($tmpDir)) {
-            mkdir($tmpDir, 0775, true);
-        }
-
-        $docxOut = $tmpDir . '/contratto-' . $id . '-' . time() . '.docx';
-        $pdfOut  = $tmpDir . '/contratto-' . $id . '-' . time() . '.pdf';
-
-        // 4) compila DOCX
-        $tp = new TemplateProcessor($templatePath);
-        foreach ($data as $k => $v) {
-            $tp->setValue($k, $v);
-        }
-        $tp->saveAs($docxOut);
-
-        // 5) converti in PDF con Dompdf
-        Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
-        Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
-
-        $phpWord   = IOFactory::load($docxOut);
-        $pdfWriter = IOFactory::createWriter($phpWord, 'PDF');
-        $pdfWriter->save($pdfOut);
-
-        // 6) restituisci inline (o usa ->download(...) se preferisci)
-        return response()->file($pdfOut, [
-            'Content-Type' => 'application/pdf',
-        ])->deleteFileAfterSend(true);
     }
+
+    // 6) Fallback: Dompdf (meno fedele ma funziona senza servizio esterno)
+    \PhpOffice\PhpWord\Settings::setPdfRendererName(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF);
+    \PhpOffice\PhpWord\Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
+    $phpWord   = \PhpOffice\PhpWord\IOFactory::load($docxOut);
+    $pdfWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'PDF');
+    $pdfWriter->save($pdfOut);
+
+    return response()->file($pdfOut, ['Content-Type' => 'application/pdf'])
+        ->deleteFileAfterSend(true);
+}
 
     /**
      * Helper interno: formatta date (Y-m-d / string / DateTime) in d/m/Y
