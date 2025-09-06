@@ -318,9 +318,7 @@ const GeneraContratti = (row) => {
 
 <template>
   <div class="p-4 bg-white rounded shadow" @keydown.enter.prevent>
-    <h2 class="text-lg font-semibold mb-4">Contratti - {{ props.nomeUtente }}</h2>
-
-    <table class="w-full text-sm border">
+      <table class="w-full text-sm border">
       <thead class="bg-gray-100">
         <tr>
           <th class="p-2 border">Id</th>

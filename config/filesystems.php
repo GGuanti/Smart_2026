@@ -46,7 +46,13 @@ return [
             'throw' => false,
             'report' => false,
         ],
-
+        'dropbox' => [
+            'driver'         => 'dropbox',
+            'refresh_token'  => env('DROPBOX_REFRESH_TOKEN'),
+            'client_id'      => env('DROPBOX_CLIENT_ID'),
+            'client_secret'  => env('DROPBOX_CLIENT_SECRET'),
+            'root'           => env('DROPBOX_ROOT', ''),
+        ],
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

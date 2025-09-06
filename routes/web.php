@@ -36,15 +36,37 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\DisegniDXFController;
 
 
-Route::get('/gotenberg/test', function () {
-    $base = rtrim(env('GOTENBERG_URL', ''), '/');
-    $url  = $base . '/health';   // <-- vedi esattamente questo
-    return ['GOTENBERG_URL' => $base, 'final_url' => $url];
-});
+// LISTA per progetto (idProg)
+Route::get('/allegati/{idProg}', [AllegatiController::class, 'index'])
+    ->whereNumber('idProg')
+    ->name('allegati.index');
+
+// UPLOAD su progetto (idProg)
+Route::post('/allegati/{idProg}', [AllegatiController::class, 'store'])
+    ->whereNumber('idProg')
+    ->name('allegati.store');
+
+// STREAM singolo allegato (id riga tabella)
+Route::get('/allegato/{allegato}', [AllegatiController::class, 'show'])
+    ->whereNumber('allegato')
+    ->name('allegati.show');
+
+// DELETE singolo allegato
+Route::delete('/allegato/{allegato}', [AllegatiController::class, 'destroy'])
+    ->whereNumber('allegato')
+    ->name('allegati.destroy');
+
+// Route::get('/allegati/{id}', [AllegatiController::class, 'show'])->name('allegati.show');
+// Route::get   ('/allegati/open/{allegato}', [AllegatiController::class, 'show'])->name('allegati.show');
+// Route::get   ('/allegati/{idProg}',               [AllegatiController::class, 'index'])->name('allegati.index');
+// Route::post  ('/allegati/{idProg}',               [AllegatiController::class, 'store'])->name('allegati.store');
+// Route::delete('/allegati/{allegato}',             [AllegatiController::class, 'destroy'])->name('allegati.destroy');
+// Route::get   ('/allegati/{allegato}/download',    [AllegatiController::class, 'download'])->name('allegati.download');
+
+
 
 
 Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])->name('contratti.report');
-    Route::get   ('/allegati/open/{allegato}', [AllegatiController::class, 'show'])->name('allegati.show');
 
 // routes/web.php
 Route::get('/_diag/test-mail', function () {
@@ -67,10 +89,6 @@ Route::get('/dxf-test', function () {
 Route::get('/dxf/save-svg', [DxfController::class, 'saveSvg'])->name('dxf.saveSvg.get');
 // Route::post('/dxf/save-svg', [DxfController::class, 'saveSvg'])->name('dxf.saveSvg'); // salva/crea PDF
 
-Route::get   ('/allegati/{idProg}',               [AllegatiController::class, 'index'])->name('allegati.index');
-Route::post  ('/allegati/{idProg}',               [AllegatiController::class, 'store'])->name('allegati.store');
-Route::delete('/allegati/{allegato}',             [AllegatiController::class, 'destroy'])->name('allegati.destroy');
-Route::get   ('/allegati/{allegato}/download',    [AllegatiController::class, 'download'])->name('allegati.download');
 
 
 Route::get('/report/giornate/preview', [ReportGiornateController::class, 'preview'])->name('report.giornate.preview');

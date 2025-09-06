@@ -16,6 +16,7 @@
         "laravel/tinker": "^2.9",
         "maatwebsite/excel": "^3.1",
         "phpoffice/phpword": "^1.4",
+        "spatie/flysystem-dropbox": "3.0",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {

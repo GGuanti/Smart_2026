@@ -13,6 +13,11 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+    'dropbox' => [
+        'key'           => env('DROPBOX_APP_KEY'),
+        'secret'        => env('DROPBOX_APP_SECRET'),
+        'refresh_token' => env('DROPBOX_REFRESH_TOKEN'),
+    ],
 
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),

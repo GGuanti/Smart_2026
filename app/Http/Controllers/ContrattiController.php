@@ -4,16 +4,201 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\TemplateProcessor;
 use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\SimpleType\Jc;
 
 class ContrattiController extends Controller
 {
+    public function generaPdf($id)
+    {
+        // 1) Recupero record
+        $contratto = DB::table('contratti')
+            ->where('IdContratti', $id)
+            ->orWhere('IdContratto', $id)
+            ->first();
+
+        if (!$contratto) {
+            abort(404, 'Contratto non trovato');
+        }
+
+        // 2) Dati base disponibili (chiavi "canoniche")
+        $data = [
+            'NOME'           => $contratto->NomeCognUser ?? '',
+            'IdContratto'    => $contratto->IdContratto ?? '',
+            'COD_FISCALE'    => $contratto->CodFiscale ?? '',
+            'TIPO_CONTRATTO' => $contratto->TipoContr ?? '',
+            'PROFESSIONE'    => $contratto->Professione ?? '',
+            'CCNL'           => (string)($contratto->CCNL ?? ''),
+            'DATA_CONTRATTO' => $this->dataIt($contratto->DataContratto ?? null),
+            'DATA_INIZIO'    => $this->dataIt($contratto->DataInizio ?? null),
+            'DATA_FINE'      => $this->dataIt($contratto->DataFineContratto ?? null),
+            'STATO'          => $contratto->Stato ?? '',
+            'COD_CLIENTE'    => $contratto->CodCliente ?? '',
+        ];
+
+        // 3) Path
+        $templatePath = resource_path('word' . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'Intermittente.docx');
+        if (!file_exists($templatePath)) {
+            abort(500, 'Template contratto non trovato');
+        }
+
+        $tmpDir = storage_path('app' . DIRECTORY_SEPARATOR . 'tmp');
+        if (!is_dir($tmpDir)) {
+            if (!@mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+                abort(500, 'Impossibile creare la cartella temporanea: ' . $tmpDir);
+            }
+        }
+
+        $stamp   = date('YmdHis');
+        $base    = 'contratto-' . $id . '-' . $stamp;
+        $docxOut = $tmpDir . DIRECTORY_SEPARATOR . $base . '.docx';
+        $pdfOut  = $tmpDir . DIRECTORY_SEPARATOR . $base . '.pdf';
+
+        try {
+            // 4) Compila DOCX dal template, con mappatura robusta dei segnaposto
+            $tp = new TemplateProcessor($templatePath);
+
+            // Elenco segnaposto reali nel DOCX (es. ['txtCodFiscale','NOME','IdContratto', ...])
+            $placeholders = $tp->getVariables();
+            Log::info('Segnaposto trovati nel template', ['vars' => $placeholders]);
+
+            // Preparo una lookup "normalizzata" delle nostre chiavi dati
+            $canonMap = $this->buildNormalizedMap($data);
+
+            // Per ogni segnaposto del DOCX cerco il valore migliore dai nostri dati
+            foreach ($placeholders as $ph) {
+                $value = $this->matchPlaceholderValue($ph, $canonMap);
+                $tp->setValue($ph, $value);
+            }
+
+            $tp->saveAs($docxOut);
+            if (!file_exists($docxOut)) {
+                throw new \RuntimeException("Il file DOCX non è stato creato: $docxOut");
+            }
+
+            // 5) Carico DOCX e aggiungo intestazione + numerazione pagine
+            $phpWord = IOFactory::load($docxOut);
+
+            foreach ($phpWord->getSections() as $section) {
+                $header = $section->addHeader();
+
+                $header->addText(
+                    'Contratto di Lavoro Intermittente',
+                    ['bold' => true, 'size' => 12],
+                    ['alignment' => Jc::CENTER]
+                );
+
+                $header->addPreserveText(
+                    'Pagina {PAGE} di {NUMPAGES}',
+                    ['italic' => true, 'size' => 10],
+                    ['alignment' => Jc::CENTER]
+                );
+            }
+
+            // 6) Conversione PDF via Dompdf
+            Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
+            Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
+
+            $pdfWriter = IOFactory::createWriter($phpWord, 'PDF');
+            $pdfWriter->save($pdfOut);
+
+            if (!file_exists($pdfOut)) {
+                throw new \RuntimeException("Il file PDF non è stato creato: $pdfOut");
+            }
+        } catch (\Throwable $e) {
+            Log::error('Errore generaPdf:', ['ex' => $e->getMessage()]);
+            if (is_file($docxOut)) @unlink($docxOut);
+            abort(500, 'Errore durante la generazione del PDF: ' . $e->getMessage());
+        } finally {
+            // Rimuovo il DOCX intermedio
+            if (is_file($docxOut)) @unlink($docxOut);
+        }
+
+        // 7) Output inline con cleanup
+        return response()->file($pdfOut, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.basename($pdfOut).'"',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Normalizza una stringa: rimuove tutto tranne A-Z/0-9 e porta in maiuscolo.
+     * Es. "txtCod_Fiscale" -> "TXTCODFISCALE"
+     */
+    private function normalizeKey(string $s): string
+    {
+        return strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', $s));
+    }
+
+    /**
+     * Costruisce una mappa normalizzata delle chiavi dati canoniche.
+     * Ritorna: ['NOME' => 'Mario Rossi', ...] sia nella forma canonica sia in forma normalizzata.
+     */
+    private function buildNormalizedMap(array $data): array
+    {
+        $map = [];
+        foreach ($data as $k => $v) {
+            $map[$k] = $v; // originale
+            $map[$this->normalizeKey($k)] = $v; // normalizzato
+        }
+        return $map;
+    }
+
+    /**
+     * Prova a trovare il valore migliore per un segnaposto del template.
+     * Strategie:
+     *  - match diretto (ph così com'è)
+     *  - match normalizzato
+     *  - match normalizzato rimuovendo prefisso "txt"
+     *  - degradazione: stringa vuota
+     */
+    private function matchPlaceholderValue(string $placeholder, array $canonMap): string
+    {
+        // 1) Nome così com'è
+        if (array_key_exists($placeholder, $canonMap)) {
+            return (string) $canonMap[$placeholder];
+        }
+
+        // 2) Normalizzato
+        $norm = $this->normalizeKey($placeholder);
+        if (array_key_exists($norm, $canonMap)) {
+            return (string) $canonMap[$norm];
+        }
+
+        // 3) Rimuovo un eventuale prefisso 'txt' e rinormalizzo
+        $stripTxt = preg_replace('/^txt/i', '', $placeholder);
+        $norm2 = $this->normalizeKey($stripTxt);
+        if (array_key_exists($norm2, $canonMap)) {
+            return (string) $canonMap[$norm2];
+        }
+
+        // 4) Vuoto se non trovato
+        return '';
+    }
+
+
+    /**
+     * Helper interno: formatta date (Y-m-d / string / DateTime) in d/m/Y
+     */
+    private function dataIt($v): string
+    {
+        if (!$v) return '';
+        try {
+            if ($v instanceof \DateTimeInterface) {
+                return $v->format('d/m/Y');
+            }
+            $d = new \DateTime($v);
+            return $d->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
     /**
      * GET /contratti?codCliente=...
-     * Ritorna l’elenco contratti (JSON), filtrando opzionalmente per CodCliente.
      */
     public function index(Request $request)
     {
@@ -31,13 +216,12 @@ class ContrattiController extends Controller
                 'DataInizio',
                 'DataFineContratto',
                 'Stato',
-                'StatoContratto',
                 'CodFiscale',
                 'CodCliente',
             ])
             ->orderBy('DataInizio', 'desc');
 
-        if ($codCliente) {
+        if (!empty($codCliente)) {
             $q->where('CodCliente', $codCliente);
         }
 
@@ -46,26 +230,15 @@ class ContrattiController extends Controller
 
     /**
      * POST /contratti
-     * Crea un nuovo contratto.
      */
     public function store(Request $request)
     {
-        // Calcola il nuovo IdContratto progressivo per cliente
-        $codCliente = $request->input('CodCliente');
-
-        $maxId = DB::table('contratti')
-            ->where('CodCliente', $codCliente)
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(IdContratto, '-', 1) AS UNSIGNED)) as max_id")
-            ->value('max_id');
-
-        $maxId = $maxId ?? 0; // <-- evita null+1
-        $newIdContratto = str_pad($maxId + 1, 3, '0', STR_PAD_LEFT); // es: '003'
-
+        // Validazione
         $data = $request->validate([
             'NomeCognUser'       => 'required|string|max:255',
             'TipoContr'          => 'required|string|max:100',
             'Professione'        => 'required|string|max:100',
-            'CCNL'               => 'nullable|string|max:50',  // <-- string, non integer
+            'CCNL'               => 'nullable|integer',
             'DataContratto'      => 'required|date',
             'DataInizio'         => 'required|date',
             'DataFineContratto'  => 'required|date|after_or_equal:DataInizio',
@@ -75,10 +248,21 @@ class ContrattiController extends Controller
             'CodCliente'         => 'required|string|max:20',
         ]);
 
-        $data['IdContratto'] = "{$newIdContratto}-{$data['CodCliente']}"; // es: "003-C 861"
+        $codCliente = $data['CodCliente'];
+
+        // Calcolo nuovo IdContratto progressivo per cliente (parte numerica a sinistra del "-")
+        $maxId = DB::table('contratti')
+            ->where('CodCliente', $codCliente)
+            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(IdContratto, '-', 1) AS UNSIGNED)) as max_id")
+            ->value('max_id');
+
+        $progressivo = (int)($maxId ?? 0) + 1;
+        $prefisso    = str_pad((string)$progressivo, 3, '0', STR_PAD_LEFT);
+
+        $data['IdContratto'] = "{$prefisso}-{$codCliente}"; // es: "003-C 861"
 
         // default opzionale
-        if (!isset($data['Stato']) || $data['Stato'] === null) {
+        if (!isset($data['Stato']) || $data['Stato'] === null || $data['Stato'] === '') {
             $data['Stato'] = 'In vigore';
         }
 
@@ -89,7 +273,6 @@ class ContrattiController extends Controller
 
     /**
      * PUT /contratti/{id}
-     * Aggiorna un contratto esistente (id = IdContratti PK).
      */
     public function update($id, Request $request)
     {
@@ -98,7 +281,7 @@ class ContrattiController extends Controller
             'NomeCognUser'       => 'required|string|max:255',
             'TipoContr'          => 'required|string|max:100',
             'Professione'        => 'required|string|max:100',
-            'CCNL'               => 'nullable|string|max:50', // <-- string
+            'CCNL'               => 'nullable|integer',
             'DataContratto'      => 'required|date',
             'DataInizio'         => 'required|date',
             'DataFineContratto'  => 'required|date|after_or_equal:DataInizio',
@@ -120,122 +303,5 @@ class ContrattiController extends Controller
     {
         $deleted = DB::table('contratti')->where('IdContratti', $id)->delete();
         return response()->json(['ok' => (bool) $deleted]);
-    }
-
-    /**
-     * GET /contratti/{id}/report
-     * Genera PDF da DOCX con Gotenberg (se disponibile) o fallback Dompdf.
-     */
-    public function generaPdf($id)
-    {
-        // 1) Recupero record
-        $contratto = DB::table('contratti')
-            ->where('IdContratti', $id)
-            ->orWhere('IdContratto', $id)
-            ->first();
-
-        if (!$contratto) {
-            abort(404, 'Contratto non trovato');
-        }
-
-        // 2) Mappa segnaposto
-        $data = [
-            'NOME'           => $contratto->NomeCognUser ?? '',
-            'COD_FISCALE'    => $contratto->CodFiscale ?? '',
-            'TIPO_CONTRATTO' => $contratto->TipoContr ?? '',
-            'PROFESSIONE'    => $contratto->Professione ?? '',
-            'CCNL'           => (string)($contratto->CCNL ?? ''),
-            'DATA_CONTRATTO' => $this->dataIt($contratto->DataContratto ?? null),
-            'DATA_INIZIO'    => $this->dataIt($contratto->DataInizio ?? null),
-            'DATA_FINE'      => $this->dataIt($contratto->DataFineContratto ?? null),
-            'STATO'          => $contratto->Stato ?? '',
-            'COD_CLIENTE'    => $contratto->CodCliente ?? '',
-        ];
-
-        // 3) Paths
-        $templatePath = resource_path('word/templates/Intermittente.docx'); // usa DOCX, non DOTX
-        if (!file_exists($templatePath)) {
-            abort(500, 'Template contratto non trovato');
-        }
-
-        $tmpDir = storage_path('app/tmp');
-        if (!is_dir($tmpDir)) {
-            mkdir($tmpDir, 0775, true);
-        }
-
-        $stamp  = time();
-        $docxOut = "{$tmpDir}/contratto-{$id}-{$stamp}.docx";
-        $pdfOut  = "{$tmpDir}/contratto-{$id}-{$stamp}.pdf";
-
-        // 4) Compila DOCX
-        $tp = new TemplateProcessor($templatePath);
-        foreach ($data as $k => $v) {
-            $tp->setValue($k, $v);
-        }
-        $tp->saveAs($docxOut);
-
-        // 5) Primo tentativo: Gotenberg (se configurato)
-        $gotenberg = rtrim(env('GOTENBERG_URL', ''), '/');
-        if ($gotenberg !== '') {
-            try {
-                $req = Http::timeout((int)env('GOTENBERG_TIMEOUT', 60))
-                    ->connectTimeout(10)
-                    ->asMultipart()
-                    ->attach('files', fopen($docxOut, 'r'), 'contratto.docx');
-
-                if (env('GOTENBERG_USER') && env('GOTENBERG_PASS')) {
-                    $req = $req->withBasicAuth(env('GOTENBERG_USER'), env('GOTENBERG_PASS'));
-                }
-                if ($key = env('GOTENBERG_API_KEY')) {
-                    $req = $req->withHeaders(['X-Api-Key' => $key]);
-                }
-
-                $resp = $req->post("{$gotenberg}/forms/libreoffice/convert", [
-                    'output' => 'pdf',
-                ]);
-
-                if ($resp->ok()) {
-                    file_put_contents($pdfOut, $resp->body());
-                    return response()->file($pdfOut, [
-                        'Content-Type' => 'application/pdf',
-                    ])->deleteFileAfterSend(true);
-                }
-
-                \Log::error('Gotenberg error', [
-                    'status' => $resp->status(),
-                    'body'   => $resp->body(),
-                ]);
-            } catch (\Throwable $e) {
-                \Log::error('Gotenberg exception', ['msg' => $e->getMessage()]);
-            }
-        }
-
-        // 6) Fallback: Dompdf (meno fedele, ma senza servizi esterni)
-        Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
-        Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
-
-        $phpWord   = IOFactory::load($docxOut);
-        $pdfWriter = IOFactory::createWriter($phpWord, 'PDF');
-        $pdfWriter->save($pdfOut);
-
-        return response()->file($pdfOut, ['Content-Type' => 'application/pdf'])
-            ->deleteFileAfterSend(true);
-    }
-
-    /**
-     * Helper interno: formatta date (Y-m-d / string / DateTime) in d/m/Y
-     */
-    private function dataIt($v): string
-    {
-        if (!$v) return '';
-        try {
-            if ($v instanceof \DateTimeInterface) {
-                return $v->format('d/m/Y');
-            }
-            $d = new \DateTime($v);
-            return $d->format('d/m/Y');
-        } catch (\Throwable $e) {
-            return '';
-        }
     }
 }
