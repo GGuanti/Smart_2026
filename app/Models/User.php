@@ -23,6 +23,10 @@ class User extends Authenticatable
         'profilo',
         'table_preferences',
     ];
+    protected $casts = [
+        'dropbox_refresh_token'    => 'encrypted',
+        'dropbox_token_expires_at' => 'datetime',
+    ];
 
     /**
      * The attributes that should be hidden for serialization.

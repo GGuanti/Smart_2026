@@ -29,9 +29,20 @@ use App\Http\Controllers\{
     ReportController,
     ReportGiornateController,
     VistaGiornateController,
+    DropboxOAuthController,
     AllegatiController
 };
 use Illuminate\Http\Request;
+
+
+Route::middleware('auth')->group(function () {
+    Route::get('/oauth/dropbox/redirect', [DropboxOAuthController::class, 'redirect'])
+        ->name('dropbox.redirect');
+
+    Route::get('/oauth/dropbox/callback', [DropboxOAuthController::class, 'callback'])
+        ->name('dropbox.callback');
+});
+
 // routes/web.php
 use App\Http\Controllers\DisegniDXFController;
 
