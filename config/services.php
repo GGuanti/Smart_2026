@@ -14,9 +14,9 @@ return [
     |
     */
     'dropbox' => [
-        'key'           => env('DROPBOX_APP_KEY'),
-        'secret'        => env('DROPBOX_APP_SECRET'),
-        'refresh_token' => env('DROPBOX_REFRESH_TOKEN'),
+        'client_id'     => env('DROPBOX_CLIENT_ID'),
+        'client_secret' => env('DROPBOX_CLIENT_SECRET'),
+        'redirect'      => env('DROPBOX_REDIRECT_URI'),
     ],
 
     'postmark' => [

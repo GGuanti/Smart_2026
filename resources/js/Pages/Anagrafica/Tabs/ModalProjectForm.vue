@@ -428,24 +428,22 @@ function apriAllegato(a) {
     window.open(a.url, "_blank");
 }
 
-function eliminaAllegato(a) {
-    if (!confirm("Eliminare il file?")) return;
+async function eliminaAllegato(a) {
+  if (!confirm("Eliminare il file?")) return;
 
-    let url = "";
-    try {
-        url = route("allegati.destroy", { allegato: a.id });
-    } catch {
-        url = `/allegati/${a.id}`;
-    }
+  const url = (() => {
+    try { return route("allegati.destroy", { allegato: a.id }); }
+    catch { return `/allegati/${a.id}`; }
+  })();
 
-    router.delete(url, {
-        preserveScroll: true,
-        onSuccess: () => {
-            allegati.value = allegati.value.filter((x) => x.id !== a.id);
-            toast.success("🗑️ Allegato eliminato");
-        },
-        onError: () => toast.error("❌ Errore eliminazione"),
-    });
+  try {
+    await axios.delete(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+    allegati.value = allegati.value.filter(x => x.id !== a.id);
+    toast.success("🗑️ Allegato eliminato");
+  } catch (e) {
+    console.error(e);
+    toast.error("❌ Errore eliminazione");
+  }
 }
 
 // carica elenco quando entro nel tab "allegati" o cambia IdProg

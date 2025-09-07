@@ -33,7 +33,8 @@ use App\Http\Controllers\{
     AllegatiController
 };
 use Illuminate\Http\Request;
-
+// routes/web.php
+use App\Http\Controllers\DisegniDXFController;
 
 Route::middleware('auth')->group(function () {
     Route::get('/oauth/dropbox/redirect', [DropboxOAuthController::class, 'redirect'])
@@ -43,8 +44,7 @@ Route::middleware('auth')->group(function () {
         ->name('dropbox.callback');
 });
 
-// routes/web.php
-use App\Http\Controllers\DisegniDXFController;
+
 
 
 // LISTA per progetto (idProg)

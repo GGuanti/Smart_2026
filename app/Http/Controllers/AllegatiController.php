@@ -86,6 +86,15 @@ class AllegatiController extends Controller
         }
         $allegato->delete();
 
+
+    // Se è una richiesta AJAX, non forzare redirect Inertia
+    if (request()->header('X-Requested-With') === 'XMLHttpRequest') {
         return response()->noContent(); // 204
+    }
+
+    // fallback per richieste normali
+    return back()->with('success', 'Allegato eliminato');
+
+
     }
 }
