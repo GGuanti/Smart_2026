@@ -11,6 +11,8 @@ import TabProgetti from "@/Pages/Anagrafica/Tabs/TabProgetti.vue";
 import TabNoteSpese from "@/Pages/Anagrafica/Tabs/TabNoteSpese.vue";
 import TabGiornate from "@/Pages/Anagrafica/Tabs/TabGiornate.vue";
 import TabContratti from "@/Pages/Anagrafica/Tabs/TabContratti.vue";
+import TabVisiteMediche from "@/Pages/Anagrafica/Tabs/TabVisiteMediche.vue";
+
 import FlatPickr from "vue-flatpickr-component";
 import "flatpickr/dist/flatpickr.css";
 import { Italian } from "flatpickr/dist/l10n/it.js";
@@ -55,6 +57,8 @@ const props = defineProps({
     GiornateDisponibili: Array,
     Contratti: Array,
     ContrattiDisponibili: Array,
+    Visite: Array,
+    VisiteDisponibili: Array,
     tipiContratto: Array,
     Professione: Array,
     attivita: Array,
@@ -1325,6 +1329,14 @@ const generaEInviaEmail = () => {
                             :CodFiscale="form.AG_CodiceFiscalePF || ''"
                         />
                     </template>
+                    <template #sorveglianza>
+                        <TabVisiteMediche
+                            :codCliente="form.CodCliente"
+                            :Visite="props.Visite"
+                    />
+
+                    </template>
+
                 </Tabs>
             </form>
         </div>

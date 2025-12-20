@@ -34,7 +34,15 @@ use App\Http\Controllers\{
 };
 use Illuminate\Http\Request;
 // routes/web.php
-use App\Http\Controllers\DisegniDXFController;
+// use App\Http\Controllers\DisegniDXFController;
+use App\Http\Controllers\VisiteMedicheController;
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/visite-mediche',        [VisiteMedicheController::class, 'index'])->name('visite.index');
+    Route::post('/visite-mediche',       [VisiteMedicheController::class, 'store'])->name('visite.store');
+    Route::put('/visite-mediche/{id}',   [VisiteMedicheController::class, 'update'])->name('visite.update');
+    Route::delete('/visite-mediche/{id}',[VisiteMedicheController::class, 'destroy'])->name('visite.destroy');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/oauth/dropbox/redirect', [DropboxOAuthController::class, 'redirect'])
@@ -77,7 +85,9 @@ Route::delete('/allegato/{allegato}', [AllegatiController::class, 'destroy'])
 
 
 
-Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])->name('contratti.report');
+// Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])->name('contratti.report');
+//Route::get('/contratti/{id}/pdf-intermittente', [ContrattiController::class, 'generaPdf'])->name('contratti.pdf_intermittente');
+Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])->name('contratti.pdf_intermittente');
 
 // routes/web.php
 Route::get('/_diag/test-mail', function () {
@@ -87,17 +97,15 @@ Route::get('/_diag/test-mail', function () {
 });
 
 
-Route::get('/disegni/{id?}', [DisegniDXFController::class, 'show'])->name('disegni.show');
-Route::post('/disegni', [DisegniDXFController::class, 'store'])->name('disegni.store');
-Route::put('/disegni/{id}', [DisegniDXFController::class, 'update'])->name('disegni.update');
+//Route::get('/disegni/{id?}', [DisegniDXFController::class, 'show'])->name('disegni.show');
+//Route::post('/disegni', [DisegniDXFController::class, 'store'])->name('disegni.store');
+//Route::put('/disegni/{id}', [DisegniDXFController::class, 'update'])->name('disegni.update');
 
 // opzionale, piccola API per recuperare solo il testo DXF
 // Route::get('/api/disegni/{id}', [DisegniDXFController::class, 'apiShow'])->name('api.disegni.show');
 
-Route::get('/dxf-test', function () {
-    return Inertia::render('Drawing/DxfTest');
-});
-Route::get('/dxf/save-svg', [DxfController::class, 'saveSvg'])->name('dxf.saveSvg.get');
+//Route::get('/dxf-test', function () {     return Inertia::render('Drawing/DxfTest'); });
+//Route::get('/dxf/save-svg', [DxfController::class, 'saveSvg'])->name('dxf.saveSvg.get');
 // Route::post('/dxf/save-svg', [DxfController::class, 'saveSvg'])->name('dxf.saveSvg'); // salva/crea PDF
 
 

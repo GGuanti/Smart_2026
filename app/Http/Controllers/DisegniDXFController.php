@@ -8,6 +8,7 @@ use Inertia\Inertia;
 
 class DisegniDXFController extends Controller
 {
+
     // Mostra la pagina: se $id c'è, carica il record e passa il DXF alla vista
     public function show(?int $id = null)
     {

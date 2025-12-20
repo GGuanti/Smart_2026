@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf; // 👈 QUESTA RIGA È FONDAMENTALE
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\TemplateProcessor;
 use PhpOffice\PhpWord\Settings;
@@ -12,13 +13,88 @@ use PhpOffice\PhpWord\SimpleType\Jc;
 
 class ContrattiController extends Controller
 {
+
+
+
+
     public function generaPdf($id)
+    {
+        // 1) Recupero record contratto
+        $contratto = DB::table('contratti')
+            ->where('IdContratti', $id)
+            ->orWhere('IdContratto', $id)
+            ->first();
+
+        if (!$contratto) {
+            abort(404, 'Contratto non trovato');
+        }
+
+    // 2) Normalizzo il tipo contratto
+    $tipo = strtoupper(trim($contratto->TipoContratto ?? $contratto->TipoContr ?? ''));
+
+    // 3) Scelta view in base al tipo
+    $view = match ($tipo) {
+        'INTERMITTENTE' => 'pdf.contratto_intermittente',
+        'CO.CO.CO'        => 'pdf.contratto_cococo',
+        default         => 'pdf.contratto_intermittente', // fallback
+    };
+
+
+        // 2) Recupero anagrafica collegata
+        $Anagcontratto = DB::table('anagrafica')
+            ->where('CodCliente', $contratto->CodCliente)
+            ->first();
+
+        // 3) Preparo i dati da passare alla view
+        $data = [
+            'NUM_CONTRATTO'    => $contratto->IdContratto ?? '',
+
+            // Dati dipendente
+            'NOME_COMPLETO'    => $contratto->NomeCognUser ?? '',
+            'LUOGO_NASCITA'    => $Anagcontratto->L_K_LuogoNascita ?? '',
+            'PROV_NASCITA'     => $Anagcontratto->T_SiglaResidenza ?? '', // o campo corretto se hai sigla nascita
+            'DATA_NASCITA'     => $this->dataIt($Anagcontratto->O_DataNascita ?? null),
+            'INDIRIZZO'        => $Anagcontratto->P_IndirizzoResidenza ?? '',
+            'CAP'              => $Anagcontratto->Q_CAP_Residenza ?? '',
+            'COMUNE_RES'       => $Anagcontratto->R_ComuneResidenza ?? '',
+            'PROV_RES'         => $Anagcontratto->T_SiglaResidenza ?? '',
+            'STATO_RES'        => $Anagcontratto->U_StatoResidenza ?? 'ITALIA',
+            'COD_FISCALE'      => $contratto->CodFiscale ?? '',
+
+            // Dati rapporto
+            'DATA_INIZIO'      => $this->dataIt($contratto->DataInizio ?? null),
+            'DATA_FINE'        => $this->dataIt($contratto->DataFineContratto ?? null),
+            'PROFESSIONE'      => $contratto->Professione ?? 'Informatico',
+            'LIVELLO'          => $contratto->Livello ?? '2', // adatta al campo reale se esiste
+            'CCNL'             => $contratto->CCNL ?? 'CCNL per artisti, tecnici, amministrativi e ausiliari dipendenti da società cooperative e imprese sociali operanti nel settore della produzione culturale e dello spettacolo',
+
+            // Firma contratto
+            'LUOGO_CONTRATTO'  => 'Milano',
+            'DATA_CONTRATTO'   => $this->dataIt($contratto->DataContratto ?? '2024-12-31'),
+        ];
+
+        // 4) Genero il PDF dalla view
+        $pdf = Pdf::loadView('pdf.contratto_intermittente', $data)
+            ->setPaper('a4');
+
+        $fileName = 'contratto-intermittente-' . ($contratto->IdContratto ?? $id) . '.pdf';
+
+        // 5) Stream inline nel browser
+        return $pdf->stream($fileName);
+    }
+
+
+    public function generaPdf_old($id)
     {
         // 1) Recupero record
         $contratto = DB::table('contratti')
             ->where('IdContratti', $id)
             ->orWhere('IdContratto', $id)
             ->first();
+
+        $Anagcontratto = DB::table('anagrafica')
+        ->where('CodCliente', $contratto->CodCliente)
+        ->first();
 
         if (!$contratto) {
             abort(404, 'Contratto non trovato');
@@ -37,6 +113,10 @@ class ContrattiController extends Controller
             'DATA_FINE'      => $this->dataIt($contratto->DataFineContratto ?? null),
             'STATO'          => $contratto->Stato ?? '',
             'COD_CLIENTE'    => $contratto->CodCliente ?? '',
+            'TxtLuogoNascita'    => $Anagcontratto->L_K_LuogoNascita ?? '',
+            'TxtDataNascitaUser' => !empty($Anagcontratto->O_DataNascita) ? \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $Anagcontratto->O_DataNascita)->format('d/m/Y'): '',
+            'TxtIndirizzoUser'    => $Anagcontratto->P_IndirizzoResidenza ?? '',
+
         ];
 
         // 3) Path
@@ -87,13 +167,13 @@ class ContrattiController extends Controller
 
                 $header->addText(
                     'Contratto di Lavoro Intermittente',
-                    ['bold' => true, 'size' => 12],
+                    ['bold' => true, 'size' => 7],
                     ['alignment' => Jc::CENTER]
                 );
 
                 $header->addPreserveText(
                     'Pagina {PAGE} di {NUMPAGES}',
-                    ['italic' => true, 'size' => 10],
+                    ['italic' => true, 'size' => 7],
                     ['alignment' => Jc::CENTER]
                 );
             }

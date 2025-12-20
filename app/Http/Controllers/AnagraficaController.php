@@ -435,6 +435,31 @@ $attivita = $attivita->map(function ($a) use ($progettiFigli) {
             ->orderBy('DataInizio','desc')
             ->get();
 
+// Visite associati al cliente
+$query = DB::table('tab_visite_mediche')
+->select([
+    'tab_visite_mediche.IdVisita',
+    'tab_visite_mediche.UtenteMod',
+    'tab_visite_mediche.DataModifica',
+    'tab_visite_mediche.DataVisita',
+    'tab_visite_mediche.DataScadenza',
+    'tab_visite_mediche.CodCliente'
+    ])
+->orderBy('tab_visite_mediche.DataVisita', 'desc');
+if (!empty($record->CodCliente)) {
+    $query->where('tab_visite_mediche.CodCliente', $record->CodCliente);
+}
+
+$Visite = $query->get();
+
+            // Visite(disponibili)
+            $VisiteDisponibili = DB::table('tab_visite_mediche')
+            ->whereNull('CodCliente')
+            ->select('CodCliente','IdVisita','UtenteMod','DataModifica',
+    'DataVisita','DataScadenza','CodCliente')
+            ->orderBy('DataVisita','desc')
+            ->get();
+
 
             $corsiDisponibili = DB::table('TabCorsiFormazione')
             ->select('IdCorso', 'TipoCorso')
@@ -479,6 +504,8 @@ $attivita = $attivita->map(function ($a) use ($progettiFigli) {
                 'GiornateDisponibili' => $GiornateDisponibili,
                 'Contratti' => $Contratti,
                 'ContrattiDisponibili' => $ContrattiDisponibili,
+                'Visite' => $Visite,
+                'VisiteDisponibili' => $VisiteDisponibili,
                 'attivita' => $attivita,
                 'tipiContratto' => $tipiContratto,
                 'Professione' => $Professione,

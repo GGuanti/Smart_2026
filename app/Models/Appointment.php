@@ -14,6 +14,21 @@ class Appointment extends Model
         'DataFine',
         'status',
         'user_id',
+        'Nordine',
+        'DataConferma',
+        'DataConsegna',
+        'Colore',
+        'Riferimento',
+        'Pezzi',
+        'T',
+        'TZ',
+        'TL',
+        'A',
+        'C',
+        'L',
+        'Annotazioni',
+        'StatoMagazzino',
+
     ];
     public function user()
     {

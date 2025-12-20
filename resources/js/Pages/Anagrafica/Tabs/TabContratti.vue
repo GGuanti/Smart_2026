@@ -105,6 +105,8 @@ const validateContratto = () => {
   if (!newContratto.value.DataContratto) err.DataContratto = 'Campo obbligatorio'
   if (!newContratto.value.DataInizio) err.DataInizio = 'Campo obbligatorio'
   if (!newContratto.value.DataFineContratto) err.DataFineContratto = 'Campo obbligatorio'
+
+
   // StatoContratto è calcolato
   errors.value = err
   return Object.keys(err).length === 0
@@ -120,6 +122,8 @@ const validateUpdateContratto = () => {
   if (!inEditing.value.DataContratto) err.DataContratto = 'Campo obbligatorio'
   if (!inEditing.value.DataInizio) err.DataInizio = 'Campo obbligatorio'
   if (!inEditing.value.DataFineContratto) err.DataFineContratto = 'Campo obbligatorio'
+
+
   // StatoContratto è calcolato
   errorsUpdate.value = err
   return Object.keys(err).length === 0
@@ -138,7 +142,13 @@ const fetchContratti = async () => {
       .map((r, i) => {
         const pk = r.IdContratti ?? r.IdContratto ?? r.id ?? `idx-${i}`
         return { ...r, _pk: String(pk) }
+
       })
+      .sort((a, b) => {
+  const idA = Number(a.IdContratti ?? a.IdContratto ?? a.id ?? 0)
+  const idB = Number(b.IdContratti ?? b.IdContratto ?? b.id ?? 0)
+  return idB - idA   // ⬅️ ORDINA DAL PIÙ GRANDE AL PIÙ PICCOLO
+})
   } catch (e) {
     toast.error('Errore nel caricamento contratti')
     console.error('GET /contratti error:', e?.response?.data || e)
@@ -314,6 +324,29 @@ const GeneraContratti = (row) => {
   // senza Ziggy:
   window.open(`/contratti/${encodeURIComponent(id)}/report`, '_blank')
 }
+const SalvaContratto = (row) => {
+  if (!row) {
+    toast.error('Nessun contratto selezionato')
+    return
+  }
+
+  const id = rowId(row) // usa il tuo helper rowId(row)
+
+  if (!id) {
+    toast.error('ID contratto non valido')
+    return
+  }
+
+  // opzionale: sicurezza in più
+  if (!isEditing(row)) {
+    toast.error('Devi prima mettere in modifica il contratto')
+    return
+  }
+
+  // usa la funzione update esistente
+  update(id)
+}
+
 </script>
 
 <template>
@@ -396,7 +429,7 @@ const GeneraContratti = (row) => {
               <FlatPickr
                 :model-value="inEditing.DataContratto ?? null"
                 @update:modelValue="val => inEditing.DataContratto = val"
-                :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d' }"
+                :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d', allowInput: true }"
                 class="w-full"
               />
               <p v-if="errorsUpdate.DataContratto" class="text-red-600 text-xs mt-1">{{ errorsUpdate.DataContratto }}</p>
@@ -410,7 +443,7 @@ const GeneraContratti = (row) => {
               <FlatPickr
                 :model-value="inEditing.DataInizio ?? null"
                 @update:modelValue="val => inEditing.DataInizio = val"
-                :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d' }"
+                :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d', allowInput: true }"
                 class="w-full"
               />
               <p v-if="errorsUpdate.DataInizio" class="text-red-600 text-xs mt-1">{{ errorsUpdate.DataInizio }}</p>
@@ -424,7 +457,7 @@ const GeneraContratti = (row) => {
               <FlatPickr
                 :model-value="inEditing.DataFineContratto ?? null"
                 @update:modelValue="val => inEditing.DataFineContratto = val"
-                :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d' }"
+                :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d', allowInput: true}"
                 class="w-full"
               />
               <p v-if="errorsUpdate.DataFineContratto" class="text-red-600 text-xs mt-1">{{ errorsUpdate.DataFineContratto }}</p>
@@ -497,7 +530,7 @@ const GeneraContratti = (row) => {
     <button
       v-if="page.props.auth.user.profilo === 'admin'"
       type="button"
-      @click="SalvaContratto"
+      @click="SalvaContratto(row)"
       class="text-green-600 font-bold"
     >
       💾 Salva Contratto
@@ -545,7 +578,7 @@ const GeneraContratti = (row) => {
             <FlatPickr
               :model-value="newContratto.DataInizio ?? null"
               @update:modelValue="val => newContratto.DataInizio = val"
-              :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d' }"
+              :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d', allowInput: true }"
               class="w-full"
             />
             <p v-if="errors.DataInizio" class="text-red-600 text-xs mt-1">{{ errors.DataInizio }}</p>
@@ -554,7 +587,7 @@ const GeneraContratti = (row) => {
             <FlatPickr
               :model-value="newContratto.DataFineContratto ?? null"
               @update:modelValue="val => newContratto.DataFineContratto = val"
-              :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d' }"
+              :config="{ locale: Italian, altInput: true, altFormat: 'd/m/Y', dateFormat: 'Y-m-d', allowInput: true }"
               class="w-full"
             />
             <p v-if="errors.DataFineContratto" class="text-red-600 text-xs mt-1">{{ errors.DataFineContratto }}</p>

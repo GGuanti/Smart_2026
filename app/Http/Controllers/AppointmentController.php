@@ -51,12 +51,27 @@ class AppointmentController extends Controller
     // Salva un nuovo appuntamento
     public function store(Request $request)
     {
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'DataInizio' => 'required|date',
-            'DataFine' => 'nullable|date|after_or_equal:DataInizio',
-            'status' => 'required|in:scheduled,completed,cancelled',
+            'DataFine' => 'required|date|after_or_equal:DataInizio',
+            'DataConferma' => 'required|date',
+            'DataConsegna' => 'required|date|after_or_equal:DataConferma',
+            'status' => 'required|in:scheduled,active,completed,cancelled',
+            'StatoMagazzino' => 'required|in:Magazzino,In arrivo,Arrivato,In ritardo',
+            'Nordine' => 'required|string|max:50',
+            'Riferimento' => 'nullable|string|max:255',
+            'Colore' => 'nullable|string|max:30',
+            'Pezzi' => 'nullable|integer|min:0',
+            'T'  => 'nullable|boolean',
+            'Tz' => 'nullable|boolean',
+            'TL' => 'nullable|boolean',
+            'A'  => 'nullable|boolean',
+            'C'  => 'nullable|boolean',
+            'L'  => 'nullable|boolean',
+            'Annotazioni' => 'nullable|string|max:255',
         ]);
 
         $validated['user_id'] = auth()->id();
@@ -85,16 +100,46 @@ class AppointmentController extends Controller
     // Aggiorna un appuntamento
     public function update(Request $request, Appointment $appointment)
     {
-        $appointment->update([
-            'title' => $request->title,
-            'description' => $request->description,
-            'DataInizio' => Carbon::parse($request->DataInizio)->format('Y-m-d H:i:s'),
-            'DataFine' => $request->DataFine ? Carbon::parse($request->DataFine)->format('Y-m-d H:i:s') : null,
-            'status' => $request->status,
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'DataInizio' => 'required|date',
+            'DataFine' => 'required|date|after_or_equal:DataInizio',
+            'DataConferma' => 'required|date',
+            'DataConsegna' => 'required|date|after_or_equal:DataConferma',
+            'status' => 'required|in:scheduled,active,completed,cancelled',
+            'StatoMagazzino' => 'required|in:Magazzino,In arrivo,Arrivato,In ritardo',
+            'Nordine' => 'required|string|max:50',
+            'Riferimento' => 'nullable|string|max:255',
+            'Colore' => 'nullable|string|max:30',
+            'Pezzi' => 'nullable|integer|min:0',
+            'T'  => 'nullable|boolean',
+            'Tz' => 'nullable|boolean',
+            'TL' => 'nullable|boolean',
+            'A'  => 'nullable|boolean',
+            'C'  => 'nullable|boolean',
+            'L'  => 'nullable|boolean',
+            'Annotazioni' => 'nullable|string|max:255',
         ]);
 
-        return redirect()->route('appointments.calendar')->with('success', 'Appuntamento aggiornato');
+        // Normalizza datetime in formato MySQL (se ti serve uniformità)
+        $validated['DataInizio'] = Carbon::parse($validated['DataInizio'])->format('Y-m-d');
+        $validated['DataFine'] = Carbon::parse($validated['DataFine'])->format('Y-m-d');
+        $validated['DataConferma'] = Carbon::parse($validated['DataConferma'])->format('Y-m-d');
+        $validated['DataConsegna'] = Carbon::parse($validated['DataConsegna'])->format('Y-m-d');
+
+
+        // Checkbox: assicurati che siano veri boolean (anche se non arrivano in request)
+        foreach (['T','Tz','TL','A','C','L'] as $k) {
+            $validated[$k] = $request->boolean($k);
+        }
+
+        $appointment->update($validated);
+
+      //  return redirect()->route('appointments.calendar')->with('success', 'Appuntamento aggiornato');
     }
+
+
 
     // Elimina un appuntamento
     public function destroy(Appointment $appointment)
@@ -106,12 +151,24 @@ class AppointmentController extends Controller
 
     // Sposta evento dal calendario (drag & drop)
     public function move(Request $request, Appointment $appointment)
-    {
-        $appointment->update([
-            'DataInizio' => \Carbon\Carbon::parse($request->start)->format('Y-m-d H:i:s'),
-            'DataFine' => $request->end ? \Carbon\Carbon::parse($request->end)->format('Y-m-d H:i:s') : null,
-        ]);
+{
+    $validated = $request->validate([
+        'start' => ['required', 'date'],
+        'end'   => ['nullable', 'date'],
+    ]);
 
-       // return response()->json(['success' => true]);
-    }
+    $start = Carbon::parse($validated['start'])->format('Y-m-d H:i:s');
+
+    // ✅ Se end non esiste → uguale a start
+    $end = !empty($validated['end'])
+        ? Carbon::parse($validated['end'])->format('Y-m-d H:i:s')
+        : $start;
+
+    $appointment->update([
+        'DataInizio' => $start,
+        'DataFine'   => $end,
+    ]);
+
+    //return response()->json(['success' => true]);
+}
 }
