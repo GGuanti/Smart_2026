@@ -7,34 +7,105 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import itLocale from "@fullcalendar/core/locales/it";
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
-const refreshTick = ref(0);
+
 const props = defineProps({ appointments: Array });
+
+const refreshTick = ref(0);
 const calendarRef = ref(null);
+
 const search = ref("");
 const selectedStatus = ref("tutti"); // tutti, scheduled, active, completed, cancelled
 const SceltaProdotto = ref("Tutti");
 const appointmentsLocal = ref([]);
+
 // ✅ Totali sempre visibili
 const pezziGiorno = ref(0);
 const pezziMese = ref(0);
-const giornoSelezionato = ref(dateKeyLocal(new Date())); // default: oggi
-// ✅ Totale pezzi per ogni giorno: { "2025-12-18": 25, ... }
-const pezziByDay = computed(() => {
-    const map = {};
-    for (const a of filteredAppointments.value) {
-        const key = dateKeyLocal(a.DataInizio);
-        const p = Number(a.Pezzi ?? 0) || 0;
-        if (!key) continue;
-        map[key] = (map[key] || 0) + p;
+
+// -----------------------------
+// ✅ PARSE DATE ROBUSTO (MySQL / ISO / Date)
+// -----------------------------
+function parseAnyDate(dateLike) {
+    if (!dateLike) return null;
+
+    if (dateLike instanceof Date) {
+        return isNaN(dateLike) ? null : dateLike;
     }
-    return map;
-});
-// Filtro combinato
+
+    const s = String(dateLike).trim();
+
+    // MySQL: "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
+        const d = new Date(s.replace(" ", "T"));
+        return isNaN(d) ? null : d;
+    }
+
+    // MySQL: "YYYY-MM-DD HH:mm" -> "YYYY-MM-DDTHH:mm:00"
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(s)) {
+        const d = new Date(s.replace(" ", "T") + ":00");
+        return isNaN(d) ? null : d;
+    }
+
+    // Date only: "YYYY-MM-DD"
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const d = new Date(`${s}T00:00:00`);
+        return isNaN(d) ? null : d;
+    }
+
+    // ISO o altri formati
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+}
+
+// ✅ helper: YYYY-MM-DD in ORA LOCALE
+function dateKeyLocal(dateLike) {
+    const d = parseAnyDate(dateLike);
+    if (!d) return null;
+
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+const giornoSelezionato = ref(dateKeyLocal(new Date())); // default: oggi
+
+watch(
+    () => props.appointments,
+    (val) => {
+        appointmentsLocal.value = Array.isArray(val)
+            ? JSON.parse(JSON.stringify(val))
+            : [];
+        refreshTick.value++;
+
+        nextTick(() => {
+            const api = calendarRef.value?.getApi();
+            api?.rerenderDates?.();
+            updateTotals();
+        });
+    },
+    { immediate: true }
+);
+
+// ✅ helper: DATETIME locale "YYYY-MM-DD HH:mm:ss" (NO Z / NO UTC)
+function toLocalMySql(dt) {
+    if (!dt) return null;
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const mm = String(dt.getMinutes()).padStart(2, "0");
+    const ss = String(dt.getSeconds()).padStart(2, "0");
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+}
+
+// ✅ Filtro combinato (ricerca + stato + prodotto)
 const filteredAppointments = computed(() => {
-refreshTick.value;
+    refreshTick.value;
+
     return (appointmentsLocal.value || []).filter((appointment) => {
         const s = search.value?.toLowerCase() || "";
 
@@ -45,47 +116,92 @@ refreshTick.value;
 
         const matchStatus =
             selectedStatus.value === "tutti" ||
-            SceltaProdotto.value === "Tutti" ||
             appointment.status === selectedStatus.value;
 
-        return matchSearch && matchStatus;
+        const prodotti = Array.isArray(appointment.Prodotto)
+            ? appointment.Prodotto
+            : [];
+        const matchProdotto =
+            SceltaProdotto.value === "Tutti" ||
+            prodotti.includes(SceltaProdotto.value);
+
+        return matchSearch && matchStatus && matchProdotto;
     });
 });
 
-watch(
-    () => props.appointments,
-    (val) => {
-        appointmentsLocal.value = Array.isArray(val)
-            ? JSON.parse(JSON.stringify(val))
-            : [];
-    },
-    { immediate: true }
-);
+// ✅ somma pezzi per giorno
+function sumPezziByDayKey(dayKey) {
+    let tot = 0;
+    for (const a of filteredAppointments.value) {
+        const k = dateKeyLocal(a.DataInizio);
+        if (k === dayKey) tot += Number(a.Pezzi ?? 0) || 0;
+    }
+    return tot;
+}
+
+// ✅ somma pezzi in un range
+function sumPezziInRange(start, end) {
+    const s = parseAnyDate(start);
+    const e = parseAnyDate(end);
+    if (!s || !e) return 0;
+
+    let tot = 0;
+    for (const a of filteredAppointments.value) {
+        const d = parseAnyDate(a.DataInizio);
+        const p = Number(a.Pezzi ?? 0) || 0;
+        if (d && d >= s && d < e) tot += p;
+    }
+    return tot;
+}
+
+// ✅ aggiorna totali
+function updateTotals() {
+    const api = calendarRef.value?.getApi();
+    if (!api) return;
+
+    pezziGiorno.value = sumPezziByDayKey(giornoSelezionato.value);
+
+    const v = api.view;
+    pezziMese.value = sumPezziInRange(v.currentStart, v.currentEnd);
+}
+
+// ✅ aggiorna totali dopo reattività Vue
+function updateTotalsSoon(api) {
+    nextTick(() => {
+        api?.rerenderDates?.();
+        updateTotals();
+    });
+}
+
+// ✅ Totale pezzi per ogni giorno
+const pezziByDay = computed(() => {
+    const map = {};
+    for (const a of filteredAppointments.value) {
+        const key = dateKeyLocal(a.DataInizio);
+        const p = Number(a.Pezzi ?? 0) || 0;
+        if (!key) continue;
+        map[key] = (map[key] || 0) + p;
+    }
+    return map;
+});
 
 function badgeStatoMagazzinoHtml(value) {
     if (!value) return "";
     const v = String(value).toLowerCase();
-    // 🔧 mappa (adatta le parole chiave ai tuoi stati reali)
+
     let bg = "#F3F4F6",
         border = "#D1D5DB",
-        color = "#111827"; // default grigio
+        color = "#111827";
 
-    // VERDE: ok / disponibile / evaso
     if (v.includes("arrivato") || v.includes("magazzino")) {
         bg = "#ECFDF5";
         border = "#A7F3D0";
         color = "#065F46";
-    }
-
-    // ARANCIONE: parziale / in attesa / da verificare
-    if (v.includes("in arrivo")) {
+    } else if (v.includes("ordinato")) {
         bg = "#FFFBEB";
         border = "#FDE68A";
         color = "#92400E";
-    }
-
-    // ROSSO: bloccato / non disponibile / errore
-    if (v.includes("in ritardo")) {
+    } else if (v.includes("in ritardo")) {
         bg = "#FEF2F2";
         border = "#FECACA";
         color = "#991B1B";
@@ -104,79 +220,32 @@ function badgeStatoMagazzinoHtml(value) {
     ">${value}</span>
   `;
 }
+
 function ColoriStatoMagazzino(value) {
     const v = String(value || "").toLowerCase();
-    // default grigio
+
     let bg = "#e5e7eb";
     let border = "#d1d5db";
     let color = "#111827";
-    // VERDE: ok / disponibile / evaso
+
     if (v.includes("arrivato") || v.includes("magazzino")) {
         bg = "#dcfce7";
         border = "#86efac";
         color = "#065f46";
-    }
-    // ARANCIONE: in attesa / parziale / verificare
-    else if (v.includes("in arrivo")) {
+    } else if (v.includes("ordinato")) {
         bg = "#fffbeb";
         border = "#fde68a";
         color = "#92400e";
-    }
-    // ROSSO: bloccato / non disponibile / errore
-    else if (v.includes("in ritardo")) {
+    } else if (v.includes("in ritardo")) {
         bg = "#fee2e2";
         border = "#fecaca";
         color = "#991b1b";
     }
+
     return { bg, border, color };
 }
-// ✅ helper: YYYY-MM-DD in ORA LOCALE (evita slittamenti UTC)
-function dateKeyLocal(dateLike) {
-    const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
-    if (isNaN(d)) return null;
 
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-
-    return `${y}-${m}-${day}`;
-}
-
-// ✅ somma pezzi per giorno (chiave YYYY-MM-DD locale)
-function sumPezziByDayKey(dayKey) {
-    let tot = 0;
-    for (const a of filteredAppointments.value) {
-        const k = dateKeyLocal(a.DataInizio);
-        if (k === dayKey) tot += Number(a.Pezzi ?? 0) || 0;
-    }
-    return tot;
-}
-
-// ✅ somma pezzi in un range
-function sumPezziInRange(start, end) {
-    const s = new Date(start);
-    const e = new Date(end);
-    let tot = 0;
-
-    for (const a of filteredAppointments.value) {
-        const d = new Date(a.DataInizio);
-        const p = Number(a.Pezzi ?? 0) || 0;
-        if (!isNaN(d) && d >= s && d < e) tot += p;
-    }
-    return tot;
-}
-
-// ✅ aggiorna totali (giorno selezionato + mese corrente in vista)
-function updateTotals() {
-    const api = calendarRef.value?.getApi();
-    if (!api) return;
-    pezziGiorno.value = sumPezziByDayKey(giornoSelezionato.value);
-    const v = api.view;
-    // per il mese usiamo il mese “reale” della vista
-    pezziMese.value = sumPezziInRange(v.currentStart, v.currentEnd);
-}
-
-// Trasforma in eventi FullCalendar
+// Trasforma in eventi
 const getFilteredEvents = () =>
     filteredAppointments.value.map((appointment) => ({
         id: appointment.id,
@@ -189,12 +258,10 @@ const getFilteredEvents = () =>
                 : appointment.status === "cancelled"
                 ? "#EF4444"
                 : "#3B82F6",
-
         extendedProps: {
             client: appointment.client?.name,
             description: appointment.description,
             status: appointment.status,
-
             StatoMagazzino: appointment.StatoMagazzino ?? null,
             ordine: appointment.NOrdine ?? appointment.Nordine ?? null,
             pezzi: appointment.Pezzi ?? 0,
@@ -208,6 +275,16 @@ const calendarOptions = ref({
     editable: true,
     weekNumbers: true,
     displayEventTime: false,
+
+    // ✅ BLOCCA LA CRESCITA DELLE RIGHE
+    fixedWeekCount: true,
+    expandRows: true,
+    contentHeight: "auto",
+
+    // ✅ MOSTRA POCHI EVENTI + “+X altri”
+    dayMaxEventRows: 15,
+    moreLinkClick: "popover",
+
     eventContent: (arg) => {
         const p = arg.event.extendedProps || {};
         const ordine = p.ordine ? String(p.ordine) : "";
@@ -222,64 +299,55 @@ const calendarOptions = ref({
 
         return {
             html: `
-      <div style="display:flex; align-items:center; gap:6px; min-width:0;">
-        <span style="
-          font-size:11px;
-          font-weight:800;
-          padding:1px 6px;
-          border-radius:9999px;
-          border:1px solid ${border};
-          background:${bg};
-          color:${color};
-          line-height:1.2;
-          white-space:nowrap;
-        ">
-          ${ordine}
-        </span>
+        <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+          <span style="
+            font-size:11px;
+            font-weight:800;
+            padding:1px 6px;
+            border-radius:9999px;
+            border:1px solid ${border};
+            background:${bg};
+            color:${color};
+            line-height:1.2;
+            white-space:nowrap;
+          ">
+            ${ordine}
+          </span>
 
-        <span style="
-          font-weight:600;
-          min-width:0;
-          white-space:nowrap;
-          overflow:hidden;
-          text-overflow:ellipsis;
-        ">
-          ${title}
-        </span>
-      </div>
-    `,
+          <span style="
+            font-weight:600;
+            min-width:0;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          ">
+            ${title}
+          </span>
+        </div>
+      `,
         };
     },
+
     dayCellDidMount: (arg) => {
         const api = calendarRef.value?.getApi();
-        if (api?.view?.type !== "dayGridMonth") return; // solo in vista mese
+        if (api?.view?.type !== "dayGridMonth") return;
 
         const key = dateKeyLocal(arg.date);
         const tot = key ? pezziByDay.value[key] || 0 : 0;
 
-        // evita doppioni
         const old = arg.el.querySelector(".pezzi-day");
         if (old) old.remove();
 
-        // se vuoi mostrarlo anche quando è 0, togli questo if
         if (tot <= 0) return;
 
         const badge = document.createElement("div");
         badge.className = "pezzi-day";
         badge.textContent = `Pezzi: ${tot}`;
 
-        badge.style.marginTop = "4px";
-        badge.style.fontSize = "11px";
-        badge.style.fontWeight = "700";
-        badge.style.padding = "2px 8px";
-        badge.style.borderRadius = "9999px";
-        badge.style.display = "inline-block";
-        badge.style.border = "1px solid #e5e7eb";
-        badge.style.background = "#f9fafb";
-
         const top = arg.el.querySelector(".fc-daygrid-day-top") || arg.el;
         top.appendChild(badge);
     },
+
     headerToolbar: {
         left: "prev,next today",
         center: "title",
@@ -288,49 +356,40 @@ const calendarOptions = ref({
 
     events: getFilteredEvents(),
 
-    // ✅ quando cambi mese/vista aggiorna i totali mese + giorno selezionato
     datesSet: () => {
-        updateTotals();
+        updateTotalsSoon(calendarRef.value?.getApi());
     },
 
-    // ✅ Tooltip su hover
     eventDidMount: (arg) => {
         if (arg.el._tippy) arg.el._tippy.destroy();
 
         const p = arg.event.extendedProps || {};
         const title = arg.event.title || "";
+
         const StatoMagazzino = p.StatoMagazzino
-            ? `<div><b>Magazzino:</b> ${badgeStatoMagazzinoHtml(
-                  p.StatoMagazzino
-              )}</div>`
+            ? `<div><b>Magazzino:</b> ${badgeStatoMagazzinoHtml(p.StatoMagazzino)}</div>`
             : "";
 
-        const ordine = p.ordine
-            ? `<div><b>N° Ordine:</b> ${p.ordine}</div>`
-            : "";
-
+        const ordine = p.ordine ? `<div><b>N° Ordine:</b> ${p.ordine}</div>` : "";
         const pezzi =
             p.pezzi !== null && p.pezzi !== undefined
                 ? `<div><b>Pezzi:</b> ${p.pezzi}</div>`
                 : "";
 
         const status = p.status ? `<div><b>Stato:</b> ${p.status}</div>` : "";
-
-        const desc = p.description
-            ? `<div><b>Note:</b> ${p.description}</div>`
-            : "";
+        const desc = p.description ? `<div><b>Note:</b> ${p.description}</div>` : "";
 
         tippy(arg.el, {
             content: `
-      <div style="font-size:12px; line-height:1.3; max-width:320px">
-        <div style="font-weight:700; margin-bottom:6px">${title}</div>
-        ${StatoMagazzino}
-        ${ordine}
-        ${pezzi}
-        ${status}
-        ${desc}
-      </div>
-    `,
+        <div style="font-size:12px; line-height:1.3; max-width:320px">
+          <div style="font-weight:700; margin-bottom:6px">${title}</div>
+          ${StatoMagazzino}
+          ${ordine}
+          ${pezzi}
+          ${status}
+          ${desc}
+        </div>
+      `,
             allowHTML: true,
             placement: "top",
             appendTo: document.body,
@@ -347,66 +406,50 @@ const calendarOptions = ref({
     },
 
     eventDrop: (info) => {
+        const ev = info.event;
 
+        const newStart = ev.start ? toLocalMySql(ev.start) : null;
+        const newEnd = ev.allDay ? null : ev.end ? toLocalMySql(ev.end) : null;
 
-        const newStart = info.event.start
-            ? info.event.start.toISOString()
-            : null;
-        const newEnd = info.event.end ? info.event.end.toISOString() : null;
+        const payload = { start: newStart, end: newEnd, allDay: !!ev.allDay };
 
-        // ✅ Optimistic update: aggiorna subito la lista locale
-        const idx = appointmentsLocal.value.findIndex(
-            (a) => String(a.id) === String(info.event.id)
-        );
-        const oldStart =
-            idx !== -1 ? appointmentsLocal.value[idx].DataInizio : null;
-        const oldEnd =
-            idx !== -1 ? appointmentsLocal.value[idx].DataFine : null;
+        const api = calendarRef.value?.getApi();
+
+        const idx = appointmentsLocal.value.findIndex((a) => String(a.id) === String(ev.id));
+        const oldStart = idx !== -1 ? appointmentsLocal.value[idx].DataInizio : null;
+        const oldEnd = idx !== -1 ? appointmentsLocal.value[idx].DataFine : null;
 
         if (idx !== -1) {
-            appointmentsLocal.value[idx].DataInizio = newStart;
-            appointmentsLocal.value[idx].DataFine = newEnd;
+            appointmentsLocal.value[idx].DataInizio = payload.start;
+            appointmentsLocal.value[idx].DataFine = payload.end ?? payload.start;
             refreshTick.value++;
-
         }
 
-        // ✅ se trascini su un altro giorno, aggiorna anche il giorno selezionato
-        giornoSelezionato.value = dateKeyLocal(info.event.start);
+        giornoSelezionato.value = dateKeyLocal(payload.start);
+        updateTotalsSoon(api);
 
-        // ✅ ricalcola subito i totali (giorno + mese)
-        updateTotals();
+        router.put(`/appointments/${ev.id}/move`, payload, {
+            preserveScroll: true,
+            onError: () => {
+                alert("Errore nel salvataggio");
+                if (typeof info.revert === "function") info.revert();
 
-        // (opzionale ma consigliato) ridisegna le celle giorno se hai badge “pezzi”
-        const api = calendarRef.value?.getApi();
-        api?.rerenderDates?.();
+                if (idx !== -1) {
+                    appointmentsLocal.value[idx].DataInizio = oldStart;
+                    appointmentsLocal.value[idx].DataFine = oldEnd;
+                    refreshTick.value++;
+                }
 
-        // Salvataggio backend
-        router.put(
-            `/appointments/${info.event.id}/move`,
-            { start: newStart, end: newEnd },
-            {
-                onError: () => {
-                    alert("Errore nel salvataggio");
-
-                    // rollback locale
-                    if (idx !== -1) {
-                        appointmentsLocal.value[idx].DataInizio = oldStart;
-                        appointmentsLocal.value[idx].DataFine = oldEnd;
-                        refreshTick.value++;
-
-                    }
-
-                    updateTotals();
-                    api?.rerenderDates?.();
-                },
-            }
-        );
+                giornoSelezionato.value = dateKeyLocal(oldStart);
+                updateTotalsSoon(api);
+            },
+            onFinish: () => updateTotalsSoon(api),
+        });
     },
 
-    // ✅ click su giorno: seleziona il giorno per il totale + poi apre create come prima
     dateClick: (info) => {
-        giornoSelezionato.value = info.dateStr; // YYYY-MM-DD
-        updateTotals();
+        giornoSelezionato.value = info.dateStr;
+        updateTotalsSoon(calendarRef.value?.getApi());
 
         router.visit(route("appointments.create"), {
             data: { DataInizio: info.dateStr },
@@ -419,22 +462,20 @@ const calendarOptions = ref({
 watch(filteredAppointments, () => {
     const calendarApi = calendarRef.value?.getApi();
     if (!calendarApi) return;
+
     calendarApi.removeAllEvents();
     getFilteredEvents().forEach((event) => calendarApi.addEvent(event));
-    // ✅ IMPORTANTISSIMO: ridisegna le celle => aggiorna i "Pezzi" nei giorni
-    calendarApi.rerenderDates();
-    updateTotals();
+    updateTotalsSoon(calendarApi);
 });
 
-// Realtime updates
 onMounted(() => {
-    // ✅ iniziale
-    updateTotals();
+    updateTotalsSoon(calendarRef.value?.getApi());
 
     if (window.Echo) {
         window.Echo.channel("appointments").listen(".updated", (e) => {
             const calendarApi = calendarRef.value?.getApi();
             if (!calendarApi) return;
+
             const event = calendarApi.getEventById(e.appointment.id);
             const color =
                 e.appointment.status === "completed"
@@ -442,6 +483,7 @@ onMounted(() => {
                     : e.appointment.status === "cancelled"
                     ? "#EF4444"
                     : "#3B82F6";
+
             if (event) {
                 event.setProp("title", e.appointment.title);
                 event.setStart(e.appointment.DataInizio);
@@ -464,8 +506,8 @@ onMounted(() => {
                     },
                 });
             }
-            // ✅ aggiorna totali anche su realtime
-            updateTotals();
+
+            updateTotalsSoon(calendarApi);
         });
     }
 });
@@ -498,27 +540,24 @@ onMounted(() => {
                     placeholder="Cerca per titolo o cliente..."
                     class="border px-3 py-2 rounded w-full"
                 />
+
                 <div class="px-6 py-2 border-b bg-white text-sm font-semibold">
                     Scelta Prodotto
                 </div>
 
-                <select
-                    v-model="SceltaProdotto"
-                    class="border px-3 py-2 rounded"
-                >
+                <select v-model="SceltaProdotto" class="border px-3 py-2 rounded">
                     <option value="Tutti">Tutti</option>
                     <option value="PA">Persiane</option>
                     <option value="SC">Scuroni</option>
                     <option value="CA">Cover Alluminio</option>
-                    <option value="IA">Infissi Alluminiio</option>
+                    <option value="IA">Infissi Alluminio</option>
                 </select>
+
                 <div class="px-6 py-2 border-b bg-white text-sm font-semibold">
                     Stato produzione
                 </div>
-                <select
-                    v-model="selectedStatus"
-                    class="border px-3 py-2 rounded"
-                >
+
+                <select v-model="selectedStatus" class="border px-3 py-2 rounded">
                     <option value="tutti">Tutti</option>
                     <option value="scheduled">In programma</option>
                     <option value="active">Attivi</option>
@@ -527,9 +566,10 @@ onMounted(() => {
                 </select>
             </div>
 
-            <!-- ✅ Totali pezzi -->
+            <!-- Totali -->
             <div class="px-6 py-2 border-b bg-white text-sm font-semibold">
-                Totale pezzi mese: {{ pezziMese }}
+                Totale pezzi giorno ({{ giornoSelezionato }}): {{ pezziGiorno }}
+                — Totale pezzi mese: {{ pezziMese }}
             </div>
 
             <!-- Calendario -->
@@ -543,3 +583,58 @@ onMounted(() => {
         </div>
     </AuthenticatedLayout>
 </template>
+
+<style>
+/* ✅ Celle mese: altezza controllata */
+.fc .fc-daygrid-day-frame {
+    min-height: 90px;
+    padding-bottom: 4px;
+}
+
+/* eventi */
+.fc .fc-daygrid-day-events {
+    margin-top: 2px;
+}
+
+/* ✅ evento compatto */
+.fc-daygrid-event {
+    margin: 1px 0 !important;
+    padding: 0 6px !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    border-radius: 6px !important;
+}
+
+/* titolo */
+.fc-daygrid-event .fc-event-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* +X altri */
+.fc-daygrid-more-link {
+    font-size: 11px;
+    font-weight: 600;
+    color: #2563eb;
+}
+
+/* oggi */
+.fc-day-today {
+    background-color: #fefce8 !important;
+}
+
+/* ✅ Badge pezzi */
+.pezzi-day {
+    margin-top: 4px;
+    font-size: 11px; /* <-- NON 1px */
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+</style>

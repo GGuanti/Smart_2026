@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
 use App\Models\Appointment;
 use Inertia\Inertia;
@@ -59,18 +61,10 @@ class AppointmentController extends Controller
             'DataFine' => 'required|date|after_or_equal:DataInizio',
             'DataConferma' => 'required|date',
             'DataConsegna' => 'required|date|after_or_equal:DataConferma',
-            'status' => 'required|in:scheduled,active,completed,cancelled',
-            'StatoMagazzino' => 'required|in:Magazzino,In arrivo,Arrivato,In ritardo',
+            'status' => 'required',
+            'StatoMagazzino' => 'required|in:Magazzino,Ordinato,Arrivato,In ritardo',
             'Nordine' => 'required|string|max:50',
             'Riferimento' => 'nullable|string|max:255',
-            'Colore' => 'nullable|string|max:30',
-            'Pezzi' => 'nullable|integer|min:0',
-            'T'  => 'nullable|boolean',
-            'Tz' => 'nullable|boolean',
-            'TL' => 'nullable|boolean',
-            'A'  => 'nullable|boolean',
-            'C'  => 'nullable|boolean',
-            'L'  => 'nullable|boolean',
             'Annotazioni' => 'nullable|string|max:255',
         ]);
 
@@ -78,7 +72,7 @@ class AppointmentController extends Controller
 
         Appointment::create($validated);
 
-        return redirect()->route('appointments.calendar')->with('success', 'Appuntamento salvato con successo.');
+        return redirect()->route('appointments.calendar')->with('success', 'Ordine salvato con successo.');
     }
 
     // Visualizza un singolo appuntamento
@@ -92,6 +86,11 @@ class AppointmentController extends Controller
     // Form di modifica
     public function edit(Appointment $appointment)
     {
+
+
+            $appointment->load('items'); // ✅ fondamentale
+
+
         return Inertia::render('Appointments/Edit', [
             'appointment' => $appointment,
         ]);
@@ -107,20 +106,33 @@ class AppointmentController extends Controller
             'DataFine' => 'required|date|after_or_equal:DataInizio',
             'DataConferma' => 'required|date',
             'DataConsegna' => 'required|date|after_or_equal:DataConferma',
-            'status' => 'required|in:scheduled,active,completed,cancelled',
-            'StatoMagazzino' => 'required|in:Magazzino,In arrivo,Arrivato,In ritardo',
-            'Nordine' => 'required|string|max:50',
+            'status' => 'required',
+            'StatoMagazzino' => 'required|in:Magazzino,Ordinato,Arrivato,In ritardo',
+            'Nordine' => 'required|integer|min:1',
             'Riferimento' => 'nullable|string|max:255',
-            'Colore' => 'nullable|string|max:30',
-            'Pezzi' => 'nullable|integer|min:0',
-            'T'  => 'nullable|boolean',
-            'Tz' => 'nullable|boolean',
-            'TL' => 'nullable|boolean',
-            'A'  => 'nullable|boolean',
-            'C'  => 'nullable|boolean',
-            'L'  => 'nullable|boolean',
             'Annotazioni' => 'nullable|string|max:255',
+            // ✅ RIGHE
+            'items' => ['nullable', 'array'],
+            'items.*.prodotto' => ['nullable', 'string', 'max:255'],
+            'items.*.colore' => ['nullable', 'string', 'max:255'],
+            'items.*.descrizione' => ['nullable', 'string'],
+            'items.*.pezzi' => ['nullable', 'integer', 'min:0'],
+            'items.*.taglio' => ['nullable', 'boolean'],
+            'items.*.assemblaggio' => ['nullable', 'boolean'],
+            'items.*.comandi' => ['nullable', 'boolean'],
+            'items.*.taglio_zoccolo' => ['nullable', 'boolean'],
+            'items.*.taglio_lamelle' => ['nullable', 'boolean'],
+            'items.*.montaggio_lamelle' => ['nullable', 'boolean'],
+            'items.*.Ferramenta' => ['nullable', 'boolean'],
+            'items.*.Vetratura' => ['nullable', 'boolean'],
+
         ]);
+        $prodotti = collect($validated['items'] ?? [])
+        ->pluck('prodotto')
+        ->filter()                 // rimuove null/""
+        ->unique()
+        ->values()
+        ->all();                   // es: ["IA","PA","SC"]
 
         // Normalizza datetime in formato MySQL (se ti serve uniformità)
         $validated['DataInizio'] = Carbon::parse($validated['DataInizio'])->format('Y-m-d');
@@ -129,14 +141,45 @@ class AppointmentController extends Controller
         $validated['DataConsegna'] = Carbon::parse($validated['DataConsegna'])->format('Y-m-d');
 
 
-        // Checkbox: assicurati che siano veri boolean (anche se non arrivano in request)
-        foreach (['T','Tz','TL','A','C','L'] as $k) {
-            $validated[$k] = $request->boolean($k);
-        }
+        // ✅ separo righe
+        $items = $validated['items'];
+        unset($validated['items']);
 
+        // ✅ aggiorno testata
         $appointment->update($validated);
 
-      //  return redirect()->route('appointments.calendar')->with('success', 'Appuntamento aggiornato');
+        // ✅ riscrivo righe (semplice e robusto)
+        $appointment->items()->delete();
+
+        $mapped = collect($items)->map(function ($it) use ($appointment) {
+            return [
+                // se usi FK su Nordine:
+                'Nordine' => $appointment->Nordine,
+                'Prodotto' => $it['prodotto'],
+                'Descrizione' => $it['descrizione'] ?? null,
+                'Colore' => $it['colore'] ?? null,
+                'Pezzi' => (int)($it['pezzi'] ?? 0),
+                'Taglio' => (bool)($it['taglio'] ?? false),
+                'Assemblaggio' => (bool)($it['assemblaggio'] ?? false),
+                'Comandi' => (bool)($it['comandi'] ?? false),
+                'TaglioZoccolo' => (bool)($it['taglio_zoccolo'] ?? false),
+                'TaglioLamelle' => (bool)($it['taglio_lamelle'] ?? false),
+                'MontaggioLamelle' => (bool)($it['montaggio_lamelle'] ?? false),
+                'Ferramenta' => (bool)($it['Ferramenta'] ?? false),
+                'Vetratura' => (bool)($it['Vetratura'] ?? false),
+            ];
+        })->all();
+
+        $appointment->items()->createMany($mapped);
+        $sum = $appointment->items()->sum('Pezzi');
+
+        $appointment->update([
+            'Pezzi' => (int) $sum,
+            'Prodotto' => $prodotti,
+        ]);
+        // return redirect()->route('appointments.calendar')->with('success', 'Ordine aggiornato con successo.');
+
+        //  return redirect()->route('appointments.calendar')->with('success', 'Appuntamento aggiornato');
     }
 
 
@@ -151,24 +194,36 @@ class AppointmentController extends Controller
 
     // Sposta evento dal calendario (drag & drop)
     public function move(Request $request, Appointment $appointment)
-{
-    $validated = $request->validate([
-        'start' => ['required', 'date'],
-        'end'   => ['nullable', 'date'],
-    ]);
+    {
+        $validated = $request->validate([
+            'start'  => ['required'],
+            'allDay' => ['required','boolean'],
+        ]);
 
-    $start = Carbon::parse($validated['start'])->format('Y-m-d H:i:s');
+        $tz = config('app.timezone', 'Europe/Rome');
 
-    // ✅ Se end non esiste → uguale a start
-    $end = !empty($validated['end'])
-        ? Carbon::parse($validated['end'])->format('Y-m-d H:i:s')
-        : $start;
+        if ($validated['allDay']) {
+            // 🔑 allDay → solo data, niente end
+            $start = Carbon::parse($validated['start'])
+                ->setTimezone('Europe/Rome')
+                ->startOfDay();
 
-    $appointment->update([
-        'DataInizio' => $start,
-        'DataFine'   => $end,
-    ]);
+            $appointment->update([
+                'DataInizio' => $start->toDateTimeString(),
+                'DataFine'   => $start->copy()->endOfDay(),
+            ]);
+        } else {
+            // evento con orario
+            $start = Carbon::parse($validated['start'])->setTimezone('Europe/Rome');
+            $end   = Carbon::parse($request->end)->setTimezone('Europe/Rome');
 
-    //return response()->json(['success' => true]);
-}
+            $appointment->update([
+                'DataInizio' => $start->toDateTimeString(),
+                'DataFine'   => $end->toDateTimeString(),
+            ]);
+        }
+
+       // return response()->json(['success' => true]);
+    }
+
 }

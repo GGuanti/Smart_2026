@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\AppointmentItem;
 use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
@@ -20,16 +21,28 @@ class Appointment extends Model
         'Colore',
         'Riferimento',
         'Pezzi',
-        'T',
-        'TZ',
-        'TL',
-        'A',
-        'C',
-        'L',
         'Annotazioni',
+        'Prodotto',
         'StatoMagazzino',
 
     ];
+    protected $casts = [
+        'Nordine' => 'integer',
+        'Pezzi' => 'integer',
+        // Se nel DB sono DATE:
+        'DataInizio'   => 'date:Y-m-d',
+        'DataFine'     => 'date:Y-m-d',
+        'DataConferma' => 'date:Y-m-d',
+        'DataConsegna' => 'date:Y-m-d',
+        'Prodotto' => 'array',
+    ];
+
+
+    public function items()
+    {
+        return $this->hasMany(AppointmentItem::class, 'Nordine', 'Nordine');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
