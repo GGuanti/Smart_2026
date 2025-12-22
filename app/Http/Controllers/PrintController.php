@@ -34,7 +34,7 @@ class PrintController extends Controller
             $head = $group->first();
 
             // unisco tutte le righe items (se ce ne sono più record)
-            $items = $group->flatMap(fn($a) => $a->items ?? collect())->values();
+            $items = $group->flatMap(fn ($a) => $a->items ?? collect())->values();
 
             return [
                 'head' => $head,
@@ -52,8 +52,13 @@ class PrintController extends Controller
             'printedAt' => now(),
         ];
 
+
+
+
         $pdf = Pdf::loadView('pdf.SettimanaOrdini', $data)
-            ->setPaper('a4', 'portrait');
+            ->setPaper('a4', 'portrait')
+            ->setOption('defaultFont', 'DejaVu Sans')
+            ->setOption('isHtml5ParserEnabled', true);
 
         $filename = sprintf('Settimana_S%02d_%d.pdf', $week, $year);
 
