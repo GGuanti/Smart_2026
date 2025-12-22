@@ -10,12 +10,16 @@ return [
     | Set some default values. It is possible to add all defines that can be set
     | in dompdf_config.inc.php. You can also override the entire config file.
     |
+    'font_dir' => storage_path('app/fonts'),       // dove stanno i TTF
+    'font_cache' => storage_path('app/fonts/cache'),
+
     */
     'show_warnings' => false,   // Throw an Exception on warnings from dompdf
 
     'public_path' => null,  // Override the public path if needed
-    'font_dir' => storage_path('app/fonts'),       // dove stanno i TTF
-    'font_cache' => storage_path('app/fonts/cache'),
+    'font_dir' => storage_path('fonts'),
+    'font_cache' => storage_path('fonts'),
+
     'default_font' => 'Montserrat',                 // tuo font
     'dpi' => 96,                                    // blocca DPI per evitare differenze di impaginazione
     'isHtml5ParserEnabled' => true,

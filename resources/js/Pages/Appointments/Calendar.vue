@@ -410,6 +410,7 @@ const getFilteredEvents = () =>
             StatoMagazzino: appointment.StatoMagazzino ?? null,
             ordine: appointment.NOrdine ?? appointment.Nordine ?? null,
             pezzi: appointment.Pezzi ?? 0,
+            DataConsegna: appointment.DataConsegna ?? null,
         },
     }));
 

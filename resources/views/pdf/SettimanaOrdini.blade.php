@@ -6,7 +6,6 @@
 
     <style>
         @page { margin: 18mm 12mm 18mm 12mm; }
-
         body {
             font-family: DejaVu Sans, sans-serif;
             font-size: 11px;
