@@ -573,8 +573,88 @@ watch(
                                         Accessori
                                     </label>
                                 </template>
+                                <template v-else-if="it.prodotto === 'PAF'">
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio"
+                                        />
+                                        Taglio
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio_zoccolo"
+                                        />
+                                        Taglio Zoccolo
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio_lamelle"
+                                        />
+                                        Taglio Lamelle
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.assemblaggio"
+                                        />
+                                        Assemblaggio
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.comandi"
+                                        />
+                                        Montaggio Comandi
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.montaggio_lamelle"
+                                        />
+                                        Montaggio Lamelle
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Coprifili"
+                                        />
+                                        Coprifili
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Accessori"
+                                        />
+                                        Accessori
+                                    </label>
+                                </template>
 
-                                <template v-else-if="it.prodotto === 'PA'">
+                                <template
+                                    v-else-if="
+                                        it.prodotto === 'AR' ||
+                                        it.prodotto === 'SG' ||
+                                        it.prodotto === 'PA'
+                                    "
+                                >
                                     <label
                                         class="inline-flex items-center gap-2"
                                     >
