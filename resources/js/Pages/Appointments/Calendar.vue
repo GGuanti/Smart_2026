@@ -866,7 +866,6 @@ function goEdit(id) {
                         <th class="text-left p-2">Data Produzione</th>
                         <th class="text-left p-2">Data Consegna</th>
                         <th class="text-left p-2">Ordine</th>
-                        <th class="text-left p-2">Titolo</th>
                         <th class="text-left p-2">Cliente</th>
                         <th class="text-left p-2">Prodotto</th>
                         <th class="text-left p-2">Stato</th>
@@ -904,9 +903,6 @@ function goEdit(id) {
                             </div>
                         </td>
 
-                        <td class="p-2 whitespace-nowrap">
-                            {{ a.client?.name ?? "-" }}
-                        </td>
 
                         <td class="p-2 whitespace-nowrap">
                             <span v-if="Array.isArray(a.Prodotto) && a.Prodotto.length">
