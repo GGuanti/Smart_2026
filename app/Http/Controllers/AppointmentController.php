@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Appointment;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AppointmentController extends Controller
 {
@@ -45,7 +46,12 @@ class AppointmentController extends Controller
     public function create(Request $request)
     {
         return Inertia::render('Appointments/Create', [
-            'DataInizio' => $request->get('DataInizio'), // da query string
+            'prefill' => [
+                'DataInizio' => $request->get('DataInizio'),
+                'DataConsegna' => $request->get('DataConsegna'),
+                'DataConferma' => $request->get('DataConsegna'),
+            ],
+            // altre props...
         ]);
     }
 
@@ -53,26 +59,116 @@ class AppointmentController extends Controller
     // Salva un nuovo appuntamento
     public function store(Request $request)
     {
-
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+
             'DataInizio' => 'required|date',
             'DataFine' => 'required|date|after_or_equal:DataInizio',
+
             'DataConferma' => 'required|date',
             'DataConsegna' => 'required|date|after_or_equal:DataConferma',
-            'status' => 'required',
+
+            // ✅ i tuoi 5 stati
+            'status' => 'required|in:Da Pianificare,Pianificato,Completato,Sospeso,Cancellato',
+
             'StatoMagazzino' => 'required|in:Magazzino,Ordinato,Arrivato,In ritardo',
-            'Nordine' => 'required|string|max:50',
+
+            'Nordine' => 'required|integer|min:1',
             'Riferimento' => 'nullable|string|max:255',
             'Annotazioni' => 'nullable|string|max:255',
+
+            // ✅ RIGHE
+            'items' => ['nullable', 'array'],
+            'items.*.prodotto' => ['nullable', 'string', 'max:255'],
+            'items.*.colore' => ['nullable', 'string', 'max:255'],
+            'items.*.descrizione' => ['nullable', 'string'],
+            'items.*.pezzi' => ['nullable', 'integer', 'min:0'],
+            'items.*.taglio' => ['nullable', 'boolean'],
+            'items.*.Accessori' => ['nullable','boolean'],
+            'items.*.Coprifili' => ['nullable','boolean'],
+            'items.*.Fermavetri' => ['nullable','boolean'],
+            'items.*.assemblaggio' => ['nullable', 'boolean'],
+            'items.*.comandi' => ['nullable', 'boolean'],
+            'items.*.taglio_zoccolo' => ['nullable', 'boolean'],
+            'items.*.taglio_lamelle' => ['nullable', 'boolean'],
+            'items.*.montaggio_lamelle' => ['nullable', 'boolean'],
+            'items.*.Ferramenta' => ['nullable', 'boolean'],
+            'items.*.Vetratura' => ['nullable', 'boolean'],
+            'items.*.OrdineVetri' => ['nullable', 'boolean'],
         ]);
 
-        $validated['user_id'] = auth()->id();
+        return DB::transaction(function () use ($validated) {
 
-        Appointment::create($validated);
+            // ✅ prodotti unici (da items)
+            $prodotti = collect($validated['items'] ?? [])
+                ->pluck('prodotto')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(); // es: ["IA","PA","SC"]
 
-        return redirect()->route('appointments.calendar')->with('success', 'Ordine salvato con successo.');
+            // ✅ normalizza date (Y-m-d)
+            $validated['DataInizio']    = Carbon::parse($validated['DataInizio'])->format('Y-m-d');
+            $validated['DataFine']      = Carbon::parse($validated['DataFine'])->format('Y-m-d');
+            $validated['DataConferma']  = Carbon::parse($validated['DataConferma'])->format('Y-m-d');
+            $validated['DataConsegna']  = Carbon::parse($validated['DataConsegna'])->format('Y-m-d');
+
+            // ✅ separo righe
+            $items = $validated['items'] ?? [];
+            unset($validated['items']);
+            $validated['user_id'] = auth()->id();
+            // ✅ crea testata
+            $appointment = Appointment::create($validated);
+
+            // ✅ crea righe
+            $mapped = collect($items)->map(function ($it) use ($appointment) {
+                return [
+                    // se usi FK su Nordine (come nel tuo update)
+                    'Nordine' => $appointment->Nordine,
+
+                    'Prodotto' => $it['prodotto'] ?? null,
+                    'Descrizione' => $it['descrizione'] ?? null,
+                    'Colore' => $it['colore'] ?? null,
+                    'Pezzi' => (int)($it['pezzi'] ?? 0),
+
+                    'Taglio' => (bool)($it['taglio'] ?? false),
+                    'Assemblaggio' => (bool)($it['assemblaggio'] ?? false),
+                    'Comandi' => (bool)($it['comandi'] ?? false),
+
+                    'TaglioZoccolo' => (bool)($it['taglio_zoccolo'] ?? false),
+                    'TaglioLamelle' => (bool)($it['taglio_lamelle'] ?? false),
+                    'MontaggioLamelle' => (bool)($it['montaggio_lamelle'] ?? false),
+
+                    'Ferramenta' => (bool)($it['Ferramenta'] ?? false),
+                    'Vetratura' => (bool)($it['Vetratura'] ?? false),
+                    'Accessori' => (bool)($it['Accessori'] ?? false),
+                    'Coprifili' => (bool)($it['Coprifili'] ?? false),
+                    'Fermavetri' => (bool)($it['Fermavetri'] ?? false),
+                    'OrdineVetri' => (bool)($it['OrdineVetri'] ?? false),
+
+                ];
+            })->all();
+
+            if (!empty($mapped)) {
+                $appointment->items()->createMany($mapped);
+            }
+
+            // ✅ calcolo pezzi e salvo prodotto[] sulla testata
+            $sum = $appointment->items()->sum('Pezzi');
+
+            $appointment->update([
+                'Pezzi' => (int) $sum,
+                'Prodotto' => $prodotti,
+            ]);
+
+            // redirect dove preferisci:
+            return redirect()
+                ->route('appointments.edit', $appointment->id)
+                ->with('success', 'Ordine creato con successo.');
+            // oppure:
+            // ->route('appointments.calendar')
+        });
     }
 
     // Visualizza un singolo appuntamento
@@ -88,7 +184,7 @@ class AppointmentController extends Controller
     {
 
 
-            $appointment->load('items'); // ✅ fondamentale
+        $appointment->load('items'); // ✅ fondamentale
 
 
         return Inertia::render('Appointments/Edit', [
@@ -128,11 +224,11 @@ class AppointmentController extends Controller
 
         ]);
         $prodotti = collect($validated['items'] ?? [])
-        ->pluck('prodotto')
-        ->filter()                 // rimuove null/""
-        ->unique()
-        ->values()
-        ->all();                   // es: ["IA","PA","SC"]
+            ->pluck('prodotto')
+            ->filter()                 // rimuove null/""
+            ->unique()
+            ->values()
+            ->all();                   // es: ["IA","PA","SC"]
 
         // Normalizza datetime in formato MySQL (se ti serve uniformità)
         $validated['DataInizio'] = Carbon::parse($validated['DataInizio'])->format('Y-m-d');
@@ -197,7 +293,7 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'start'  => ['required'],
-            'allDay' => ['required','boolean'],
+            'allDay' => ['required', 'boolean'],
         ]);
 
         $tz = config('app.timezone', 'Europe/Rome');
@@ -223,7 +319,6 @@ class AppointmentController extends Controller
             ]);
         }
 
-       // return response()->json(['success' => true]);
+        // return response()->json(['success' => true]);
     }
-
 }

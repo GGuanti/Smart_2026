@@ -25,6 +25,10 @@ class AppointmentItem extends Model
         'MontaggioLamelle',
         'Ferramenta',
         'Vetratura',
+        'Accessori',
+    'Coprifili',
+    'Fermavetri',
+    'OrdineVetri',
     ];
 
     protected $casts = [
@@ -37,7 +41,13 @@ class AppointmentItem extends Model
         'TaglioLamelle' => 'boolean',
         'MontaggioLamelle' => 'boolean',
         'Ferramenta' => 'boolean',
-        'Vetratura' => 'boolean',];
+        'Vetratura' => 'boolean',
+        'Accessori' => 'boolean',
+        'Coprifili' => 'boolean',
+        'Fermavetri' => 'boolean',
+        'OrdineVetri' => 'boolean',
+
+    ];
 
     /**
      * Relazione inversa su Nordine (non su id)

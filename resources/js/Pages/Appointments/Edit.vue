@@ -43,8 +43,10 @@ function newItem() {
         montaggio_lamelle: false,
         Ferramenta: false,
         Vetratura: false,
-
-
+        accessori: false,
+        coprifili: false,
+        fermavetri: false,
+        OrdineVetri: false,
     };
 }
 
@@ -105,7 +107,7 @@ const form = useForm({
         ? String(props.appointment.DataConsegna).substring(0, 10)
         : "",
 
-    status: props.appointment.status ?? "Pianificato",
+    status: props.appointment.status ?? "Da Pianificare",
     StatoMagazzino: props.appointment.StatoMagazzino ?? "Magazzino",
 
     // Nuovi campi
@@ -137,7 +139,6 @@ const form = useForm({
                   montaggio_lamelle: !!x.MontaggioLamelle,
                   Ferramenta: !!x.Ferramenta,
                   Vetratura: !!x.Vetratura,
-
               }))
             : [newItem()],
 });
@@ -277,14 +278,37 @@ const deleteAppointment = () => {
                             </div>
 
                             <div>
-                                <label for="status" class="block text-sm font-medium text-gray-700"> Avanzamento Produzione </label>
-                                <select v-model="form.status" id="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="Pianificato">Pianificato</option>
-                                    <option value="Completato">Completato</option>
+                                <label
+                                    for="status"
+                                    class="block text-sm font-medium text-gray-700"
+                                >
+                                    Avanzamento Produzione
+                                </label>
+                                <select
+                                    v-model="form.status"
+                                    id="status"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="Da Pianificare">
+                                        Da Pianificare
+                                    </option>
+                                    <option value="Pianificato">
+                                        Pianificato
+                                    </option>
+                                    <option value="Completato">
+                                        Completato
+                                    </option>
                                     <option value="Sospeso">Sospeso</option>
-                                    <option value="Cancellato">Cancellato</option>
+                                    <option value="Cancellato">
+                                        Cancellato
+                                    </option>
                                 </select>
-                                <p v-if="form.errors.status" class="mt-2 text-sm text-red-600">{{ form.errors.status }}</p>
+                                <p
+                                    v-if="form.errors.status"
+                                    class="mt-2 text-sm text-red-600"
+                                >
+                                    {{ form.errors.status }}
+                                </p>
                             </div>
                             <div>
                                 <label
@@ -447,7 +471,12 @@ const deleteAppointment = () => {
                                         class="mt-1 w-full rounded-lg border px-2 py-1"
                                     >
                                         <option value="">— Seleziona —</option>
+                                        <option value="PAF">
+                                            Persiane Fisse
+                                        </option>
                                         <option value="PA">Persiane</option>
+                                        <option value="SG">Sghembi</option>
+                                        <option value="AR">Archi</option>
                                         <option value="SC">Scuroni</option>
                                         <option value="CA">
                                             Cover Alluminio
@@ -500,7 +529,7 @@ const deleteAppointment = () => {
                             >
                                 <!-- PA: solo Taglio -->
                                 <template v-if="it.prodotto === 'SC'">
-                                <label
+                                    <label
                                         class="inline-flex items-center gap-2"
                                     >
                                         <input
@@ -518,8 +547,9 @@ const deleteAppointment = () => {
                                         />
                                         Assemblaggio
                                     </label>
-                                 </template>                                <template v-if="it.prodotto === 'CA'">
-                                <label
+                                </template>
+                                <template v-if="it.prodotto === 'CA'">
+                                    <label
                                         class="inline-flex items-center gap-2"
                                     >
                                         <input
@@ -528,7 +558,7 @@ const deleteAppointment = () => {
                                         />
                                         Taglio
                                     </label>
-                                                                        <label
+                                    <label
                                         class="inline-flex items-center gap-2"
                                     >
                                         <input
@@ -537,7 +567,7 @@ const deleteAppointment = () => {
                                         />
                                         Assemblaggio
                                     </label>
-                                 </template>
+                                </template>
                                 <template v-if="it.prodotto === 'PA'">
                                     <label
                                         class="inline-flex items-center gap-2"
@@ -596,7 +626,176 @@ const deleteAppointment = () => {
                                         />
                                         Montaggio Lamelle
                                     </label>
+                                </template>
+                                <template v-if="it.prodotto === 'AR'">
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio"
+                                        />
+                                        Taglio
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.TaglioZoccolo"
+                                        />
+                                        Taglio Zoccolo
+                                    </label>
 
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.TaglioLamelle"
+                                        />
+                                        Taglio Lamelle
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.assemblaggio"
+                                        />
+                                        Assemblaggio
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Comandi"
+                                        />
+                                        Montaggio Comandi
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.MontaggioLamelle"
+                                        />
+                                        Montaggio Lamelle
+                                    </label>
+                                </template>
+
+                                <template v-if="it.prodotto === 'SG'">
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio"
+                                        />
+                                        Taglio
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.TaglioZoccolo"
+                                        />
+                                        Taglio Zoccolo
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.TaglioLamelle"
+                                        />
+                                        Taglio Lamelle
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.assemblaggio"
+                                        />
+                                        Assemblaggio
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Comandi"
+                                        />
+                                        Montaggio Comandi
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.MontaggioLamelle"
+                                        />
+                                        Montaggio Lamelle
+                                    </label>
+                                </template>
+
+                                <template v-if="it.prodotto === 'PAF'">
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio"
+                                        />
+                                        Taglio
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.TaglioZoccolo"
+                                        />
+                                        Taglio Zoccolo
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.TaglioLamelle"
+                                        />
+                                        Taglio Lamelle
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.assemblaggio"
+                                        />
+                                        Assemblaggio
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.MontaggioLamelle"
+                                        />
+                                        Montaggio Lamelle
+                                    </label>
                                 </template>
 
                                 <!-- IA: Taglio + Assemblaggio + Ferramenta + Vetratura -->
@@ -630,7 +829,15 @@ const deleteAppointment = () => {
                                         />
                                         Ferramenta
                                     </label>
-
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Fermavetri"
+                                        />
+                                        Fermavetri
+                                    </label>
                                     <label
                                         class="inline-flex items-center gap-2"
                                     >
@@ -639,6 +846,34 @@ const deleteAppointment = () => {
                                             v-model="it.Vetratura"
                                         />
                                         Vetratura
+                                    </label>
+
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Coprifili"
+                                        />
+                                        Coprifili
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.Accessori"
+                                        />
+                                        Accessori
+                                    </label>
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.OrdineVetri"
+                                        />
+                                        Ordine Vetri
                                     </label>
                                 </template>
                             </div>

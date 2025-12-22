@@ -35,6 +35,15 @@ use App\Http\Controllers\{
 use Illuminate\Http\Request;
 // routes/web.php
 // use App\Http\Controllers\DisegniDXFController;
+use App\Http\Controllers\PrintController;
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/stampa/settimana/{year}/{week}', [PrintController::class, 'Settimana'])
+        ->name('print.week.pdf');
+});
+
+
+
 use App\Http\Controllers\VisiteMedicheController;
 
 Route::middleware(['auth'])->group(function () {
