@@ -4,5 +4,9 @@
         "bold_italic": "E:\\Usare\\my-app\\vendor\\dompdf\\dompdf\/lib\/fonts\/DejaVuSans-BoldOblique",
         "italic": "E:\\Usare\\my-app\\vendor\\dompdf\\dompdf\/lib\/fonts\/DejaVuSans-Oblique",
         "normal": "dejavu_sans_normal_b09cf5320578c67f9187cb75f16560dc"
+    },
+    "dvs": {
+        "normal": "H:\\my-app\\storage\\fonts\/\/dvs_normal_7839f0bd66083bfc4a6933abe35896eb",
+        "bold": "dvs_bold_cde7617e7b48a5ee6ba4fad47e3bc8b4"
     }
 }

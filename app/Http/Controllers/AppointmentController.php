@@ -83,6 +83,7 @@ class AppointmentController extends Controller
             'items.*.prodotto' => ['nullable', 'string', 'max:255'],
             'items.*.colore' => ['nullable', 'string', 'max:255'],
             'items.*.descrizione' => ['nullable', 'string'],
+            'items.*.Lotto' => ['nullable', 'string'],
             'items.*.pezzi' => ['nullable', 'integer', 'min:0'],
             'items.*.taglio' => ['nullable', 'boolean'],
             'items.*.Accessori' => ['nullable','boolean'],
@@ -94,6 +95,7 @@ class AppointmentController extends Controller
             'items.*.taglio_lamelle' => ['nullable', 'boolean'],
             'items.*.montaggio_lamelle' => ['nullable', 'boolean'],
             'items.*.Ferramenta' => ['nullable', 'boolean'],
+            'items.*.Fermavetri' => ['nullable', 'boolean'],
             'items.*.Vetratura' => ['nullable', 'boolean'],
             'items.*.OrdineVetri' => ['nullable', 'boolean'],
         ]);
@@ -129,6 +131,8 @@ class AppointmentController extends Controller
 
                     'Prodotto' => $it['prodotto'] ?? null,
                     'Descrizione' => $it['descrizione'] ?? null,
+                    'Lotto' => $it['Lotto'] ?? null,
+
                     'Colore' => $it['colore'] ?? null,
                     'Pezzi' => (int)($it['pezzi'] ?? 0),
 
@@ -212,6 +216,7 @@ class AppointmentController extends Controller
             'items.*.prodotto' => ['nullable', 'string', 'max:255'],
             'items.*.colore' => ['nullable', 'string', 'max:255'],
             'items.*.descrizione' => ['nullable', 'string'],
+            'items.*.Lotto' => ['nullable', 'string'],
             'items.*.pezzi' => ['nullable', 'integer', 'min:0'],
             'items.*.taglio' => ['nullable', 'boolean'],
             'items.*.assemblaggio' => ['nullable', 'boolean'],
@@ -220,7 +225,11 @@ class AppointmentController extends Controller
             'items.*.taglio_lamelle' => ['nullable', 'boolean'],
             'items.*.montaggio_lamelle' => ['nullable', 'boolean'],
             'items.*.Ferramenta' => ['nullable', 'boolean'],
+            'items.*.Fermavetri' => ['nullable', 'boolean'],
             'items.*.Vetratura' => ['nullable', 'boolean'],
+            'items.*.Coprifili' => ['nullable', 'boolean'],
+            'items.*.Accessori' => ['nullable', 'boolean'],
+            'items.*.OrdineVetri' => ['nullable', 'boolean'],
 
         ]);
         $prodotti = collect($validated['items'] ?? [])
@@ -253,6 +262,8 @@ class AppointmentController extends Controller
                 'Nordine' => $appointment->Nordine,
                 'Prodotto' => $it['prodotto'],
                 'Descrizione' => $it['descrizione'] ?? null,
+                'Lotto' => $it['Lotto'] ?? null,
+
                 'Colore' => $it['colore'] ?? null,
                 'Pezzi' => (int)($it['pezzi'] ?? 0),
                 'Taglio' => (bool)($it['taglio'] ?? false),
@@ -262,7 +273,11 @@ class AppointmentController extends Controller
                 'TaglioLamelle' => (bool)($it['taglio_lamelle'] ?? false),
                 'MontaggioLamelle' => (bool)($it['montaggio_lamelle'] ?? false),
                 'Ferramenta' => (bool)($it['Ferramenta'] ?? false),
+                'Fermavetri' => (bool)($it['Fermavetri'] ?? false),
                 'Vetratura' => (bool)($it['Vetratura'] ?? false),
+                'Coprifili' => (bool)($it['Coprifili'] ?? false),
+                'Accessori' => (bool)($it['Accessori'] ?? false),
+                'OrdineVetri' => (bool)($it['OrdineVetri'] ?? false),
             ];
         })->all();
 

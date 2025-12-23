@@ -34,6 +34,7 @@ function newItem() {
         prodotto: "",
         colore: "",
         descrizione: "",
+        Lotto: "",
         pezzi: 0,
         taglio: false,
         assemblaggio: false,
@@ -43,9 +44,9 @@ function newItem() {
         montaggio_lamelle: false,
         Ferramenta: false,
         Vetratura: false,
-        accessori: false,
-        coprifili: false,
-        fermavetri: false,
+        Accessori: false,
+        Coprifili: false,
+        Fermavetri: false,
         OrdineVetri: false,
     };
 }
@@ -130,6 +131,8 @@ const form = useForm({
                   prodotto: x.Prodotto ?? "",
                   colore: x.Colore ?? "",
                   descrizione: x.Descrizione ?? "",
+                  Lotto: x.Lotto ?? "",
+
                   pezzi: Number(x.Pezzi ?? 0),
                   taglio: !!x.Taglio,
                   assemblaggio: !!x.Assemblaggio,
@@ -138,7 +141,11 @@ const form = useForm({
                   taglio_lamelle: !!x.TaglioLamelle,
                   montaggio_lamelle: !!x.MontaggioLamelle,
                   Ferramenta: !!x.Ferramenta,
+                  Fermavetri: !!x.Fermavetri,
                   Vetratura: !!x.Vetratura,
+                  Coprifili: !!x.Coprifili,
+                  Accessori: !!x.Accessori,
+                  OrdineVetri: !!x.OrdineVetri,
               }))
             : [newItem()],
 });
@@ -286,6 +293,7 @@ const deleteAppointment = () => {
                                 </label>
                                 <select
                                     v-model="form.status"
+                                    @keydown.enter.prevent="focusNext"
                                     id="status"
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 >
@@ -461,55 +469,73 @@ const deleteAppointment = () => {
                             :key="i"
                             class="mt-4 p-4 rounded-lg border bg-gray-50"
                         >
-                            <div class="grid grid-cols-12 gap-3">
-                                <div class="col-span-12 md:col-span-5">
+                            <div class="grid grid-cols-12 gap-4">
+                                <div class="col-span-6 md:col-span-4">
                                     <label class="text-sm font-semibold"
                                         >Prodotto</label
                                     >
                                     <select
                                         v-model="it.prodotto"
-                                        class="mt-1 w-full rounded-lg border px-2 py-1"
+                                        @keydown.enter.prevent="focusNext"
+                                        class="mt-1 w-full rounded-lg border"
                                     >
                                         <option value="">— Seleziona —</option>
-                                        <option value="PAF">
-                                            Persiane Fisse
-                                        </option>
-                                        <option value="PA">Persiane</option>
-                                        <option value="SG">Sghembi</option>
                                         <option value="AR">Archi</option>
-                                        <option value="SC">Scuroni</option>
+                                        <option value="CP">
+                                            Coprifili
+                                        </option>
                                         <option value="CA">
                                             Cover Alluminio
                                         </option>
                                         <option value="IA">
                                             Infissi Alluminio
                                         </option>
+                                        <option value="PAF">
+                                            Persiane Fisse
+                                        </option>
+                                        <option value="PA">Persiane</option>
+                                        <option value="SG">Sghembi</option>
+                                        <option value="SC">Scuroni</option>
+                                        <option value="VA">
+                                            Varie
+                                        </option>
                                     </select>
                                 </div>
 
-                                <div class="col-span-6 md:col-span-3">
+                                <div class="col-span-6 md:col-span-4">
                                     <label class="text-sm font-semibold"
                                         >Colore</label
                                     >
                                     <input
                                         v-model="it.colore"
+                                        @keydown.enter.prevent="focusNext"
                                         class="mt-1 w-full rounded-lg border"
                                     />
                                 </div>
 
-                                <div class="col-span-6 md:col-span-2">
+                                <div class="col-span-6 md:col-span-1">
                                     <label class="text-sm font-semibold"
                                         >N. Pezzi</label
                                     >
                                     <input
                                         v-model.number="it.pezzi"
+                                        @keydown.enter.prevent="focusNext"
                                         type="number"
                                         min="0"
                                         step="1"
                                         class="mt-1 w-full rounded-lg border"
                                     />
                                 </div>
-
+                                <div class="col-span-6 md:col-span-1">
+                                    <label class="text-sm font-semibold"
+                                        >Lotto</label
+                                    >
+                                    <input
+                                        v-model="it.Lotto"
+                                        @keydown.enter.prevent="focusNext"
+                                        class="mt-1 w-full rounded-lg border"
+                                    />
+                                </div>
                                 <div
                                     class="col-span-12 md:col-span-2 flex md:justify-end items-end"
                                 >
@@ -528,6 +554,28 @@ const deleteAppointment = () => {
                                 class="mt-3 grid grid-cols-2 md:grid-cols-6 gap-3 text-sm"
                             >
                                 <!-- PA: solo Taglio -->
+                                <template v-if="it.prodotto === 'CP'">
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio"
+                                        />
+                                        Taglio
+                                    </label>
+                                </template>
+                                <template v-if="it.prodotto === 'VA'">
+                                    <label
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="it.taglio"
+                                        />
+                                        Taglio
+                                    </label>
+                                </template>
                                 <template v-if="it.prodotto === 'SC'">
                                     <label
                                         class="inline-flex items-center gap-2"

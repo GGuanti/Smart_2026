@@ -5,10 +5,16 @@ import flatPickr from "vue-flatpickr-component";
 import "flatpickr/dist/flatpickr.css";
 import { Italian } from "flatpickr/dist/l10n/it.js";
 import { Save, X } from "lucide-vue-next";
-import { watch, computed } from "vue";
+import { watch, computed, ref, onMounted, nextTick } from "vue";
 import { useToast } from "vue-toastification";
+
 const toast = useToast();
 const page = usePage();
+const titleInput = ref(null);
+onMounted(async () => {
+  await nextTick(); // aspetta che il DOM sia pronto
+  titleInput.value?.focus();
+});
 const props = defineProps({
     clients: { type: Array, default: () => [] }, // [{id, name}]
     prefill: { type: Object, default: () => ({}) }, // { DataInizio, DataConsegna, DataFine }
@@ -46,6 +52,8 @@ function newItem() {
         prodotto: "",
         colore: "",
         descrizione: "",
+        Lotto: "",
+
         pezzi: 0,
 
         taglio: false,
@@ -55,11 +63,11 @@ function newItem() {
         taglio_zoccolo: false,
         taglio_lamelle: false,
         montaggio_lamelle: false,
-        accessori: false,
-        coprifili: false,
-        fermavetri: false,
-        ferramenta: false,
-        vetratura: false,
+        Accessori: false,
+        Coprifili: false,
+        Fermavetri: false,
+        Ferramenta: false,
+        Vetratura: false,
         OrdineVetri: false,
     };
 }
@@ -227,6 +235,7 @@ watch(
                                     >Titolo</label
                                 >
                                 <input
+                                ref="titleInput"
                                     v-model="form.title"
                                     @keydown.enter.prevent="focusNext"
                                     type="text"
@@ -464,14 +473,14 @@ watch(
                             :key="it.uid"
                             class="mt-4 p-4 rounded-lg border bg-gray-50"
                         >
-                            <div class="grid grid-cols-12 gap-3">
-                                <div class="col-span-12 md:col-span-5">
+                            <div class="grid grid-cols-12 gap-4">
+                                <div class="col-span-12 md:col-span-4">
                                     <label class="text-sm font-semibold"
                                         >Prodotto</label
                                     >
                                     <select
                                         v-model="it.prodotto"
-                                        class="mt-1 w-full rounded-lg border px-2 py-1"
+                                        class="mt-1 w-full rounded-lg border"
                                     >
                                         <option value="">— Seleziona —</option>
                                         <option value="PAF">
@@ -512,7 +521,15 @@ watch(
                                         class="mt-1 w-full rounded-lg border"
                                     />
                                 </div>
-
+<div class="col-span-6 md:col-span-1">
+                                    <label class="text-sm font-semibold"
+                                        >Lotto</label
+                                    >
+                                    <input
+                                        v-model="it.Lotto"
+                                        class="mt-1 w-full rounded-lg border"
+                                    />
+                                </div>
                                 <div
                                     class="col-span-12 md:col-span-2 flex md:justify-end items-end"
                                 >

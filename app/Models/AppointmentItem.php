@@ -16,6 +16,7 @@ class AppointmentItem extends Model
         'Prodotto',
         'Colore',
         'Pezzi',
+        'Lotto',
         'Descrizione',
         'Taglio',
         'Assemblaggio',
@@ -26,9 +27,9 @@ class AppointmentItem extends Model
         'Ferramenta',
         'Vetratura',
         'Accessori',
-    'Coprifili',
-    'Fermavetri',
-    'OrdineVetri',
+        'Coprifili',
+        'Fermavetri',
+        'OrdineVetri',
     ];
 
     protected $casts = [
