@@ -480,21 +480,28 @@ watch(
                                     >
                                     <select
                                         v-model="it.prodotto"
+                                        @keydown.enter.prevent="focusNext"
                                         class="mt-1 w-full rounded-lg border"
                                     >
                                         <option value="">— Seleziona —</option>
-                                        <option value="PAF">
-                                            Persiane Fisse
-                                        </option>
-                                        <option value="PA">Persiane</option>
-                                        <option value="SG">Sghembi</option>
                                         <option value="AR">Archi</option>
-                                        <option value="SC">Scuroni</option>
+                                        <option value="CP">
+                                            Coprifili
+                                        </option>
                                         <option value="CA">
                                             Cover Alluminio
                                         </option>
                                         <option value="IA">
                                             Infissi Alluminio
+                                        </option>
+                                        <option value="PAF">
+                                            Persiane Fisse
+                                        </option>
+                                        <option value="PA">Persiane</option>
+                                        <option value="SG">Sghembi</option>
+                                        <option value="SC">Scuroni</option>
+                                        <option value="VA">
+                                            Varie
                                         </option>
                                     </select>
                                 </div>
