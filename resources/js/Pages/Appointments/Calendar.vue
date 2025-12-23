@@ -122,7 +122,9 @@ function IconaStatoConProduzione(status, dataInizio) {
     return "";
 }
 function normStatus(status) {
-    return String(status || "").trim().toLowerCase();
+    return String(status || "")
+        .trim()
+        .toLowerCase();
 }
 function ColoriStato(status) {
     const v = normStatus(status);
@@ -276,7 +278,6 @@ const filteredAppointments = computed(() => {
     });
 });
 
-
 // ✅ somma pezzi per giorno
 function sumPezziByDayKey(dayKey) {
     let tot = 0;
@@ -427,7 +428,7 @@ const calendarOptions = ref({
     locale: itLocale,
     editable: true,
     weekNumbers: true,
-     weekText: "S",
+    weekText: "S",
     weekNumberContent: (arg) => ({ html: `S${arg.num}` }),
 
     displayEventTime: false,
@@ -621,8 +622,7 @@ const calendarOptions = ref({
         updateTotalsSoon(calendarRef.value?.getApi());
 
         router.visit(route("appointments.create"), {
-            data: { DataInizio: info.dateStr,
-            DataConsegna: info.dateStr, },
+            data: { DataInizio: info.dateStr, DataConsegna: info.dateStr },
 
             method: "get",
         });
@@ -685,13 +685,20 @@ onMounted(() => {
 function formatDateIt(dateLike) {
     const d = parseAnyDate(dateLike);
     if (!d) return "";
-    return d.toLocaleDateString("it-IT", { year: "numeric", month: "2-digit", day: "2-digit" });
+    return d.toLocaleDateString("it-IT", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    });
 }
 
 function formatTimeIt(dateLike) {
     const d = parseAnyDate(dateLike);
     if (!d) return "";
-    return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString("it-IT", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 const totalePezziElenco = computed(() => {
@@ -782,16 +789,20 @@ function goEdit(id) {
                     </div>
                 </div>
                 <Link
-  :href="route('appointments.create', { DataConsegna: giornoSelezionato, DataInizio: giornoSelezionato })"
-  class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
->
-  Aggiungi Evento
-</Link>
+                    :href="
+                        route('appointments.create', {
+                            DataConsegna: giornoSelezionato,
+                            DataInizio: giornoSelezionato,
+                        })
+                    "
+                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                    Aggiungi Evento
+                </Link>
                 <input
                     v-model="search"
                     type="text"
                     placeholder="Cerca per Cliente, N° ordine, riferimento..."
-
                     class="border px-3 py-2 rounded w-full"
                 />
 
@@ -804,13 +815,15 @@ function goEdit(id) {
                     class="border px-3 py-2 rounded"
                 >
                     <option value="Tutti">Tutti</option>
+                    <option value="AR">Archi</option>
+                    <option value="CP">Coprifili</option>
+                    <option value="CA">Cover Alluminio</option>
+                    <option value="IA">Infissi Alluminio</option>
                     <option value="PAF">Persiane Fisse</option>
                     <option value="PA">Persiane</option>
                     <option value="SG">Sghembi</option>
-                    <option value="AR">Archi</option>
                     <option value="SC">Scuroni</option>
-                    <option value="CA">Cover Alluminio</option>
-                    <option value="IA">Infissi Alluminio</option>
+                    <option value="VA">Varie</option>
                 </select>
 
                 <div class="px-6 py-2 border-b bg-white text-sm font-semibold">
@@ -849,121 +862,160 @@ function goEdit(id) {
                 <span>❌ Annullato</span>
             </div>
             <div class="flex-1 overflow-auto">
-    <FullCalendar
-        ref="calendarRef"
-        :options="calendarOptions"
-        class="h-full"
-    />
+                <FullCalendar
+                    ref="calendarRef"
+                    :options="calendarOptions"
+                    class="h-full"
+                />
 
-    <!-- ✅ ELENCO RECORD (filtrato) -->
-    <div class="mt-4 bg-white border-t">
-        <div class="px-6 py-3 flex items-center justify-between gap-4">
-            <div class="font-semibold">
-                Elenco record ({{ elencoOrdinato.length }}) — Totale pezzi: {{ totalePezziElenco }}
-            </div>
-
-            <div class="text-sm text-gray-600">
-                Giorno selezionato: <span class="font-semibold">{{ giornoSelezionato }}</span>
-                — Pezzi giorno: <span class="font-semibold">{{ pezziGiorno }}</span>
-            </div>
-        </div>
-
-        <div class="px-6 pb-5 overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="bg-gray-50 text-gray-700">
-                    <tr class="border-y">
-                        <th class="text-left p-2">Data Produzione</th>
-                        <th class="text-left p-2">Data Consegna</th>
-                        <th class="text-left p-2">Ordine</th>
-                        <th class="text-left p-2">Cliente</th>
-                        <th class="text-left p-2">Prodotto</th>
-                        <th class="text-left p-2">Stato</th>
-                        <th class="text-left p-2">Magazzino</th>
-                        <th class="text-right p-2">Pezzi</th>
-                        <th class="text-right p-2">Azioni</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    <tr
-                        v-for="a in elencoOrdinato"
-                        :key="a.id"
-                        class="border-b hover:bg-gray-50 cursor-pointer"
-                        @click="goEdit(a.id)"
+                <!-- ✅ ELENCO RECORD (filtrato) -->
+                <div class="mt-4 bg-white border-t">
+                    <div
+                        class="px-6 py-3 flex items-center justify-between gap-4"
                     >
-                        <td class="p-2 whitespace-nowrap">
-                            {{ formatDateIt(a.DataInizio) }}
-                        </td>
+                        <div class="font-semibold">
+                            Elenco record ({{ elencoOrdinato.length }}) — Totale
+                            pezzi: {{ totalePezziElenco }}
+                        </div>
 
-                        <td class="p-2 whitespace-nowrap">
-                            {{ formatDateIt(a.DataConsegna) }}
-                        </td>
+                        <div class="text-sm text-gray-600">
+                            Giorno selezionato:
+                            <span class="font-semibold">{{
+                                giornoSelezionato
+                            }}</span>
+                            — Pezzi giorno:
+                            <span class="font-semibold">{{ pezziGiorno }}</span>
+                        </div>
+                    </div>
 
-                        <td class="p-2 whitespace-nowrap font-semibold">
-                            {{ a.NOrdine ?? a.Nordine ?? "-" }}
-                        </td>
+                    <div class="px-6 pb-5 overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-700">
+                                <tr class="border-y">
+                                    <th class="text-left p-2">
+                                        Data Produzione
+                                    </th>
+                                    <th class="text-left p-2">Data Consegna</th>
+                                    <th class="text-left p-2">Ordine</th>
+                                    <th class="text-left p-2">Cliente</th>
+                                    <th class="text-left p-2">Prodotto</th>
+                                    <th class="text-left p-2">Stato</th>
+                                    <th class="text-left p-2">Magazzino</th>
+                                    <th class="text-right p-2">Pezzi</th>
+                                    <th class="text-right p-2">Azioni</th>
+                                </tr>
+                            </thead>
 
-                        <td class="p-2">
-                            <div class="font-medium text-gray-900">
-                                {{ a.title }}
-                            </div>
-                            <div v-if="a.description" class="text-xs text-gray-500 line-clamp-1">
-                                {{ a.description }}
-                            </div>
-                        </td>
+                            <tbody>
+                                <tr
+                                    v-for="a in elencoOrdinato"
+                                    :key="a.id"
+                                    class="border-b hover:bg-gray-50 cursor-pointer"
+                                    @click="goEdit(a.id)"
+                                >
+                                    <td class="p-2 whitespace-nowrap">
+                                        {{ formatDateIt(a.DataInizio) }}
+                                    </td>
 
+                                    <td class="p-2 whitespace-nowrap">
+                                        {{ formatDateIt(a.DataConsegna) }}
+                                    </td>
 
-                        <td class="p-2 whitespace-nowrap">
-                            <span v-if="Array.isArray(a.Prodotto) && a.Prodotto.length">
-                                {{ a.Prodotto.join(", ") }}
-                            </span>
-                            <span v-else>-</span>
-                        </td>
+                                    <td
+                                        class="p-2 whitespace-nowrap font-semibold"
+                                    >
+                                        {{ a.NOrdine ?? a.Nordine ?? "-" }}
+                                    </td>
 
-                        <td class="p-2 whitespace-nowrap">
-                            <span
-                                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold"
-                                :style="{
-                                  backgroundColor: ColoriStato(a.status).bg,
-                                  border: '1px solid ' + ColoriStato(a.status).border,
-                                  color: ColoriStato(a.status).text
-                                }"
-                            >
-                                {{ a.status ?? "-" }}
-                            </span>
-                        </td>
+                                    <td class="p-2">
+                                        <div class="font-medium text-gray-900">
+                                            {{ a.title }}
+                                        </div>
+                                        <div
+                                            v-if="a.description"
+                                            class="text-xs text-gray-500 line-clamp-1"
+                                        >
+                                            {{ a.description }}
+                                        </div>
+                                    </td>
 
-                        <td class="p-2 whitespace-nowrap">
-                            <span v-if="a.StatoMagazzino" v-html="badgeStatoMagazzinoHtml(a.StatoMagazzino)"></span>
-                            <span v-else>-</span>
-                        </td>
+                                    <td class="p-2 whitespace-nowrap">
+                                        <span
+                                            v-if="
+                                                Array.isArray(a.Prodotto) &&
+                                                a.Prodotto.length
+                                            "
+                                        >
+                                            {{ a.Prodotto.join(", ") }}
+                                        </span>
+                                        <span v-else>-</span>
+                                    </td>
 
-                        <td class="p-2 whitespace-nowrap text-right font-semibold">
-                            {{ Number(a.Pezzi ?? 0) || 0 }}
-                        </td>
+                                    <td class="p-2 whitespace-nowrap">
+                                        <span
+                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold"
+                                            :style="{
+                                                backgroundColor: ColoriStato(
+                                                    a.status
+                                                ).bg,
+                                                border:
+                                                    '1px solid ' +
+                                                    ColoriStato(a.status)
+                                                        .border,
+                                                color: ColoriStato(a.status)
+                                                    .text,
+                                            }"
+                                        >
+                                            {{ a.status ?? "-" }}
+                                        </span>
+                                    </td>
 
-                        <td class="p-2 whitespace-nowrap text-right" @click.stop>
-                            <button
-                                type="button"
-                                class="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
-                                @click="goEdit(a.id)"
-                            >
-                                Modifica
-                            </button>
-                        </td>
-                    </tr>
+                                    <td class="p-2 whitespace-nowrap">
+                                        <span
+                                            v-if="a.StatoMagazzino"
+                                            v-html="
+                                                badgeStatoMagazzinoHtml(
+                                                    a.StatoMagazzino
+                                                )
+                                            "
+                                        ></span>
+                                        <span v-else>-</span>
+                                    </td>
 
-                    <tr v-if="!elencoOrdinato.length">
-                        <td colspan="10" class="p-4 text-center text-gray-500">
-                            Nessun record trovato con i filtri attuali.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                                    <td
+                                        class="p-2 whitespace-nowrap text-right font-semibold"
+                                    >
+                                        {{ Number(a.Pezzi ?? 0) || 0 }}
+                                    </td>
 
+                                    <td
+                                        class="p-2 whitespace-nowrap text-right"
+                                        @click.stop
+                                    >
+                                        <button
+                                            type="button"
+                                            class="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
+                                            @click="goEdit(a.id)"
+                                        >
+                                            Modifica
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="!elencoOrdinato.length">
+                                    <td
+                                        colspan="10"
+                                        class="p-4 text-center text-gray-500"
+                                    >
+                                        Nessun record trovato con i filtri
+                                        attuali.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </AuthenticatedLayout>
 </template>
@@ -1021,7 +1073,8 @@ function goEdit(id) {
     line-height: 1.2;
     white-space: nowrap;
 }
-table th, table td {
+table th,
+table td {
     vertical-align: top;
 }
 </style>
