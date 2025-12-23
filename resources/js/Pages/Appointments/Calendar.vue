@@ -244,16 +244,22 @@ function toLocalMySql(dt) {
 }
 
 // ✅ Filtro combinato (ricerca + stato + prodotto)
+// ✅ Filtro combinato (ricerca + stato + prodotto)
 const filteredAppointments = computed(() => {
     refreshTick.value;
 
     return (appointmentsLocal.value || []).filter((appointment) => {
-        const s = search.value?.toLowerCase() || "";
+        const s = search.value?.toLowerCase().trim() || "";
+
+        const ordine = String(appointment.NOrdine ?? appointment.Nordine ?? "");
+        const riferimento = String(appointment.Riferimento ?? "");
 
         const matchSearch =
             !s ||
             (appointment.title || "").toLowerCase().includes(s) ||
-            (appointment.client?.name || "").toLowerCase().includes(s);
+            (appointment.client?.name || "").toLowerCase().includes(s) ||
+            ordine.toLowerCase().includes(s) ||
+            riferimento.toLowerCase().includes(s);
 
         const matchStatus =
             selectedStatus.value === "tutti" ||
@@ -269,6 +275,7 @@ const filteredAppointments = computed(() => {
         return matchSearch && matchStatus && matchProdotto;
     });
 });
+
 
 // ✅ somma pezzi per giorno
 function sumPezziByDayKey(dayKey) {
@@ -783,7 +790,8 @@ function goEdit(id) {
                 <input
                     v-model="search"
                     type="text"
-                    placeholder="Cerca per titolo o cliente..."
+                    placeholder="Cerca per Cliente, N° ordine, riferimento..."
+
                     class="border px-3 py-2 rounded w-full"
                 />
 
