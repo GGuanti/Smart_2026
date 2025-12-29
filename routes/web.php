@@ -33,9 +33,63 @@ use App\Http\Controllers\{
     AllegatiController
 };
 use Illuminate\Http\Request;
+use App\Http\Controllers\PrintController;
+
+
+use App\Http\Controllers\ListinoController;
+
+Route::get('/listini/crea', [ListinoController::class, 'create'])->name('listini.create');
+Route::post('/listini', [ListinoController::class, 'store'])->name('listini.store');
+Route::get('/listini/{listino}/modifica', [ListinoController::class, 'edit'])->name('listini.edit');
+Route::put('/listini/{listino}', [ListinoController::class, 'update'])->name('listini.update');
+
+use App\Http\Controllers\OrdineController;
+
+Route::prefix('ordini')->name('ordini.')->group(function () {
+    Route::get('/', [OrdineController::class, 'index'])->name('index');
+    Route::get('/crea', [OrdineController::class, 'create'])->name('create');
+    Route::post('/', [OrdineController::class, 'store'])->name('store');
+
+    // ✅ EDIT
+    Route::get('/{ordine}/edit', [OrdineController::class, 'edit'])->name('edit');
+
+    // ✅ UPDATE
+    Route::put('/{ordine}', [OrdineController::class, 'update'])->name('update');
+    Route::delete('/{ordine}', [OrdineController::class, 'destroy'])
+    ->name('destroy');
+});
+use App\Http\Controllers\PreventivoController;
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::resource('ordini', OrdineController::class);
+
+    // preventivi (righe) annidati sotto ordine
+    Route::get('ordini/{ordine}/preventivi/create', [PreventivoController::class, 'create'])->name('preventivi.create');
+    Route::post('ordini/{ordine}/preventivi', [PreventivoController::class, 'store'])->name('preventivi.store');
+
+    Route::get('ordini/{ordine}/preventivi/{elemento}/edit', [PreventivoController::class, 'edit'])->name('preventivi.edit');
+    Route::put('ordini/{ordine}/preventivi/{elemento}', [PreventivoController::class, 'update'])->name('preventivi.update');
+
+    Route::delete('ordini/{ordine}/preventivi/{elemento}', [PreventivoController::class, 'destroy'])->name('preventivi.destroy');
+});
+
+
 // routes/web.php
 // use App\Http\Controllers\DisegniDXFController;
-use App\Http\Controllers\PrintController;
+Route::post('/appointments/import-all', [AppointmentController::class, 'ImportaDati'])
+    ->name('appointments.ImportaDati');
+
+// Route::post('/appointment-items/import', [\App\Http\Controllers\AppointmentController::class, 'Import'])
+//    ->name('appointment_items.import');
+
+// Route::post('/appointments/run-exe', [AppointmentController::class, 'runExe'])
+//     ->name('appointments.runExe');
+
+Route::post('/appointments/import-csv', [AppointmentController::class, 'importAppointmentsCsv'])
+    ->name('appointments.import.csv');
+
+Route::post('/appointment-items/import', [AppointmentController::class, 'runExe'])
+    ->name('appointment_items.import');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/stampa/settimana/{year}/{week}', [PrintController::class, 'Settimana'])
@@ -50,7 +104,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/visite-mediche',        [VisiteMedicheController::class, 'index'])->name('visite.index');
     Route::post('/visite-mediche',       [VisiteMedicheController::class, 'store'])->name('visite.store');
     Route::put('/visite-mediche/{id}',   [VisiteMedicheController::class, 'update'])->name('visite.update');
-    Route::delete('/visite-mediche/{id}',[VisiteMedicheController::class, 'destroy'])->name('visite.destroy');
+    Route::delete('/visite-mediche/{id}', [VisiteMedicheController::class, 'destroy'])->name('visite.destroy');
 });
 
 Route::middleware('auth')->group(function () {
@@ -100,8 +154,8 @@ Route::get('/contratti/{id}/report', [ContrattiController::class, 'generaPdf'])-
 
 // routes/web.php
 Route::get('/_diag/test-mail', function () {
-    \Mail::raw('Test OK da Cloud', fn($m) =>
-        $m->to('gguanti@gmail.com')->subject('Prova SMTP'));
+    \Mail::raw('Test OK da Cloud', fn ($m) =>
+    $m->to('gguanti@gmail.com')->subject('Prova SMTP'));
     return 'ok';
 });
 
@@ -206,23 +260,21 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/progetti',            [ProgettoController::class, 'store'])->name('progetti.store');
     Route::get('/progetti/{id}/edit',  [ProgettoController::class, 'edit'])->name('progetti.edit');
     Route::put('/progetti/{id}', [ProgettoController::class, 'update'])
-    ->where('id', '.*') // ⬅️ consente gli slash nel parametro
-    ->name('progetti.update');// ⬅️ mancava
+        ->where('id', '.*') // ⬅️ consente gli slash nel parametro
+        ->name('progetti.update'); // ⬅️ mancava
     Route::delete('/progetti/{id}',       [ProgettoController::class, 'destroy'])->name('progetti.destroy');
 
 
-        // 🔎 Lista giornate dalla vista "vistagiornate" filtrata via query ?IdProg=...
-        // Ziggy: route('vistagiornate.index', { IdProg: '...' }) -> /vistagiornate?IdProg=...
-        Route::get('/vistagiornate', [VistaGiornateController::class, 'index'])
-            ->name('vistagiornate.index');
+    // 🔎 Lista giornate dalla vista "vistagiornate" filtrata via query ?IdProg=...
+    // Ziggy: route('vistagiornate.index', { IdProg: '...' }) -> /vistagiornate?IdProg=...
+    Route::get('/vistagiornate', [VistaGiornateController::class, 'index'])
+        ->name('vistagiornate.index');
 
-        // 🗑️ Elimina una giornata (dalla tabella reale, NON dalla vista)
-        // Ziggy: route('giornate.destroy', { id: <IdGiornate> })
-        Route::delete('/giornate/{id}', [GiornateController::class, 'destroy'])
-            ->whereNumber('id')
-            ->name('giornate.destroy');
-
-
+    // 🗑️ Elimina una giornata (dalla tabella reale, NON dalla vista)
+    // Ziggy: route('giornate.destroy', { id: <IdGiornate> })
+    Route::delete('/giornate/{id}', [GiornateController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('giornate.destroy');
 });
 
 

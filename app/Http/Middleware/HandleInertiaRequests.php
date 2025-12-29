@@ -7,6 +7,10 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+
+
+
+
     /**
      * The root template that is loaded on the first page visit.
      *
@@ -29,11 +33,21 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
+        return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user(),
             ],
-        ];
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error'   => fn () => $request->session()->get('error'),
+                'import_report' => fn () => $request->session()->get('import_report'),
+            ],
+        ]);
     }
+
+
+
+
+
+
 }
