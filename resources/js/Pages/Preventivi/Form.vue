@@ -232,8 +232,8 @@ function filtroCollezionePerRiga(riga) {
 function fotoUrlForRiga(riga) {
     const m = modelloById(riga.IdModello);
     const nome = modelloNome(m);
-    if (!nome) return "/foto/placeholder.jpg";
-    return `/foto/${encodeURIComponent(nome)}.jpg?v=${riga._imgKey ?? 0}`;
+    if (!nome) return "/Foto/placeholder.jpg";
+    return `/Foto/${encodeURIComponent(nome)}.jpg?v=${riga._imgKey ?? 0}`;
 }
 
 /* ===================== Filtri + opzioni per riga ===================== */

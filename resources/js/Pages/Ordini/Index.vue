@@ -94,7 +94,7 @@ function destroy(id) {
                 <div>
                     <div class="flex items-center gap-2">
                         <img
-                            src="/logo.jpg"
+                            src="/Logo.jpg"
                             alt="Logo"
                             class="h-12 object-contain"
                         />

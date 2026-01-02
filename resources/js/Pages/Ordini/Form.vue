@@ -170,7 +170,7 @@ function destroy() {
                         <div class="flex items-center gap-2">
                             <div class="flex items-center gap-4">
                                 <img
-                                    src="/logo.jpg"
+                                    src="/Logo.jpg"
                                     alt="Logo"
                                     class="h-12 object-contain"
                                 />
