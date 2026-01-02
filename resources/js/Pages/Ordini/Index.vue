@@ -1,4 +1,5 @@
 <script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, router } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import { useToast } from "vue-toastification";
@@ -79,6 +80,7 @@ function destroy(id) {
 </script>
 
 <template>
+  <AuthenticatedLayout>
     <Head title="Ordini" />
 
     <div
@@ -294,6 +296,7 @@ function destroy(id) {
             </div>
         </div>
     </div>
+      </AuthenticatedLayout>
 </template>
 
 <style scoped>

@@ -71,8 +71,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('ordini/{ordine}/preventivi/{elemento}', [PreventivoController::class, 'update'])->name('preventivi.update');
 
     Route::delete('ordini/{ordine}/preventivi/{elemento}', [PreventivoController::class, 'destroy'])->name('preventivi.destroy');
-});
+    Route::post('/preventivi/prezzo-cad', [\App\Http\Controllers\PreventiviCalcController::class, 'prezzoCad'])
+    ->name('preventivi.prezzoCad');
 
+});
 
 // routes/web.php
 // use App\Http\Controllers\DisegniDXFController;

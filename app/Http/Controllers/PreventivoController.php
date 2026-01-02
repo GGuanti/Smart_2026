@@ -10,6 +10,7 @@ use App\Models\Listino;
 use App\Models\FinituraAnta;
 use App\Models\FinituraTelaio;
 use App\Models\TabSoluzione;
+use Illuminate\Support\Facades\DB;
 
 
 class PreventivoController extends Controller
@@ -23,10 +24,19 @@ class PreventivoController extends Controller
             ->where('Nordine', $ordine->Nordine)
             ->orderBy('Id') // se la PK è diversa, cambiala (es. ID)
             ->get();
-            $modelli = Listino::query()
-            ->select(['id_listino', 'nome_modello'])
-            ->orderBy('nome_modello')
-            ->get();
+
+        $modelli = DB::table('listini')->get();
+        $soluzioni = DB::table('tab_soluzioni')->get();
+        $colAnta = DB::table('finitura_anta')->get();
+        $colTelaio = DB::table('finitura_telaio')->get();
+        $maniglie = DB::table('tab_maniglie')->get();
+        $aperture = DB::table('tab_aperture')->get();
+        $tipiTelaio = DB::table('tipo_telaio')->get();
+        $serrature = DB::table('tab_serratura')->get();
+        $cerniere = DB::table('tab_cerniere')->get();
+        $vetri = DB::table('tab_vetri')->get();
+        $assModVetri = DB::table('ass_mod_vetri')->get();
+        $imbotte = DB::table('tab_imbotte')->get();
 
 
         return Inertia::render('Preventivi/Form', [
@@ -34,20 +44,84 @@ class PreventivoController extends Controller
             'elementi' => $elementi, // ✅ tutte le righe già presenti
             // ✅ MODELLI DA LISTINI
             'modelli' => $modelli,
+            'soluzioni' => $soluzioni,
 
-
-            'colAnta' => FinituraAnta::orderBy('Tipologia')
-                ->orderBy('Colore')
-                ->get(['IdFinAnta', 'Tipologia', 'Colore']),
-            'colTelaio' => FinituraTelaio::orderBy('Tipologia')
-                ->orderBy('Colore')
-                ->get(['IdFinTelaio', 'Tipologia', 'Colore']),
+            'colAnta' => $colAnta,
+            'colTelaio' => $colTelaio,
+            'maniglie' => $maniglie,
+            'aperture' => $aperture,
+            'tipiTelaio' => $tipiTelaio,
+            'serrature' => $serrature,
+            'cerniere' => $cerniere,
+            'vetri' => $vetri,
+            'assModVetri' => $assModVetri,
+            'imbotte' => $imbotte,
 
 
         ]);
     }
-
     public function store(Request $request, TabOrdine $ordine)
+    {
+        $data = $request->validate([
+            'righe' => ['required', 'array', 'min:1'],
+            'righe.*.DimL' => 'nullable|numeric',
+            'righe.*.DimA' => 'nullable|numeric',
+            'righe.*.DimSp' => 'nullable|numeric',
+            'righe.*.Qta' => 'nullable|numeric|min:0',
+            'righe.*.PrezzoCad' => 'nullable|numeric|min:0',
+            'righe.*.PrezzoMan' => 'nullable|numeric|min:0',
+            'righe.*.NoteMan' => 'nullable|string|max:255',
+            'righe.*.PercFile' => 'nullable|string|max:255',
+            'righe.*.IdModello' => 'nullable|integer',
+            'righe.*.IdColAnta' => 'nullable|integer',
+            'righe.*.IdColTelaio' => 'nullable|integer',
+            'righe.*.IdSoluzione' => 'nullable|integer',
+            'righe.*.IdManiglia' => 'nullable|integer',
+            'righe.*.IdApertura' => 'nullable|integer',
+            'righe.*.IdTipTelaio' => 'nullable|integer',
+            'righe.*.IdVetro' => 'nullable|integer',
+            'righe.*.IdColFerr' => 'nullable|integer',
+            'righe.*.IdSerratura' => 'nullable|integer',
+            'righe.*.IdImbotte' => 'nullable|integer',
+            'righe.*.CkTaglioObl' => 'nullable|string|max:255',
+            'righe.*.TxtCassMet'  => 'nullable|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($data, $ordine) {
+
+            $idsClient = [];
+
+            foreach ($data['righe'] as $r) {
+
+                // sicurezza: forza Nordine dal padre
+                $r['Nordine'] = $ordine->Nordine;
+
+                if (!empty($r['Id'])) {
+                    // ✅ UPDATE (solo se appartiene allo stesso ordine)
+                    $el = TabElementiOrdine::where('Id', $r['Id'])
+                        ->where('Nordine', $ordine->Nordine)
+                        ->firstOrFail();
+
+                    $el->fill($r);
+                    $el->save();
+
+                    $idsClient[] = $el->Id;
+                } else {
+                    // ✅ INSERT
+                    $el = TabElementiOrdine::create($r);
+                    $idsClient[] = $el->Id;
+                }
+            }
+
+            // ✅ opzionale: elimina dal DB le righe che non esistono più nel client
+            TabElementiOrdine::where('Nordine', $ordine->Nordine)
+                ->whereNotIn('Id', $idsClient)
+                ->delete();
+        });
+
+        return back()->with('success', 'Preventivo salvato');
+    }
+    public function store1(Request $request, TabOrdine $ordine)
     {
         abort_if($ordine->user_id !== auth()->id(), 403);
 
@@ -56,7 +130,6 @@ class PreventivoController extends Controller
 
             $validated = $request->validate([
                 'righe' => ['required', 'array', 'min:1'],
-
                 'righe.*.DimL' => 'nullable|numeric',
                 'righe.*.DimA' => 'nullable|numeric',
                 'righe.*.DimSp' => 'nullable|numeric',
@@ -65,7 +138,6 @@ class PreventivoController extends Controller
                 'righe.*.PrezzoMan' => 'nullable|numeric|min:0',
                 'righe.*.NoteMan' => 'nullable|string|max:255',
                 'righe.*.PercFile' => 'nullable|string|max:255',
-
                 'righe.*.IdModello' => 'nullable|integer',
                 'righe.*.IdColAnta' => 'nullable|integer',
                 'righe.*.IdColTelaio' => 'nullable|integer',
@@ -77,7 +149,6 @@ class PreventivoController extends Controller
                 'righe.*.IdColFerr' => 'nullable|integer',
                 'righe.*.IdSerratura' => 'nullable|integer',
                 'righe.*.IdImbotte' => 'nullable|integer',
-
                 'righe.*.CkTaglioObl' => 'nullable|string|max:255',
                 'righe.*.TxtCassMet'  => 'nullable|string|max:255',
             ]);
@@ -96,10 +167,10 @@ class PreventivoController extends Controller
 
                 TabElementiOrdine::create($riga);
             }
-
-            return redirect()
-                ->route('ordini.edit', $ordine->ID)
-                ->with('success', '✅ Preventivo salvato (righe registrate)');
+            return back()->with('success', '✅ Preventivo salvato (righe registrate)');
+            // return redirect()
+            //    ->route('ordini.edit', $ordine->ID)
+            //    ->with('success', '✅ Preventivo salvato (righe registrate)');
         }
 
         // ✅ fallback: vecchia richiesta “singola riga” (compatibilità)
@@ -200,10 +271,16 @@ class PreventivoController extends Controller
         abort_if($ordine->user_id !== auth()->id(), 403);
         abort_if($elemento->Nordine !== $ordine->Nordine, 404);
 
-        $elemento->delete();
+        // 🔒 Sicurezza: l'elemento deve appartenere all'ordine
+        if ((int) $elemento->Nordine !== (int) $ordine->Nordine) {
+            abort(404, 'Elemento non appartenente all’ordine');
+        }
 
-        return redirect()
-            ->route('ordini.edit', $ordine->ID)
-            ->with('success', '🗑️ Riga preventivo eliminata');
+        DB::transaction(function () use ($elemento) {
+            $elemento->delete();
+        });
+
+        // ✅ Risposta Inertia-friendly
+        return back()->with('success', 'Riga eliminata con successo');
     }
 }

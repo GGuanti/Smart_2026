@@ -163,7 +163,11 @@ class AppointmentController extends Controller
                 }, $row);
 
                 if (count(array_filter($row, fn ($v) => trim((string)$v) !== '')) === 0) continue;
-
+                Log::info('CSV user_id debug', [
+                    'raw_user_id' => $r['user_id'] ?? null,
+                    'parsed' => $this->int0($r['user_id'] ?? 0),
+                    'auth' => auth()->id(),
+                  ]);
                 $r = [];
                 foreach ($header as $i => $col) $r[$col] = $row[$i] ?? null;
 
@@ -175,7 +179,8 @@ class AppointmentController extends Controller
                 $Nordine = (int)$NordineRaw;
 
                 // campi
-                $csvUserId       = (int)($this->int0($r['user_id'] ?? 0) ?: auth()->id());
+               // $csvUserId       = (int)($this->int0($r['user_id'] ?? 0) ?: auth()->id());
+               $csvUserId = auth()->id();
                 $csvTitle        = $this->nullIfEmpty($r['title'] ?? null);
                 $csvDescription  = $this->nullIfEmpty($r['description'] ?? null);
                 $csvStatus       = $this->nullIfEmpty($r['status'] ?? null);

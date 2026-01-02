@@ -105,9 +105,12 @@ onMounted(() => {
     persistenceMode: 'local',
     columns: [
       { title: "ID", field: "id", width: 60 },
-      { title: "name", field: "name", sorter: "string" },
-      { title: "email", field: "email" },
+      { title: "Name", field: "name", sorter: "string" },
+      { title: "Email", field: "email" },
       { title: "profilo", field: "profilo", sorter: "string" },
+      { title: "Azienda", field: "azienda", sorter: "string" },
+      { title: "Lstino", field: "listino", sorter: "string" },
+      { title: "Tasporto", field: "trasporto", sorter: "string" },
       {
         title: "Azioni",
         field: "azioni",
@@ -167,11 +170,17 @@ watch(() => props.users, (newData) => {
         <input v-model="form.name" placeholder="Nome" class="border p-2" />
         <input v-model="form.email" placeholder="email" class="border p-2" />
         <input v-model="form.password" placeholder="password" class="border p-2" />
+        <input v-model="form.azienda" placeholder="Azienda" class="border p-2" />
+        <input v-model="form.listino" placeholder="Listino" class="border p-2" />
+        <input v-model="form.trasporto" placeholder="Trasporto" class="border p-2" />
 
 <select v-model="form.profilo" class="border p-2">
   <option disabled value="">-- seleziona profilo --</option>
   <option value="admin">Amministratore</option>
   <option value="user">User</option>
+  <option value="Nurith">Nurith</option>
+  <option value="Isomax">Isomax</option>
+
 </select>
 
 
