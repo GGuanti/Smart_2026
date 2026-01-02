@@ -1741,31 +1741,31 @@ function submitAll() {
                                                 >
                                                     <!-- immagine fissa -->
                                                     <img
-                                                        src="/foto/Essenze/QR.jpg"
+                                                        src="/Foto/Essenze/QR.jpg"
                                                         class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
                                                         @click="
                                                             openZoom(
-                                                                '/foto/Essenze/QR.jpg'
+                                                                '/Foto/Essenze/QR.jpg'
                                                             )
                                                         "
                                                         @error="onImgError"
                                                     />
                                                     <img
-                                                        src="/foto/Essenze/QRT.jpg"
+                                                        src="/Foto/Essenze/QRT.jpg"
                                                         class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
                                                         @click="
                                                             openZoom(
-                                                                '/foto/Essenze/QRT.jpg'
+                                                                '/Foto/Essenze/QRT.jpg'
                                                             )
                                                         "
                                                         @error="onImgError"
                                                     />
                                                     <img
-                                                        src="/foto/Essenze/QRV.jpg"
+                                                        src="/Foto/Essenze/QRV.jpg"
                                                         class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
                                                         @click="
                                                             openZoom(
-                                                                '/foto/Essenze/QRV.jpg'
+                                                                '/Foto/Essenze/QRV.jpg'
                                                             )
                                                         "
                                                         @error="onImgError"
