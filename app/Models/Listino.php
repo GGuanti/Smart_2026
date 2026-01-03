@@ -68,7 +68,7 @@ class Listino extends Model
         'var_pred2',
         'var_pred3',
         'var_pred4',
-
+        'ValPred',
         // flags
         'limiti_dim',
         'nascondi',
@@ -110,8 +110,9 @@ class Listino extends Model
     ];
 
     protected $casts = [
-        'id_listino'=> 'integer',
+        'id_listino' => 'integer',
         'limiti_dim' => 'boolean',
         'nascondi'   => 'boolean',
+        'ValPred' => 'array',
     ];
 }

@@ -54,6 +54,7 @@ class TabOrdine extends Model
         'CstTrasporto'  => 'float',
         'KmMontaggio'   => 'integer',
         'IdIva'         => 'integer',
+        'IdTrasporto'   => 'integer',
         'IdTipoDoc'     => 'integer',
         'Nordine'       => 'integer',
     ];
@@ -131,6 +132,7 @@ class TabOrdine extends Model
         'Produci',
         'Prodotto',
 
+        'IdTrasporto',
         'Utente',
         'DataProduzione',
         'DataProdotto',
@@ -169,9 +171,9 @@ class TabOrdine extends Model
         return round($tot * 100, 2);
     }
     public function righe()
-{
-    // FK nella tabella righe = Nordine
-    // chiave locale nell'ordine = Nordine
-    return $this->hasMany(\App\Models\TabElementiOrdine::class, 'Nordine', 'Nordine');
-}
+    {
+        // FK nella tabella righe = Nordine
+        // chiave locale nell'ordine = Nordine
+        return $this->hasMany(\App\Models\TabElementiOrdine::class, 'Nordine', 'Nordine');
+    }
 }

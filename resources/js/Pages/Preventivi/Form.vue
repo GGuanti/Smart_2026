@@ -983,6 +983,8 @@ watch(
         form.righe.forEach((riga, i) => {
             if (newV?.[i] === oldV?.[i]) return;
             bumpImgKeyOnly(riga);
+
+
             cascadeRiga(riga);
             refreshPrezzo(riga);
         });
@@ -1026,9 +1028,6 @@ const totalePreventivo = computed(() =>
         const q = Number(r.Qta ?? 0);
         const p = Number(r.PrezzoCad ?? 0);
         const m = Number(r.PrezzoMan ?? 0);
-        console.log("q", q);
-        console.log("p", p);
-        console.log("m", m);
 
         return sum + q * (p + m);
     }, 0)
@@ -1222,7 +1221,6 @@ function MaggVetro(riga) {
 
     const val = Number(map[col] ?? 0);
 
-    console.log("MaggVetro OK", { col, val });
 
     return val || 0;
 }
@@ -1257,6 +1255,149 @@ function submitAll() {
         },
         onError: () =>
             toast.error("❌ Errore nel salvataggio", { position: "top-left" }),
+    });
+}
+function valPredPayloadFromRiga(riga) {
+    // qui metti ESATTAMENTE i campi che vuoi salvare come default per il modello
+    // (io ti metto tutti quelli “di configurazione”)
+    return {
+        IdSoluzione: riga.IdSoluzione ?? null,
+        IdColAnta: riga.IdColAnta ?? null,
+        IdColTelaio: riga.IdColTelaio ?? null,
+        IdManiglia: riga.IdManiglia ?? null,
+        IdApertura: riga.IdApertura ?? null,
+        IdTipTelaio: riga.IdTipTelaio ?? null,
+        IdImbotte: riga.IdImbotte ?? null,
+        IdVetro: riga.IdVetro ?? null,
+        IdColFerr: riga.IdColFerr ?? null,
+        IdSerratura: riga.IdSerratura ?? null,
+        CkTaglioObl: riga.CkTaglioObl ?? "No",
+
+        // se vuoi salvare anche misure default:
+        DimL: riga.DimL ?? null,
+        DimA: riga.DimA ?? null,
+        DimSp: riga.DimSp ?? null,
+
+        // di solito NON ha senso salvare PrezzoCad come default (si ricalcola),
+        // ma se lo vuoi:
+        // PrezzoMan: riga.PrezzoMan ?? 0,
+        // NoteMan: riga.NoteMan ?? "",
+    };
+}
+
+function saveValPredForModel(riga) {
+    if (!riga.IdModello) {
+        toast.error(
+            "Seleziona un modello prima di salvare i valori predefiniti",
+            { position: "top-left" }
+        );
+        return;
+    }
+
+    const ValPred = valPredPayloadFromRiga(riga);
+
+    router.put(
+        route("listini.valpred.save", riga.IdModello),
+        { ValPred },
+        {
+            preserveScroll: true,
+            onSuccess: () =>
+                toast.success("✅ Valori predefiniti salvati nel modello", {
+                    position: "top-left",
+                    timeout: 1400,
+                }),
+            onError: () =>
+                toast.error("❌ Errore salvataggio ValPred", {
+                    position: "top-left",
+                }),
+        }
+    );
+}
+
+
+function applyValPredFromModel(riga) {
+    const m = listinoById(riga.IdModello);
+    if (!m) return;
+
+    const raw = m.ValPred ?? m.valpred ?? m.val_pred ?? null;
+    const vp = normalizeValPred(raw);
+
+    // ✅ se non c'è ValPred: NON applico nulla (lascia la cascata normale)
+    if (!vp) return;
+
+    // applica valori nel riga (Id* come number)
+    for (const [k, v] of Object.entries(vp)) {
+        if (v === undefined) continue;
+
+        if (k.startsWith("Id") && v !== null && v !== "") {
+            riga[k] = Number(v);
+        } else {
+            riga[k] = v;
+        }
+    }
+}
+function normalizeValPred(raw) {
+    if (!raw) return null;
+
+    if (typeof raw === "object") return raw;
+
+    if (typeof raw === "string") {
+        const s = raw.trim();
+        if (!s) return null;
+        try {
+            return JSON.parse(s);
+        } catch (e) {
+            console.warn("ValPred JSON parse error:", e, raw);
+            return null;
+        }
+    }
+
+    return null;
+}
+
+function getValPredFromModel(idModello) {
+    const m = listinoById(idModello);
+    if (!m) return null;
+
+    // prova più chiavi (a seconda di come arriva da Inertia)
+    const raw = m.ValPred ?? m.valpred ?? m.val_pred ?? null;
+    return normalizeValPred(raw);
+}
+
+function loadValPredToRow(riga) {
+    if (!riga.IdModello) {
+        toast.error("Seleziona un modello prima", { position: "top-left" });
+        return;
+    }
+
+    const vp = getValPredFromModel(riga.IdModello);
+
+    if (!vp) {
+        toast.info("Nessun ValPred salvato per questo modello", {
+            position: "top-left",
+            timeout: 1800,
+        });
+        return;
+    }
+
+    // applica campi
+    for (const [k, v] of Object.entries(vp)) {
+        if (v === undefined) continue;
+
+        if (k.startsWith("Id") && v !== null && v !== "") {
+            riga[k] = Number(v);
+        } else {
+            riga[k] = v;
+        }
+    }
+
+    // riallinea tutto (se qualche id non è compatibile con le opzioni)
+    cascadeRiga(riga);
+    refreshPrezzo(riga);
+
+    toast.success("✅ Valori predefiniti caricati", {
+        position: "top-left",
+        timeout: 1200,
     });
 }
 </script>
@@ -1375,6 +1516,26 @@ function submitAll() {
                                 <!-- 📋 COPIA -->
                                 <button
                                     type="button"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
+                                    @click="loadValPredToRow(riga)"
+                                    :disabled="!riga.IdModello"
+                                    title="Carica valori predefiniti dal modello"
+                                >
+                                    📥 Val. Predef.
+                                </button>
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                                    @click="saveValPredForModel(riga)"
+                                    :disabled="
+                                        !riga.IdModello || form.processing
+                                    "
+                                    title="Salva come valori predefiniti per il modello"
+                                >
+                                    💾 Val. Predef.
+                                </button>
+                                <button
+                                    type="button"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white text-sm"
                                     @click="copyRiga(riga, i)"
                                     title="Copia riga"
@@ -1430,7 +1591,7 @@ function submitAll() {
                                             <select
                                                 v-model.number="riga.IdModello"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                                @change="bumpImgKeyOnly(riga)"
+                                                @change="applyValPredFromModel(riga);bumpImgKeyOnly(riga)"
                                             >
                                                 <option
                                                     v-for="m in modelliOrdinati"

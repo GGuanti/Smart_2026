@@ -24,7 +24,8 @@ class Ordine extends Model
         'Annotazioni',
         'CodFiscale',
         'PIva',
-
+        'IdTrasporto',
+        'IdIva',
         // Fatturazione
         'CognomeNomeFatt',
         'TelefonoFatt',
@@ -121,6 +122,7 @@ class Ordine extends Model
         'CstTrasporto' => 'float',
         'KmMontaggio'  => 'integer',
         'IdIva'        => 'integer',
+        'IdTrasporto' => 'integer',
         'IdTipoDoc'    => 'integer',
     ];
 

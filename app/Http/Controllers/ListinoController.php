@@ -8,6 +8,20 @@ use Inertia\Inertia;
 
 class ListinoController extends Controller
 {
+    public function saveValPred(Request $request, Listino $listino)
+{
+    // se vuoi: autorizzazione (admin ecc.)
+    // $this->authorize('update', $listino);
+
+    $data = $request->validate([
+        'ValPred' => ['required', 'array'],
+    ]);
+
+    $listino->ValPred = $data['ValPred'];
+    $listino->save();
+
+    return back()->with('success', 'Valori predefiniti salvati');
+}
     public function create()
 {
     return Inertia::render('Listini/Form', [

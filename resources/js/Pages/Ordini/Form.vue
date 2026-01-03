@@ -15,6 +15,7 @@ const props = defineProps({
     nextNordine: { type: Number, default: null }, // per create
     mode: { type: String, default: "create" }, // "create" | "edit"
     ivaList: { type: Array, default: () => [] },
+    trasportiList: { type: Array, default: () => [] },
 });
 const ivaPerc = computed(() => {
     const sel = props.ivaList.find((i) => Number(i.id) === Number(form.IdIva));
@@ -57,6 +58,8 @@ const form = useForm({
 
     TipoDoc: props.ordine?.TipoDoc ?? "Preventivo",
     IdIva: props.ordine?.IdIva ?? null,
+    IdTrasporto: props.ordine?.IdTrasporto ?? null,
+
     Sconto1: props.ordine?.Sconto1 ?? 0,
     Sconto2: props.ordine?.Sconto2 ?? 0,
 
@@ -191,6 +194,9 @@ onMounted(() => {
         if (iva22) {
             form.IdIva = iva22.id;
         }
+    }
+    if (!isEdit.value && !form.IdTrasporto && props.trasportiList?.length) {
+        form.IdTrasporto = props.trasportiList[0].id;
     }
 });
 </script>
@@ -492,6 +498,22 @@ onMounted(() => {
                                             </option>
                                         </select>
                                     </div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="label">Trasporto</label>
+                                        <select
+                                            v-model.number="form.IdTrasporto"
+                                            class="input"
+                                            @keydown.enter.prevent="focusNext"
+                                        >
+                                            <option
+                                                v-for="t in props.trasportiList"
+                                                :key="t.id"
+                                                :value="t.id"
+                                            >
+                                                {{ t.des }}
+                                            </option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -590,9 +612,7 @@ onMounted(() => {
                                                 class="text-2xl md:text-3xl font-extrabold text-indigo-900 mt-1"
                                             >
                                                 €
-                                                {{
-                                                    totaleConIva.toFixed(2)
-                                                }}
+                                                {{ totaleConIva.toFixed(2) }}
                                             </div>
                                         </div>
                                     </div>
@@ -619,7 +639,7 @@ onMounted(() => {
                                         <!-- Genera Report -->
                                         <button
                                             type="button"
-                                             @click="generaConfermaOrdine"
+                                            @click="generaConfermaOrdine"
                                             class="h-[42px] bg-green-600 hover:bg-green-700 text-white px-4 rounded flex items-center gap-1"
                                         >
                                             🖨️ Genera Report

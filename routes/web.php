@@ -37,6 +37,8 @@ use App\Http\Controllers\PrintController;
 use App\Http\Controllers\ListinoController;
 use App\Http\Controllers\OrdineReportController;
 
+Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
+    ->name('listini.valpred.save');
 Route::get('/ordini/{id}/report/conferma', [OrdineReportController::class, 'conferma'])
     ->name('ordini.report.conferma');
 

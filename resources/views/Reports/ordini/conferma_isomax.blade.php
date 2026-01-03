@@ -411,6 +411,77 @@
             width: 55mm;
             margin: 0 auto;
         }
+
+        .summary-box {
+            border: 1px solid #d9d9d9;
+            border-radius: 12px;
+            background: #fff;
+            padding: 5mm 6mm;
+        }
+
+        .summary-title {
+            font-weight: 800;
+            font-size: 13px;
+            margin: 0 0 4mm 0;
+            text-align: center;
+            color: #111;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 11.5px;
+        }
+
+        .summary-table col:first-child {
+            width: 62%;
+        }
+
+        .summary-table col:last-child {
+            width: 38%;
+        }
+
+        .summary-table td {
+            padding: 1.6mm 0;
+            vertical-align: top;
+        }
+
+        .summary-table .lab {
+            color: #222;
+        }
+
+        .summary-table .val {
+            text-align: right;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .summary-table .muted {
+            color: #555;
+            font-weight: 400;
+        }
+
+        .summary-table .sep td {
+            border-top: 1px dashed #cfcfcf;
+            padding-top: 2.5mm;
+        }
+
+        .summary-table .grand td {
+            border-top: 1px solid #000;
+            padding-top: 2.5mm;
+        }
+
+        .summary-table .grand .lab {
+            font-weight: 900;
+            font-size: 13px;
+        }
+
+        .summary-table .grand .val {
+            font-weight: 900;
+            font-size: 13px;
+        }
     </style>
 </head>
 
@@ -525,7 +596,7 @@
                             {{ $r->TipoSoluzione ?? 'Soluzione' }}
                         </td>
                         <td class="right">
-                            L={{ $r->DimL }} • A={{ $r->DimA }} • Sp. Muro={{ $r->DimSp }} • Pz.={{ $r->Qta }}
+                            L={{ $r->DimL }} • A={{ $r->DimA }} • Sp. Muro={{ $r->DimSp }} • Pz.={{ $r->Qta }} •  Tot. Riga: €.  {{ $r->Qta * $r->PrezzoCad }}
                         </td>
                     </tr>
                 </table>
@@ -564,7 +635,7 @@
 
                         @if(!empty($r->TipoTelaio))
                         <div class="kv">
-                            <span class="k">Tipo Telaio:</span> {{ $r->TipoTelaio }}
+                            <span class="k">Mostrine:</span> {{ $r->TipoTelaio }}
                         </div>
                         @endif
                         @if(!empty($r->Vetro))
@@ -604,78 +675,57 @@
 
             {{-- RIEPILOGO in alto (centrato) --}}
             <div style="margin-top:5mm;">
-    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+                <div style="margin-top:5mm;">
+                    <div class="summary-box">
 
-        {{-- larghezze fisse --}}
-        <colgroup>
-            <col style="width:65%;">
-            <col style="width:35%;">
-        </colgroup>
 
-        {{-- TOTALE SENZA SCONTO --}}
-        <tr>
-            <td class="lab" style="font-weight:bold;">
-                Totale ordine (senza sconto)
-            </td>
-            <td class="val" style="font-weight:bold; text-align:right;">
-                {{ number_format($imponibile, 2, ',', '.') }} €
-            </td>
-        </tr>
+                        <table class="summary-table">
+                            <colgroup>
+                                <col>
+                                <col>
+                            </colgroup>
 
-        <tr>
-            <td colspan="2" style="border-top:1px dashed #cfcfcf; padding-top:2mm;"></td>
-        </tr>
+                            <tr>
+                                <td class="lab"><strong>Totale ordine</strong></td>
+                                <td class="val"><strong>{{ number_format($imponibile, 2, ',', '.') }} €</strong></td>
+                            </tr>
 
-        {{-- SCONTI
-        <tr>
-            <td class="lab">Sconto applicato</td>
-            <td class="val" style="text-align:right;">
+                            <tr class="sep">
+                                <td class="lab">Sconto applicato</td>
+                                <td class="val">
+                                    {{ number_format($scontoTotPerc, 2, ',', '.') }}%
+                                    <span class="muted">
+                                        ({{ number_format($s1, 2, ',', '.') }}% + {{ number_format($s2, 2, ',', '.') }}%)
+                                    </span>
+                                </td>
+                            </tr>
 
-                <span style="font-weight:normal;">
-                    ({{ number_format($s1, 2, ',', '.') }}% + {{ number_format($s2, 2, ',', '.') }}%)
-                </span>
-            </td>
-        </tr> --}}
+                            <tr>
+                                <td class="lab">Sconto in €</td>
+                                <td class="val">{{ number_format($scontoEuro, 2, ',', '.') }} €</td>
+                            </tr>
 
-        <tr>
-            <td class="lab">Sconto ({{ number_format($s1, 2, ',', '.') }}% + {{ number_format($s2, 2, ',', '.') }}%) in €</td>
-            <td class="val" style="text-align:right;">
-                {{ number_format($scontoEuro, 2, ',', '.') }} €
-            </td>
-        </tr>
+                            <tr class="sep">
+                                <td class="lab">Totale IVA esclusa</td>
+                                <td class="val">{{ number_format($imponibileScontato, 2, ',', '.') }} €</td>
+                            </tr>
 
-        {{-- IMPONIBILE --}}
-        <tr>
-            <td class="lab">Totale IVA esclusa</td>
-            <td class="val" style="text-align:right;">
-                {{ number_format($imponibileScontato, 2, ',', '.') }} €
-            </td>
-        </tr>
+                            <tr>
+                                <td class="lab">IVA {{ number_format($ivaPerc, 0) }}%</td>
+                                <td class="val">{{ number_format($iva, 2, ',', '.') }} €</td>
+                            </tr>
 
-        {{-- IVA --}}
-        <tr>
-            <td class="lab">IVA al {{ number_format($ivaPerc, 0) }}%</td>
-            <td class="val" style="text-align:right;">
-                {{ number_format($iva, 2, ',', '.') }} €
-            </td>
-        </tr>
+                            <td class="lab"><strong>Totale ordine</strong></td>
+                                <td class="val"><strong>{{ number_format($imponibile, 2, ',', '.') }} €</strong></td>
 
-        {{-- TOTALE FINALE --}}
-        <tr>
-            <td colspan="2" style="border-top:1px solid #000; padding-top:2mm;"></td>
-        </tr>
-
-        <tr>
-            <td class="lab" style="font-weight:900; font-size:13px;">
-                Totale Complessivo
-            </td>
-            <td class="val" style="font-weight:900; font-size:13px; text-align:right;">
-                {{ number_format($totaleIvato, 2, ',', '.') }} €
-            </td>
-        </tr>
-
-    </table>
-</div>
+                            <tr class="grand">
+                                <td class="lab"><strong>Totale Complessivo</strong></td>
+                                <td class="val"><strong>{{ number_format($totaleIvato, 2, ',', '.') }} €</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
 
 

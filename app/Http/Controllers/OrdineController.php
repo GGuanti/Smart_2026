@@ -38,32 +38,43 @@ class OrdineController extends Controller
     public function create()
     {
         $nextNordine = (int) (Ordine::max('Nordine') ?? 0) + 1;
+        $Trasp = DB::table('tab_trasporto')
+            ->select('id', 'des')
+            ->orderBy('des')
+            ->get();
         $ivaList = DB::table('tab_iva')
-        ->select('id', 'des', 'valore', 'cod_iva')
-        ->orderBy('valore')
-        ->get();
+            ->select('id', 'des', 'valore', 'cod_iva')
+            ->orderBy('valore')
+            ->get();
         return Inertia::render('Ordini/Form', [
             'ordine'      => null,
             'elementi'    => [],
             'nextNordine' => $nextNordine,
             'mode'        => 'create',
             'ivaList' => $ivaList,
+            'trasportiList' => $Trasp,
         ]);
     }
     public function edit($id)
     {
         $ordine = TabOrdine::with('righe')->findOrFail($id);
         abort_if($ordine->user_id !== auth()->id(), 403);
+        $Trasp = DB::table('tab_trasporto')
+            ->select('id', 'des')
+            ->orderBy('des')
+            ->get();
         $ivaList = DB::table('tab_iva')
-        ->select('id', 'des', 'valore', 'cod_iva')
-        ->orderBy('valore')
-        ->get();
+            ->select('id', 'des', 'valore', 'cod_iva')
+            ->orderBy('valore')
+            ->get();
         return Inertia::render('Ordini/Form', [
             'ordine'   => $ordine,
             'elementi' => $ordine->righe->values(),
             'mode'     => 'edit',
             'nextNordine' => null,
             'ivaList' => $ivaList,
+            'trasportiList' => $Trasp,
+
         ]);
     }
     public function store(Request $request)
@@ -86,6 +97,8 @@ class OrdineController extends Controller
             'DataCons'    => 'nullable|date',
             'Annotazioni' => 'nullable|string',
             'IdIva' => 'nullable|integer|exists:tab_iva,id',
+            'IdTrasporto' => 'nullable|integer',
+
         ]);
 
         // default
@@ -135,6 +148,8 @@ class OrdineController extends Controller
             'DataOrdine'  => 'required|date',
             'DataCons'    => 'nullable|date',
             'IdIva' => 'nullable|integer|exists:tab_iva,id',
+            'IdTrasporto' => 'nullable|integer',
+
         ]);
         abort_if($ordine->user_id !== auth()->id(), 403);
         if (empty($data['IdIva'])) {
