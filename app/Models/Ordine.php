@@ -140,6 +140,10 @@ class Ordine extends Model
             }
         });
     }
+    public function righe()
+    {
+        return $this->hasMany(OrdineRiga::class, 'ordine_id');
+    }
 
     /**
      * Relazione: Ordine → Elementi Ordine (righe)

@@ -168,4 +168,10 @@ class TabOrdine extends Model
         $tot = 1 - (1 - $a) * (1 - $b); // composto
         return round($tot * 100, 2);
     }
+    public function righe()
+{
+    // FK nella tabella righe = Nordine
+    // chiave locale nell'ordine = Nordine
+    return $this->hasMany(\App\Models\TabElementiOrdine::class, 'Nordine', 'Nordine');
+}
 }

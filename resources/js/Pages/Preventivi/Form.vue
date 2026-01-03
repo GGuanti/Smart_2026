@@ -923,7 +923,7 @@ function cascadeRiga(riga) {
         riga.IdVetro = null;
         riga.IdColFerr = null;
         riga.IdSerratura = null;
-         riga.PrezzoCad = 0;
+        riga.PrezzoCad = 0;
         return;
     }
 
@@ -968,11 +968,11 @@ async function aggiornaPrezzoCad(riga) {
 }
 
 async function refreshPrezzo(riga) {
-  //  try {
-  //      // await aggiornaPrezzoCad(riga);
-  //  } catch (e) {
-  //      console.log("refreshPrezzo error", e);
-  //  }
+    //  try {
+    //      // await aggiornaPrezzoCad(riga);
+    //  } catch (e) {
+    //      console.log("refreshPrezzo error", e);
+    //  }
 }
 
 /* ===================== Watchers ===================== */
@@ -984,7 +984,7 @@ watch(
             if (newV?.[i] === oldV?.[i]) return;
             bumpImgKeyOnly(riga);
             cascadeRiga(riga);
-             refreshPrezzo(riga);
+            refreshPrezzo(riga);
         });
     },
     { immediate: true }
@@ -1009,14 +1009,13 @@ watch(
                 r.DimA,
                 r.DimSp,
                 r.CkTaglioObl,
-
             ].join("|")
         ),
     (newV, oldV) => {
         form.righe.forEach((riga, i) => {
             if (newV?.[i] === oldV?.[i]) return;
             cascadeRiga(riga);
-          refreshPrezzo(riga);
+            refreshPrezzo(riga);
         });
     }
 );
@@ -1147,7 +1146,6 @@ function MaggManuale(riga) {
     return Number.isFinite(mm) ? mm : 0;
 }
 
-
 function MaggCstTelP(riga) {
     const tt = tipiTelaioById(riga.IdTipTelaio);
     if (!tt) return 0;
@@ -1232,7 +1230,7 @@ function MaggVetro(riga) {
 function totaleRigaD(riga) {
     return (
         listinoPorta(riga) +
-        MaggManuale(riga)+
+        MaggManuale(riga) +
         MaggKitScFM(riga) +
         MaggCstTelP(riga) +
         MaggColAnta(riga) +
@@ -1847,14 +1845,16 @@ function submitAll() {
                                                     >Prezzo Cad</label
                                                 >
 
-                                            <input
-                                                v-model.number="riga.PrezzoCad"
-                                                type="number"
-                                                step="0.01"
-                                                readonly
-                                                class="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-slate-100"
-                                                @keydown.enter="focusNext"
-                                            />
+                                                <input
+                                                    v-model.number="
+                                                        riga.PrezzoCad
+                                                    "
+                                                    type="number"
+                                                    step="0.01"
+                                                    readonly
+                                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-slate-100"
+                                                    @keydown.enter="focusNext"
+                                                />
                                             </div>
 
                                             <div>
@@ -1895,8 +1895,10 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 Listino Porta
                                             </div>
-<div class="text-lg font-extrabold text-slate-900 text-right">
-                                                 €
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
+                                                €
                                                 {{
                                                     listinoPorta(riga).toFixed(
                                                         2
@@ -1906,7 +1908,9 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 Maggiorazione Manuale
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{
                                                     MaggManuale(riga).toFixed(2)
@@ -1915,7 +1919,9 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 MaggKitScFM
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{
                                                     MaggKitScFM(riga).toFixed(2)
@@ -1924,7 +1930,9 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 MaggCstTelP
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{
                                                     MaggCstTelP(riga).toFixed(2)
@@ -1933,8 +1941,10 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 Magg. Anta
                                             </div>
-<div class="text-lg font-extrabold text-slate-900 text-right">
-                                                 €
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
+                                                €
                                                 {{
                                                     MaggColAnta(riga).toFixed(2)
                                                 }}
@@ -1942,7 +1952,9 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 Magg. Vetro
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{ MaggVetro(riga).toFixed(2) }}
                                             </div>
@@ -1950,21 +1962,27 @@ function submitAll() {
                                             <div class="text-xs text-slate-600">
                                                 Magg. Maniglie
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{ MaggMan(riga).toFixed(2) }}
                                             </div>
                                             <div class="text-xs text-slate-600">
                                                 Magg. Serrature
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{ MaggSerr(riga).toFixed(2) }}
                                             </div>
                                             <div class="text-xs text-slate-600">
                                                 Magg. Cerniere
                                             </div>
- <div class="text-lg font-extrabold text-slate-900 text-right">
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
                                                 €
                                                 {{ MaggCer(riga).toFixed(2) }}
                                             </div>

@@ -11,7 +11,9 @@ const confirmDelete = ref(false);
 
 const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
+    elementi: { type: Array, default: () => [] },
     nextNordine: { type: Number, default: null }, // per create
+
     mode: { type: String, default: "create" }, // "create" | "edit"
 });
 
@@ -19,7 +21,7 @@ const isEdit = computed(() => props.mode === "edit");
 
 const form = useForm({
     ID: props.ordine?.ID ?? null,
-
+    righe: props.elementi ?? [],
     Nordine: props.ordine?.Nordine ?? props.nextNordine ?? "",
 
     CognomeNome: props.ordine?.CognomeNome ?? "",
@@ -55,7 +57,24 @@ const form = useForm({
 
     Annotazioni: props.ordine?.Annotazioni ?? "",
 });
+const totaleProdotti = computed(() => {
+    const righe = Array.isArray(form.righe) ? form.righe : [];
+    return righe.reduce((sum, r) => {
+        const qta = Number(r?.Qta ?? 0);
+        const prezzo = Number(r?.PrezzoCad ?? 0);
+        const prezzom = Number(r?.PrezzoMan ?? 0);
+        return sum + qta * (prezzo + prezzom);
+    }, 0);
+});
 
+const totaleScontato = computed(() => {
+    let totale = totaleProdotti.value;
+    if (form.Sconto1) totale *= 1 - form.Sconto1 / 100;
+    if (form.Sconto2) totale *= 1 - form.Sconto2 / 100;
+    return totale;
+});
+console.log("props.elementi", props.elementi);
+console.log("form.righe", form.righe);
 const scontoTotale = computed(() => {
     const s1 = Number(form.Sconto1 ?? 0);
     const s2 = Number(form.Sconto2 ?? 0);
@@ -247,13 +266,6 @@ function destroy() {
                         <div class="kpiLabel">Tipo Documento</div>
                         <div class="kpiValue">{{ form.TipoDoc || "—" }}</div>
                     </div>
-
-                    <div class="col-span-12 md:col-span-5 card cardKpi">
-                        <div class="kpiLabel">Sconto Totale (composto)</div>
-                        <div class="kpiValue">
-                            {{ scontoTotale.toFixed(2) }}%
-                        </div>
-                    </div>
                 </div>
 
                 <form
@@ -439,6 +451,9 @@ function destroy() {
                                             <option value="Ordine">
                                                 Ordine
                                             </option>
+                                            <option value="Ordine">
+                                                Ordine inviato in azienda
+                                            </option>
                                         </select>
                                     </div>
                                 </div>
@@ -457,6 +472,19 @@ function destroy() {
 
                             <div class="p-4">
                                 <div class="grid grid-cols-12 gap-3">
+                                    <div class="col-span-12 md:col-span-4">
+                                        <label class="label"
+                                            >Totale Prodotti</label
+                                        >
+                                        <input
+                                            type="text"
+                                            class="input bg-slate-100 font-bold text-lg"
+                                            :value="`€ ${totaleProdotti.toFixed(
+                                                2
+                                            )}`"
+                                            disabled
+                                        />
+                                    </div>
                                     <div class="col-span-12 md:col-span-4">
                                         <label class="label"
                                             >Sconto 1 (%)</label
@@ -494,6 +522,56 @@ function destroy() {
                                             class="input bg-amber-50 font-extrabold"
                                             readonly
                                         />
+                                    </div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="label"
+                                            >Totale Scontato</label
+                                        >
+                                        <input
+                                            type="text"
+                                            class="input bg-green-50 font-extrabold text-lg"
+                                            :value="`€ ${totaleScontato.toFixed(
+                                                2
+                                            )}`"
+                                            disabled
+                                        />
+                                    </div>
+                                    <div
+                                        class="col-span-12 flex flex-wrap items-end gap-3"
+                                    >
+                                        <!-- Stampa -->
+                                        <div class="flex flex-col">
+                                            <label class="label">Stampa</label>
+                                            <select class="input min-w-[220px]">
+                                                <option value="Preventivo">
+                                                    Stampa Preventivo
+                                                </option>
+                                                <option value="Ordine">
+                                                    Stampa Ordine
+                                                </option>
+                                                <option value="OrdineAzienda">
+                                                    Invia in azienda
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Genera Report -->
+                                        <button
+                                            type="button"
+                                            @click="generaReport"
+                                            class="h-[42px] bg-green-600 hover:bg-green-700 text-white px-4 rounded flex items-center gap-1"
+                                        >
+                                            🖨️ Genera Report
+                                        </button>
+
+                                        <!-- Invia Email -->
+                                        <button
+                                            type="button"
+                                            @click="generaEInviaEmail"
+                                            class="h-[42px] bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center gap-1"
+                                        >
+                                            ✉️ Invia Email
+                                        </button>
                                     </div>
                                 </div>
                             </div>

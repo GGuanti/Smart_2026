@@ -62,4 +62,5 @@ class TabElementiOrdine extends Model
     {
         return $this->belongsTo(TabOrdine::class, 'Nordine', 'Nordine');
     }
+
 }
