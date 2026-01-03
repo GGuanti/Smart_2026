@@ -124,6 +124,8 @@ function newRigaFromElemento(el = null) {
         IdImbotte: el?.IdImbotte ?? "",
 
         _imgKey: 0,
+        _confirmDelete: false,
+        _isDeleting: false,
     };
 }
 
@@ -984,7 +986,6 @@ watch(
             if (newV?.[i] === oldV?.[i]) return;
             bumpImgKeyOnly(riga);
 
-
             cascadeRiga(riga);
             refreshPrezzo(riga);
         });
@@ -1061,6 +1062,9 @@ function copyRiga(riga, index) {
             ? crypto.randomUUID()
             : String(Date.now() + Math.random()),
         Id: null,
+        confirmDelete: false,
+        _isDeleting: false,
+
         _imgKey: (riga._imgKey ?? 0) + 1,
     };
 
@@ -1069,51 +1073,70 @@ function copyRiga(riga, index) {
 }
 
 function destroyRiga(riga, index) {
+    if (riga._isDeleting) return;
+
+    // riga non salvata -> elimina localmente
     if (!riga.Id) {
         removeRigaLocal(index);
         return;
     }
 
-    if (confirmDeleteUid.value !== riga.uid) {
-        confirmDeleteUid.value = riga.uid;
+    // PRIMO CLICK: entra in conferma per 4 secondi
+    if (!riga._confirmDelete) {
+        riga._confirmDelete = true;
 
         toast.warning(
             "⚠️ Confermi eliminazione riga? Premi di nuovo Elimina.",
             {
                 position: "top-left",
-                timeout: 4000,
-                closeOnClick: false,
-                draggable: false,
-                onClose: () => {
-                    if (confirmDeleteUid.value === riga.uid)
-                        confirmDeleteUid.value = null;
-                },
+                timeout: 2000,
             }
         );
+
+        // dopo 4s torna normale
+        setTimeout(() => {
+            riga._confirmDelete = false;
+        }, 4000);
+
         return;
     }
 
+    // SECONDO CLICK: esegui e disabilita
+    riga._isDeleting = true;
+    if (!riga.Id) {
+        removeRigaLocal(index);
+        riga._confirmDelete = false;
+        return;
+    }
     router.delete(route("preventivi.destroy", [props.ordine.ID, riga.Id]), {
         preserveScroll: true,
+
         onSuccess: () => {
             toast.success("🗑️ Riga eliminata", {
                 position: "top-left",
-                timeout: 1800,
+                timeout: 1500,
             });
             const idx = form.righe.findIndex((x) => x.uid === riga.uid);
             if (idx !== -1) form.righe.splice(idx, 1);
-            confirmDeleteUid.value = null;
         },
-        onError: (errs) => {
-            console.log("DELETE ERR", errs);
+
+        onError: () => {
             toast.error("❌ Errore durante l’eliminazione", {
                 position: "top-left",
-                timeout: 3000,
+                timeout: 2500,
             });
-            confirmDeleteUid.value = null;
+        },
+
+        onFinish: () => {
+            // se non è stata rimossa, riabilita
+            const exists = form.righe.some((x) => x.uid === riga.uid);
+            if (exists) riga._isDeleting = false;
+
+            riga._confirmDelete = false;
         },
     });
 }
+
 function listinoPorta(riga) {
     const m = listinoById(riga.IdModello);
     if (!m) return 0;
@@ -1221,7 +1244,6 @@ function MaggVetro(riga) {
 
     const val = Number(map[col] ?? 0);
 
-
     return val || 0;
 }
 
@@ -1313,7 +1335,6 @@ function saveValPredForModel(riga) {
         }
     );
 }
-
 
 function applyValPredFromModel(riga) {
     const m = listinoById(riga.IdModello);
@@ -1545,17 +1566,22 @@ function loadValPredToRow(riga) {
                                 <!-- Elimina -->
                                 <button
                                     type="button"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm"
+                                    :class="[
+                                        riga._isDeleting
+                                            ? 'bg-red-400 cursor-not-allowed'
+                                            : riga._confirmDelete
+                                            ? 'bg-red-700 hover:bg-red-800'
+                                            : 'bg-red-600 hover:bg-red-700',
+                                    ]"
+                                    :disabled="riga._isDeleting"
                                     @click="destroyRiga(riga, i)"
-                                    :title="
-                                        confirmDeleteUid === riga.uid
-                                            ? 'Conferma eliminazione'
-                                            : 'Elimina riga'
-                                    "
                                 >
                                     <Trash2 class="w-4 h-4" />
                                     {{
-                                        confirmDeleteUid === riga.uid
+                                        riga._isDeleting
+                                            ? "Eliminazione..."
+                                            : riga._confirmDelete
                                             ? "⚠️ Conferma"
                                             : "🗑️ Elimina"
                                     }}
@@ -1591,7 +1617,10 @@ function loadValPredToRow(riga) {
                                             <select
                                                 v-model.number="riga.IdModello"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                                @change="applyValPredFromModel(riga);bumpImgKeyOnly(riga)"
+                                                @change="
+                                                    applyValPredFromModel(riga);
+                                                    bumpImgKeyOnly(riga);
+                                                "
                                             >
                                                 <option
                                                     v-for="m in modelliOrdinati"
