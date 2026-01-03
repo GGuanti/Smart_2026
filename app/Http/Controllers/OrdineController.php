@@ -38,24 +38,32 @@ class OrdineController extends Controller
     public function create()
     {
         $nextNordine = (int) (Ordine::max('Nordine') ?? 0) + 1;
-
+        $ivaList = DB::table('tab_iva')
+        ->select('id', 'des', 'valore', 'cod_iva')
+        ->orderBy('valore')
+        ->get();
         return Inertia::render('Ordini/Form', [
             'ordine'      => null,
             'elementi'    => [],
             'nextNordine' => $nextNordine,
             'mode'        => 'create',
+            'ivaList' => $ivaList,
         ]);
     }
     public function edit($id)
     {
         $ordine = TabOrdine::with('righe')->findOrFail($id);
         abort_if($ordine->user_id !== auth()->id(), 403);
-
+        $ivaList = DB::table('tab_iva')
+        ->select('id', 'des', 'valore', 'cod_iva')
+        ->orderBy('valore')
+        ->get();
         return Inertia::render('Ordini/Form', [
             'ordine'   => $ordine,
             'elementi' => $ordine->righe->values(),
             'mode'     => 'edit',
             'nextNordine' => null,
+            'ivaList' => $ivaList,
         ]);
     }
     public function store(Request $request)
@@ -65,6 +73,8 @@ class OrdineController extends Controller
             'Telefono'    => 'nullable|string|max:25',
             'Cellulare'   => 'nullable|string|max:25',
             'Indirizzo'   => 'nullable|string|max:50',
+            'CodFiscale' => 'nullable|string|max:255',
+            'PIva' => 'nullable|string|max:255',
             'IdCitta'     => 'nullable|string|max:255',
             'Provincia'   => 'nullable|string|max:50',
             'CAP'         => 'nullable|string|max:15',
@@ -75,6 +85,7 @@ class OrdineController extends Controller
             'DataOrdine'  => 'nullable|date',
             'DataCons'    => 'nullable|date',
             'Annotazioni' => 'nullable|string',
+            'IdIva' => 'nullable|integer|exists:tab_iva,id',
         ]);
 
         // default
@@ -85,7 +96,13 @@ class OrdineController extends Controller
 
         // ✅ QUESTA È LA RIGA CHE TI MANCAVA (MA AL POSTO GIUSTO)
         $data['user_id'] = auth()->id();
+        if (empty($data['IdIva'])) {
+            $iva22 = DB::table('tab_iva')
+                ->where('valore', 22)
+                ->value('id');
 
+            $data['IdIva'] = $iva22;
+        }
         $ordine = DB::transaction(function () use ($data) {
             $next = (int) (TabOrdine::lockForUpdate()->max('Nordine') ?? 0) + 1;
             $data['Nordine'] = $next;
@@ -106,6 +123,9 @@ class OrdineController extends Controller
             'Cellulare'   => 'nullable|string|max:25',
             'Indirizzo'   => 'nullable|string|max:50',
             'IdCitta'     => 'nullable|string|max:255',
+            'CodFiscale' => 'nullable|string|max:255',
+            'PIva' => 'nullable|string|max:255',
+            'Email' => 'nullable|string|max:255',
             'Provincia'   => 'nullable|string|max:50',
             'CAP'         => 'nullable|string|max:15',
             'TipoDoc'     => 'required|string|max:255',
@@ -114,8 +134,16 @@ class OrdineController extends Controller
             'Annotazioni' => 'nullable|string',
             'DataOrdine'  => 'required|date',
             'DataCons'    => 'nullable|date',
+            'IdIva' => 'nullable|integer|exists:tab_iva,id',
         ]);
         abort_if($ordine->user_id !== auth()->id(), 403);
+        if (empty($data['IdIva'])) {
+            $iva22 = DB::table('tab_iva')
+                ->where('valore', 22)
+                ->value('id');
+
+            $data['IdIva'] = $iva22;
+        }
         $ordine->update($data);
 
         return redirect()

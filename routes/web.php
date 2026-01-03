@@ -34,9 +34,12 @@ use App\Http\Controllers\{
 };
 use Illuminate\Http\Request;
 use App\Http\Controllers\PrintController;
-
-
 use App\Http\Controllers\ListinoController;
+use App\Http\Controllers\OrdineReportController;
+
+Route::get('/ordini/{id}/report/conferma', [OrdineReportController::class, 'conferma'])
+    ->name('ordini.report.conferma');
+
 
 Route::get('/listini/crea', [ListinoController::class, 'create'])->name('listini.create');
 Route::post('/listini', [ListinoController::class, 'store'])->name('listini.store');

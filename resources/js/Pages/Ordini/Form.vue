@@ -2,7 +2,7 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useToast } from "vue-toastification";
 
 const toast = useToast();
@@ -13,10 +13,15 @@ const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
     elementi: { type: Array, default: () => [] },
     nextNordine: { type: Number, default: null }, // per create
-
     mode: { type: String, default: "create" }, // "create" | "edit"
+    ivaList: { type: Array, default: () => [] },
 });
-
+const ivaPerc = computed(() => {
+    const sel = props.ivaList.find((i) => Number(i.id) === Number(form.IdIva));
+    return Number(sel?.valore ?? 0);
+});
+const totaleIva = computed(() => totaleScontato.value * (ivaPerc.value / 100));
+const totaleConIva = computed(() => totaleScontato.value + totaleIva.value);
 const isEdit = computed(() => props.mode === "edit");
 
 const form = useForm({
@@ -51,7 +56,7 @@ const form = useForm({
         : "",
 
     TipoDoc: props.ordine?.TipoDoc ?? "Preventivo",
-
+    IdIva: props.ordine?.IdIva ?? null,
     Sconto1: props.ordine?.Sconto1 ?? 0,
     Sconto2: props.ordine?.Sconto2 ?? 0,
 
@@ -173,6 +178,21 @@ function destroy() {
         },
     });
 }
+function generaConfermaOrdine() {
+    const id = props.ordine?.ID ?? form.ID;
+    if (!id)
+        return toast.error("Salva l'ordine prima di generare la conferma.");
+    window.open(route("ordini.report.conferma", id), "_blank");
+}
+onMounted(() => {
+    // se NON è edit e l'IVA non è impostata → default 22%
+    if (!isEdit.value && !form.IdIva && props.ivaList?.length) {
+        const iva22 = props.ivaList.find((i) => Number(i.valore) === 22);
+        if (iva22) {
+            form.IdIva = iva22.id;
+        }
+    }
+});
 </script>
 
 <template>
@@ -456,6 +476,22 @@ function destroy() {
                                             </option>
                                         </select>
                                     </div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="label">IVA</label>
+                                        <select
+                                            v-model.number="form.IdIva"
+                                            class="input"
+                                            @keydown.enter.prevent="focusNext"
+                                        >
+                                            <option
+                                                v-for="i in props.ivaList"
+                                                :key="i.id"
+                                                :value="i.id"
+                                            >
+                                                {{ i.des }}
+                                            </option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -474,7 +510,7 @@ function destroy() {
                                 <div class="grid grid-cols-12 gap-3">
                                     <div class="col-span-12 md:col-span-4">
                                         <label class="label"
-                                            >Totale Prodotti</label
+                                            >Totale Iva Esclusa</label
                                         >
                                         <input
                                             type="text"
@@ -523,9 +559,9 @@ function destroy() {
                                             readonly
                                         />
                                     </div>
-                                    <div class="col-span-12 md:col-span-6">
+                                    <div class="col-span-12 md:col-span-4">
                                         <label class="label"
-                                            >Totale Scontato</label
+                                            >Totale Scontato Iva Esclusa</label
                                         >
                                         <input
                                             type="text"
@@ -536,6 +572,31 @@ function destroy() {
                                             disabled
                                         />
                                     </div>
+                                    <div class="col-span-12 md:col-span-4">
+                                        <label class="label text-indigo-700">
+                                            Totale Ivato
+                                        </label>
+
+                                        <div
+                                            class="mt-1 rounded-2xl border-2 border-indigo-500 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-md"
+                                        >
+                                            <div
+                                                class="text-xs uppercase font-bold text-indigo-600 tracking-wide"
+                                            >
+                                                Importo finale
+                                            </div>
+
+                                            <div
+                                                class="text-2xl md:text-3xl font-extrabold text-indigo-900 mt-1"
+                                            >
+                                                €
+                                                {{
+                                                    totaleConIva.toFixed(2)
+                                                }}
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div
                                         class="col-span-12 flex flex-wrap items-end gap-3"
                                     >
@@ -558,7 +619,7 @@ function destroy() {
                                         <!-- Genera Report -->
                                         <button
                                             type="button"
-                                            @click="generaReport"
+                                             @click="generaConfermaOrdine"
                                             class="h-[42px] bg-green-600 hover:bg-green-700 text-white px-4 rounded flex items-center gap-1"
                                         >
                                             🖨️ Genera Report

@@ -1296,16 +1296,28 @@ function submitAll() {
                                 >
                             </div>
                         </div>
+
                         <div
                             class="col-span-12 md:col-span-5 rounded-2xl border bg-white shadow-sm p-4"
                         >
                             <div class="text-xs font-semibold text-gray-500">
                                 Totale preventivo
                             </div>
+
                             <div
-                                class="mt-1 text-2xl font-extrabold text-gray-900"
+                                class="mt-1 rounded-2xl border-2 border-indigo-500 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-md"
                             >
-                                € {{ totalePreventivo.toFixed(2) }}
+                                <div
+                                    class="text-xs uppercase font-bold text-indigo-600 tracking-wide"
+                                >
+                                    Importo finale
+                                </div>
+
+                                <div
+                                    class="text-2xl md:text-3xl font-extrabold text-indigo-900 mt-1"
+                                >
+                                    € {{ totalePreventivo.toFixed(2) }}
+                                </div>
                             </div>
                         </div>
                     </div>
