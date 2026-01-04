@@ -70,7 +70,8 @@ Route::prefix('ordini')->name('ordini.')->group(function () {
     Route::delete('/{ordine}', [OrdineController::class, 'destroy'])
         ->name('destroy');
 });
-
+Route::post('/ordini/{id}/copia', [\App\Http\Controllers\OrdineController::class, 'copia'])
+    ->name('ordini.copia');
 use App\Http\Controllers\PreventivoController;
 
 Route::middleware(['auth', 'verified'])->group(function () {

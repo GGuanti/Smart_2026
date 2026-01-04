@@ -1,15 +1,16 @@
 <!-- resources/js/Pages/Ordini/Form.vue -->
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, Link, useForm } from "@inertiajs/vue3";
-import { computed, ref, onMounted } from "vue";
+import { Head, Link, useForm, router  } from "@inertiajs/vue3";
+import { computed, ref, onMounted, watch } from "vue";
 import { useToast } from "vue-toastification";
 import axios from "axios";
 
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
 const confirmDelete = ref(false);
-const TipoStampa = ref("Prev");
+
+
 const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
     elementi: { type: Array, default: () => [] },
@@ -17,6 +18,9 @@ const props = defineProps({
     mode: { type: String, default: "create" }, // "create" | "edit"
     ivaList: { type: Array, default: () => [] },
     trasportiList: { type: Array, default: () => [] },
+    QtaTotRighe: { type: Number, default: 0 },
+    regioneUtente: { type: String, default: "" },
+    tariffeTrasporto: { type: Array, default: () => [] },
 });
 const ivaPerc = computed(() => {
     const sel = props.ivaList.find((i) => Number(i.id) === Number(form.IdIva));
@@ -30,7 +34,7 @@ const form = useForm({
     ID: props.ordine?.ID ?? null,
     righe: props.elementi ?? [],
     Nordine: props.ordine?.Nordine ?? props.nextNordine ?? "",
-TipoStampa: "Prev",
+    TipoStampa: "Prev",
     CognomeNome: props.ordine?.CognomeNome ?? "",
     Telefono: props.ordine?.Telefono ?? "",
     Cellulare: props.ordine?.Cellulare ?? "",
@@ -60,12 +64,15 @@ TipoStampa: "Prev",
     TipoDoc: props.ordine?.TipoDoc ?? "Preventivo",
     IdIva: props.ordine?.IdIva ?? null,
     IdTrasporto: props.ordine?.IdTrasporto ?? null,
+    CstTrasporto: props.ordine?.CstTrasporto ?? 0,
 
     Sconto1: props.ordine?.Sconto1 ?? 0,
     Sconto2: props.ordine?.Sconto2 ?? 0,
 
     Annotazioni: props.ordine?.Annotazioni ?? "",
+    regioneUtente: props.regioneUtente || props.ordine?.regioneUtente || "",
 });
+console.log("Regione", props.regioneUtente);
 const totaleProdotti = computed(() => {
     const righe = Array.isArray(form.righe) ? form.righe : [];
     return righe.reduce((sum, r) => {
@@ -115,8 +122,6 @@ const totaleScontato = computed(() => {
     if (form.Sconto2) totale *= 1 - form.Sconto2 / 100;
     return totale;
 });
-console.log("props.elementi", props.elementi);
-console.log("form.righe", form.righe);
 const scontoTotale = computed(() => {
     const s1 = Number(form.Sconto1 ?? 0);
     const s2 = Number(form.Sconto2 ?? 0);
@@ -217,10 +222,10 @@ function destroy() {
 }
 function generaReport() {
     const id = props.ordine?.ID ?? form.ID;
-    const tipo=form.TipoStampa;
+    const tipo = form.TipoStampa;
     if (!id)
         return toast.error("Salva l'ordine prima di generare la conferma.");
-     window.open(
+    window.open(
         route("ordini.report.conferma", {
             id: id,
             tipo: tipo,
@@ -231,8 +236,9 @@ function generaReport() {
 function generaReport1() {
     const id = props.ordine?.ID ?? form.ID;
     const tipo = form.TipoStampa;
-console.log("Tipo",tipo);
-    if (!id) return toast.error("Salva l'ordine prima di generare la conferma.");
+    console.log("Tipo", tipo);
+    if (!id)
+        return toast.error("Salva l'ordine prima di generare la conferma.");
 
     const url = `/report/genera?ordine=${id}&tipo=${encodeURIComponent(tipo)}`;
     console.log("URL REPORT:", url);
@@ -251,6 +257,66 @@ onMounted(() => {
         form.IdTrasporto = props.trasportiList[0].id;
     }
 });
+watch(
+    () => [
+        form.regioneUtente,
+        props.QtaTotRighe,
+        form.IdTrasporto,
+        props.tariffeTrasporto,
+    ],
+    () => {
+        // Trasporto escluso -> 0
+        if (Number(form.IdTrasporto) === 1 || Number(form.IdTrasporto) === 4) {
+            form.CstTrasporto = 0;
+            return;
+        }
+
+        const regione = String(form.regioneUtente || "")
+            .toUpperCase()
+            .trim();
+        const qta = Number(props.QtaTotRighe) || 0;
+
+        // cerca tariffa
+        const t = (props.tariffeTrasporto || []).find(
+            (x) =>
+                String(x.regione || "")
+                    .toUpperCase()
+                    .trim() === regione
+        );
+
+        if (!t) {
+            // se non trovo tariffa: NON forzo (lascia valore attuale)
+            return;
+        }
+
+        const costo = Number(t.costo) || 0;
+        const minTass = Number(t.min_tass) || 0;
+
+        form.CstTrasporto = Math.max(qta * costo, minTass);
+    },
+    { immediate: true }
+);
+function copiaOrdine() {
+  const id = props.ordine?.ID ?? form.ID;
+
+  if (!id) {
+    toast.error("Salva l'ordine prima di copiarlo.");
+    return;
+  }
+
+  router.post(route("ordini.copia", id), {}, {
+    preserveScroll: true,
+    onStart: () => {
+      toast.info("📄 Copia ordine in corso…");
+    },
+    onSuccess: () => {
+      toast.success("✅ Ordine copiato");
+    },
+    onError: () => {
+      toast.error("❌ Errore copia ordine");
+    },
+  });
+}
 </script>
 
 <template>
@@ -267,16 +333,17 @@ onMounted(() => {
                         <div class="flex items-center gap-2">
                             <div class="flex items-center gap-4">
                                 <img
-                                    src="/Logo.jpg"
+                                    src="/Logo1.png"
                                     alt="Logo"
-                                    class="h-12 object-contain"
+                                   class="h-10"
                                 />
                             </div>
-                            <h1
-                                class="text-xl md:text-2xl font-extrabold text-slate-900"
-                            >
-                                Ordini • {{ isEdit ? "Modifica" : "Nuovo" }}
-                            </h1>
+                                                              <h1
+                                        class="text-2xl font-extrabold text-slate-900"
+                                    >
+                                        Ordini • {{ isEdit ? "Modifica" : "Nuovo" }}
+                                    </h1>
+
 
                             <span class="badge badge-slate">
                                 {{ isEdit ? "Edit" : "Inserimento" }}
@@ -305,6 +372,20 @@ onMounted(() => {
                         >
                             ➕ Apri Elenco Prodotti
                         </Link>
+<button
+  v-if="isEdit && (props.ordine?.ID || form.ID)"
+  type="button"
+  class="px-3 py-2 rounded-xl
+         bg-emerald-500 text-white
+         hover:bg-emerald-600
+         shadow-sm hover:shadow
+         transition font-extrabold
+         flex items-center gap-1"
+  :disabled="form.processing"
+  @click="copiaOrdine"
+>
+  📄 Copia Ordine
+</button>
 
                         <button
                             type="submit"
@@ -529,8 +610,11 @@ onMounted(() => {
                                             <option value="Ordine">
                                                 Ordine
                                             </option>
-                                            <option value="Ordine">
-                                                Ordine inviato in azienda
+                                            <option value="Ordine inviato">
+                                                Ordine inviato
+                                            </option>
+                                            <option value="Consegnato">
+                                                Consegnato
                                             </option>
                                         </select>
                                     </div>
@@ -566,6 +650,26 @@ onMounted(() => {
                                             </option>
                                         </select>
                                     </div>
+                                    <div class="col-span-12 md:col-span-5">
+                                        <label
+                                            class="text-xs font-semibold text-gray-600"
+                                            >Costo Trasporto
+                                            <span class="ml-1 text-gray-500">
+                                                ({{
+                                                    form.regioneUtente || "—"
+                                                }})
+                                            </span></label
+                                        >
+
+                                        <input
+                                            v-model.number="form.CstTrasporto"
+                                            type="number"
+                                            step="0.01"
+                                            class="input bg-green-50 font-extrabold text-lg disabled:bg-gray-100 disabled:text-gray-400"
+                                            disabled
+                                            @keydown.enter.prevent="focusNext"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -582,7 +686,7 @@ onMounted(() => {
 
                             <div class="p-4">
                                 <div class="grid grid-cols-12 gap-3">
-                                    <div class="col-span-12 md:col-span-4">
+                                    <div class="col-span-12 md:col-span-3">
                                         <label class="label"
                                             >Totale Iva Esclusa</label
                                         >
@@ -595,7 +699,7 @@ onMounted(() => {
                                             disabled
                                         />
                                     </div>
-                                    <div class="col-span-12 md:col-span-4">
+                                    <div class="col-span-12 md:col-span-2">
                                         <label class="label"
                                             >Sconto 1 (%)</label
                                         >
@@ -608,7 +712,7 @@ onMounted(() => {
                                         />
                                     </div>
 
-                                    <div class="col-span-12 md:col-span-4">
+                                    <div class="col-span-12 md:col-span-2">
                                         <label class="label"
                                             >Sconto 2 (%)</label
                                         >
@@ -621,7 +725,7 @@ onMounted(() => {
                                         />
                                     </div>
 
-                                    <div class="col-span-12 md:col-span-4">
+                                    <div class="col-span-12 md:col-span-2">
                                         <label class="label"
                                             >Sconto Totale</label
                                         >
@@ -633,9 +737,9 @@ onMounted(() => {
                                             readonly
                                         />
                                     </div>
-                                    <div class="col-span-12 md:col-span-4">
+                                    <div class="col-span-12 md:col-span-3">
                                         <label class="label"
-                                            >Totale Scontato Iva Esclusa</label
+                                            >Tot. Scontato Iva E.</label
                                         >
                                         <input
                                             type="text"
@@ -646,7 +750,7 @@ onMounted(() => {
                                             disabled
                                         />
                                     </div>
-                                    <div class="col-span-12 md:col-span-4">
+                                    <div class="col-span-12 md:col-span-5">
                                         <label class="label text-indigo-700">
                                             Totale Ivato
                                         </label>
@@ -675,7 +779,10 @@ onMounted(() => {
                                         <!-- Stampa -->
                                         <div class="flex flex-col">
                                             <label class="label">Stampa</label>
-                                          <select v-model="form.TipoStampa" class="input min-w-[220px]">
+                                            <select
+                                                v-model="form.TipoStampa"
+                                                class="input min-w-[220px]"
+                                            >
                                                 <option value="Prev">
                                                     Preventivo
                                                 </option>
