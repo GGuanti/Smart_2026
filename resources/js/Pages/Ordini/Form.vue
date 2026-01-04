@@ -9,7 +9,7 @@ import axios from "axios";
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
 const confirmDelete = ref(false);
-
+const TipoStampa = ref("Prev");
 const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
     elementi: { type: Array, default: () => [] },
@@ -30,7 +30,7 @@ const form = useForm({
     ID: props.ordine?.ID ?? null,
     righe: props.elementi ?? [],
     Nordine: props.ordine?.Nordine ?? props.nextNordine ?? "",
-
+TipoStampa: "Prev",
     CognomeNome: props.ordine?.CognomeNome ?? "",
     Telefono: props.ordine?.Telefono ?? "",
     Cellulare: props.ordine?.Cellulare ?? "",
@@ -82,7 +82,8 @@ async function generaEInviaEmail() {
     if (!id) return toast.error("Salva l'ordine prima di inviare la email.");
 
     const to = String(form.Email || "").trim();
-    if (!to) return toast.error("Inserisci l'email del cliente prima di inviare.");
+    if (!to)
+        return toast.error("Inserisci l'email del cliente prima di inviare.");
 
     if (isSendingEmail.value) return; // anti doppio click
     isSendingEmail.value = true;
@@ -214,12 +215,30 @@ function destroy() {
         },
     });
 }
-function generaConfermaOrdine() {
+function generaReport() {
     const id = props.ordine?.ID ?? form.ID;
+    const tipo=form.TipoStampa;
     if (!id)
         return toast.error("Salva l'ordine prima di generare la conferma.");
-    window.open(route("ordini.report.conferma", id), "_blank");
+     window.open(
+        route("ordini.report.conferma", {
+            id: id,
+            tipo: tipo,
+        }),
+        "_blank"
+    );
 }
+function generaReport1() {
+    const id = props.ordine?.ID ?? form.ID;
+    const tipo = form.TipoStampa;
+console.log("Tipo",tipo);
+    if (!id) return toast.error("Salva l'ordine prima di generare la conferma.");
+
+    const url = `/report/genera?ordine=${id}&tipo=${encodeURIComponent(tipo)}`;
+    console.log("URL REPORT:", url);
+    window.open(url, "_blank");
+}
+
 onMounted(() => {
     // se NON è edit e l'IVA non è impostata → default 22%
     if (!isEdit.value && !form.IdIva && props.ivaList?.length) {
@@ -656,15 +675,15 @@ onMounted(() => {
                                         <!-- Stampa -->
                                         <div class="flex flex-col">
                                             <label class="label">Stampa</label>
-                                            <select class="input min-w-[220px]">
-                                                <option value="Preventivo">
-                                                    Stampa Preventivo
+                                          <select v-model="form.TipoStampa" class="input min-w-[220px]">
+                                                <option value="Prev">
+                                                    Preventivo
                                                 </option>
-                                                <option value="Ordine">
-                                                    Stampa Ordine
+                                                <option value="Ord">
+                                                    Ordine
                                                 </option>
-                                                <option value="OrdineAzienda">
-                                                    Invia in azienda
+                                                <option value="ConfOrd">
+                                                    Conferma Ordine
                                                 </option>
                                             </select>
                                         </div>
@@ -672,21 +691,26 @@ onMounted(() => {
                                         <!-- Genera Report -->
                                         <button
                                             type="button"
-                                            @click="generaConfermaOrdine"
+                                            @click="generaReport"
                                             class="h-[42px] bg-green-600 hover:bg-green-700 text-white px-4 rounded flex items-center gap-1"
                                         >
                                             🖨️ Genera Report
                                         </button>
-<button
-    type="button"
-    @click="generaEInviaEmail"
-    class="h-[42px] bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-    :disabled="isSendingEmail || form.processing"
->
-    <span v-if="!isSendingEmail">✉️ Invia Email</span>
-    <span v-else>📨 Invio...</span>
-</button>
 
+                                        <button
+                                            type="button"
+                                            @click="generaEInviaEmail"
+                                            class="h-[42px] bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                                            :disabled="
+                                                isSendingEmail ||
+                                                form.processing
+                                            "
+                                        >
+                                            <span v-if="!isSendingEmail"
+                                                >✉️ Invia Email</span
+                                            >
+                                            <span v-else>📨 Invio...</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>

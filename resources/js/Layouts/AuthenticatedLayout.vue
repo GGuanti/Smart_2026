@@ -143,7 +143,7 @@ const page = usePage();
                                         <button
                                             class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-transparent rounded-md shadow-sm hover:bg-gray-100"
                                         >
-                                            Consigliere
+                                            Utente
                                             <svg
                                                 class="ms-2 h-4 w-4"
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -162,10 +162,6 @@ const page = usePage();
                                     </span>
                                 </template>
                                 <template #content>
-                                    <DropdownLink
-                                        :href="route('articoli.index')"
-                                        >📄 Articoli</DropdownLink
-                                    >
                                     <DropdownLink
                                         :href="route('appointments.calendar')"
                                         >📅 Calendario</DropdownLink

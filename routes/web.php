@@ -39,10 +39,16 @@ use App\Http\Controllers\OrdineReportController;
 
 Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
     ->name('listini.valpred.save');
-Route::get('/ordini/{id}/report/conferma', [OrdineReportController::class, 'conferma'])
-    ->name('ordini.report.conferma');
-Route::post('/ordini/{ordine}/email/conferma', [OrdineReportController::class, 'emailConferma'])
+
+    Route::get(
+        '/ordini/{id}/conferma',
+        [OrdineReportController::class, 'conferma']
+    )->name('ordini.report.conferma');
+
+    Route::post('/ordini/{ordine}/email/conferma', [OrdineReportController::class, 'emailConferma'])
     ->name('ordini.email.conferma');
+//     Route::get('/ordini/{id}/report/conferma', [OrdineReportController::class, 'conferma'])
+//     ->name('ordini.report.conferma');
 
 Route::get('/listini/crea', [ListinoController::class, 'create'])->name('listini.create');
 Route::post('/listini', [ListinoController::class, 'store'])->name('listini.store');
@@ -62,8 +68,9 @@ Route::prefix('ordini')->name('ordini.')->group(function () {
     // ✅ UPDATE
     Route::put('/{ordine}', [OrdineController::class, 'update'])->name('update');
     Route::delete('/{ordine}', [OrdineController::class, 'destroy'])
-    ->name('destroy');
+        ->name('destroy');
 });
+
 use App\Http\Controllers\PreventivoController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -78,8 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::delete('ordini/{ordine}/preventivi/{elemento}', [PreventivoController::class, 'destroy'])->name('preventivi.destroy');
     Route::post('/preventivi/prezzo-cad', [\App\Http\Controllers\PreventiviCalcController::class, 'prezzoCad'])
-    ->name('preventivi.prezzoCad');
-
+        ->name('preventivi.prezzoCad');
 });
 
 // routes/web.php

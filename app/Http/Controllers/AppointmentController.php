@@ -14,6 +14,9 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class AppointmentController extends Controller
 {
+    public function EseguiAccess(Request $request)
+        {
+    }
     public function ImportaDati(Request $request)
     {
         @set_time_limit(900);
@@ -406,9 +409,6 @@ class AppointmentController extends Controller
             return null;
         }
     }
-
-
-
 
     private function parseDateIt(?string $value): ?string
     {

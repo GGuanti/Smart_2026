@@ -181,6 +181,21 @@ const ImportaDati = () => {
     );
 };
 
+const EtEseguiAccess = ref(false);
+
+const c = () => {
+    EtEseguiAccess.value = true;
+    router.post(
+        route("appointments.EseguiAccess"),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (EtEseguiAccess.value = false),
+        }
+    );
+};
+
+
 const importReport = computed(() => page.props.flash?.import_report || null);
 
 // (se ti serve)
@@ -1334,8 +1349,20 @@ onMounted(() => {
                 >
                     Aggiungi Evento
                 </Link>
-
                 <button
+                v-if="isAdmin"
+                    class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
+                    :disabled="EtEseguiAccess"
+                    @click="EseguiAccess"
+                >
+                    {{
+                        EseguiAccess
+                            ? "Import in corso..."
+                            : "Import Ordini + Prodotti"
+                    }}
+                </button>
+                <button
+                 v-if="$page.props.auth.user.profilo === 'admin'"
                     class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
                     :disabled="EtImportaDati"
                     @click="ImportaDati"
