@@ -4,6 +4,7 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import { computed, ref, onMounted } from "vue";
 import { useToast } from "vue-toastification";
+import axios from "axios";
 
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
@@ -74,7 +75,39 @@ const totaleProdotti = computed(() => {
         return sum + qta * (prezzo + prezzom);
     }, 0);
 });
+const isSendingEmail = ref(false);
 
+async function generaEInviaEmail() {
+    const id = props.ordine?.ID ?? form.ID;
+    if (!id) return toast.error("Salva l'ordine prima di inviare la email.");
+
+    const to = String(form.Email || "").trim();
+    if (!to) return toast.error("Inserisci l'email del cliente prima di inviare.");
+
+    if (isSendingEmail.value) return; // anti doppio click
+    isSendingEmail.value = true;
+
+    try {
+        const res = await axios.post(route("ordini.email.conferma", id), {
+            to, // puoi anche non mandarlo e usare quello del DB, ma così prendi quello del form
+        });
+
+        toast.success("✅ Email inviata con PDF allegato!", {
+            position: "top-center",
+            timeout: 2500,
+        });
+
+        // opzionale: se vuoi aprire anche il PDF dopo l'invio
+        // window.open(route("ordini.report.conferma", id), "_blank");
+    } catch (e) {
+        const msg =
+            e?.response?.data?.message ||
+            "❌ Errore invio email (controlla configurazione mail/log).";
+        toast.error(msg, { position: "top-left", timeout: 3500 });
+    } finally {
+        isSendingEmail.value = false;
+    }
+}
 const totaleScontato = computed(() => {
     let totale = totaleProdotti.value;
     if (form.Sconto1) totale *= 1 - form.Sconto1 / 100;
@@ -644,15 +677,16 @@ onMounted(() => {
                                         >
                                             🖨️ Genera Report
                                         </button>
+<button
+    type="button"
+    @click="generaEInviaEmail"
+    class="h-[42px] bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+    :disabled="isSendingEmail || form.processing"
+>
+    <span v-if="!isSendingEmail">✉️ Invia Email</span>
+    <span v-else>📨 Invio...</span>
+</button>
 
-                                        <!-- Invia Email -->
-                                        <button
-                                            type="button"
-                                            @click="generaEInviaEmail"
-                                            class="h-[42px] bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center gap-1"
-                                        >
-                                            ✉️ Invia Email
-                                        </button>
                                     </div>
                                 </div>
                             </div>

@@ -172,4 +172,5 @@ class OrdineController extends Controller
 
         return redirect()->route('ordini.index');
     }
+
 }

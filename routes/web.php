@@ -41,7 +41,8 @@ Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred
     ->name('listini.valpred.save');
 Route::get('/ordini/{id}/report/conferma', [OrdineReportController::class, 'conferma'])
     ->name('ordini.report.conferma');
-
+Route::post('/ordini/{ordine}/email/conferma', [OrdineReportController::class, 'emailConferma'])
+    ->name('ordini.email.conferma');
 
 Route::get('/listini/crea', [ListinoController::class, 'create'])->name('listini.create');
 Route::post('/listini', [ListinoController::class, 'store'])->name('listini.store');
