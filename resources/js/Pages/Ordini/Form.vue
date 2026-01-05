@@ -1,15 +1,24 @@
 <!-- resources/js/Pages/Ordini/Form.vue -->
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, Link, useForm, router  } from "@inertiajs/vue3";
+import { Head, Link, useForm, router } from "@inertiajs/vue3";
 import { computed, ref, onMounted, watch } from "vue";
 import { useToast } from "vue-toastification";
 import axios from "axios";
-
+import {
+    User,
+    MapPin,
+    Home,
+    Phone,
+    Smartphone,
+    Mail,
+    FileText,
+    Hash,
+    StickyNote
+} from "lucide-vue-next";
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
 const confirmDelete = ref(false);
-
 
 const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
@@ -297,25 +306,29 @@ watch(
     { immediate: true }
 );
 function copiaOrdine() {
-  const id = props.ordine?.ID ?? form.ID;
+    const id = props.ordine?.ID ?? form.ID;
 
-  if (!id) {
-    toast.error("Salva l'ordine prima di copiarlo.");
-    return;
-  }
+    if (!id) {
+        toast.error("Salva l'ordine prima di copiarlo.");
+        return;
+    }
 
-  router.post(route("ordini.copia", id), {}, {
-    preserveScroll: true,
-    onStart: () => {
-      toast.info("📄 Copia ordine in corso…");
-    },
-    onSuccess: () => {
-      toast.success("✅ Ordine copiato");
-    },
-    onError: () => {
-      toast.error("❌ Errore copia ordine");
-    },
-  });
+    router.post(
+        route("ordini.copia", id),
+        {},
+        {
+            preserveScroll: true,
+            onStart: () => {
+                toast.info("📄 Copia ordine in corso…");
+            },
+            onSuccess: () => {
+                toast.success("✅ Ordine copiato");
+            },
+            onError: () => {
+                toast.error("❌ Errore copia ordine");
+            },
+        }
+    );
 }
 </script>
 
@@ -332,18 +345,11 @@ function copiaOrdine() {
                     <div>
                         <div class="flex items-center gap-2">
                             <div class="flex items-center gap-4">
-                                <img
-                                    src="/Logo1.png"
-                                    alt="Logo"
-                                   class="h-10"
-                                />
+                                <img src="/Logo1.png" alt="Logo" class="h-10" />
                             </div>
-                                                              <h1
-                                        class="text-2xl font-extrabold text-slate-900"
-                                    >
-                                        Ordini • {{ isEdit ? "Modifica" : "Nuovo" }}
-                                    </h1>
-
+                            <h1 class="text-2xl font-extrabold text-slate-900">
+                                Ordini • {{ isEdit ? "Modifica" : "Nuovo" }}
+                            </h1>
 
                             <span class="badge badge-slate">
                                 {{ isEdit ? "Edit" : "Inserimento" }}
@@ -372,20 +378,15 @@ function copiaOrdine() {
                         >
                             ➕ Apri Elenco Prodotti
                         </Link>
-<button
-  v-if="isEdit && (props.ordine?.ID || form.ID)"
-  type="button"
-  class="px-3 py-2 rounded-xl
-         bg-emerald-500 text-white
-         hover:bg-emerald-600
-         shadow-sm hover:shadow
-         transition font-extrabold
-         flex items-center gap-1"
-  :disabled="form.processing"
-  @click="copiaOrdine"
->
-  📄 Copia Ordine
-</button>
+                        <button
+                            v-if="isEdit && (props.ordine?.ID || form.ID)"
+                            type="button"
+                            class="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow transition font-extrabold flex items-center gap-1"
+                            :disabled="form.processing"
+                            @click="copiaOrdine"
+                        >
+                            📄 Copia Ordine
+                        </button>
 
                         <button
                             type="submit"
@@ -438,7 +439,11 @@ function copiaOrdine() {
                             <div
                                 class="cardHead bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
                             >
-                                <div class="font-extrabold">👤 Cliente</div>
+                            <div class="font-extrabold flex items-center gap-2">
+    <User class="w-5 h-5" />
+    Cliente
+</div>
+
                                 <div class="text-xs opacity-90">
                                     Dati anagrafici e contatti
                                 </div>
@@ -447,40 +452,46 @@ function copiaOrdine() {
                             <div class="p-4">
                                 <div class="grid grid-cols-12 gap-3">
                                     <div class="col-span-12">
-                                        <label class="label"
-                                            >Cognome Nome</label
-                                        >
-                                        <input
-                                            v-model="form.CognomeNome"
-                                            class="input"
-                                            placeholder="Es. Rossi Mario"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                        <div
-                                            v-if="form.errors.CognomeNome"
-                                            class="err"
-                                        >
-                                            {{ form.errors.CognomeNome }}
-                                        </div>
-                                    </div>
+    <label class="label">Cognome Nome</label>
+    <div class="input-icon">
+        <User class="w-4 h-4" />
+        <input
+            v-model="form.CognomeNome"
+            class="input"
+            placeholder="Es. Rossi Mario"
+            @keydown.enter.prevent="focusNext"
+        />
+    </div>
+    <div v-if="form.errors.CognomeNome" class="err">
+        {{ form.errors.CognomeNome }}
+    </div>
+</div>
 
-                                    <div class="col-span-12 md:col-span-7">
-                                        <label class="label">Indirizzo</label>
-                                        <input
-                                            v-model="form.Indirizzo"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
+                                   <div class="col-span-12 md:col-span-7">
+    <label class="label">Indirizzo</label>
+    <div class="input-icon">
+        <Home class="w-4 h-4" />
+        <input
+            v-model="form.Indirizzo"
+            class="input"
+            @keydown.enter.prevent="focusNext"
+        />
+    </div>
+</div>
+
 
                                     <div class="col-span-12 md:col-span-5">
-                                        <label class="label">Città</label>
-                                        <input
-                                            v-model="form.IdCitta"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
+    <label class="label">Città</label>
+    <div class="input-icon">
+        <MapPin class="w-4 h-4" />
+        <input
+            v-model="form.IdCitta"
+            class="input"
+            @keydown.enter.prevent="focusNext"
+        />
+    </div>
+</div>
+
 
                                     <div class="col-span-6 md:col-span-3">
                                         <label class="label">Provincia</label>
@@ -501,51 +512,60 @@ function copiaOrdine() {
                                     </div>
 
                                     <div class="col-span-12 md:col-span-6">
-                                        <label class="label">Telefono</label>
-                                        <input
-                                            v-model="form.Telefono"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
+    <label class="label">Telefono</label>
+    <div class="input-icon">
+        <Phone class="w-4 h-4" />
+        <input v-model="form.Telefono" class="input" />
+    </div>
+</div>
+
+<div class="col-span-12 md:col-span-6">
+    <label class="label">Cellulare</label>
+    <div class="input-icon">
+        <Smartphone class="w-4 h-4" />
+        <input v-model="form.Cellulare" class="input" />
+    </div>
+</div>
+
 
                                     <div class="col-span-12 md:col-span-6">
-                                        <label class="label">Cellulare</label>
-                                        <input
-                                            v-model="form.Cellulare"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
+    <label class="label">Cod. Fiscale</label>
+    <div class="input-icon">
+        <FileText class="w-4 h-4" />
+        <input v-model="form.CodFiscale" class="input" />
+    </div>
+</div>
 
-                                    <div class="col-span-12 md:col-span-6">
-                                        <label class="label"
-                                            >Cod. Fiscale</label
-                                        >
-                                        <input
-                                            v-model="form.CodFiscale"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
+<div class="col-span-12 md:col-span-6">
+    <label class="label">P. IVA</label>
+    <div class="input-icon">
+        <Hash class="w-4 h-4" />
+        <input v-model="form.PIva" class="input" />
+    </div>
+</div>
 
-                                    <div class="col-span-12 md:col-span-6">
-                                        <label class="label">P. IVA</label>
-                                        <input
-                                            v-model="form.PIva"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
 
                                     <div class="col-span-12">
-                                        <label class="label">Email</label>
-                                        <input
-                                            v-model="form.Email"
-                                            class="input"
-                                            @keydown.enter.prevent="focusNext"
-                                        />
-                                    </div>
+    <label class="label">Email</label>
+    <div class="input-icon">
+        <Mail class="w-4 h-4" />
+        <input v-model="form.Email" class="input" />
+    </div>
+</div>
+
+                                    <div class="col-span-12">
+    <label class="label flex items-center gap-1">
+        <StickyNote class="w-4 h-4" />
+        Note (Invio = a capo)
+    </label>
+    <div class="input-icon">
+        <textarea
+            v-model="form.Annotazioni"
+            rows="2"
+            class="input"
+        ></textarea>
+    </div>
+</div>
                                 </div>
                             </div>
                         </div>
@@ -555,7 +575,7 @@ function copiaOrdine() {
                     <div class="col-span-12 lg:col-span-7 space-y-4">
                         <div class="card overflow-hidden">
                             <div
-                                class="cardHead bg-gradient-to-r from-slate-900 to-slate-700 text-white"
+                                class="cardHead bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
                             >
                                 <div class="font-extrabold">📄 Documento</div>
                                 <div class="text-xs opacity-90">
@@ -674,12 +694,13 @@ function copiaOrdine() {
                             </div>
                         </div>
 
-                        <div class="card">
-                            <div class="cardHead bg-slate-50">
-                                <div class="font-extrabold text-slate-900">
+                        <div class="card overflow-hidden">
+                            <div
+                                class="cardHead bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                            >        <div  class="font-extrabold">
                                     💸 Sconti
                                 </div>
-                                <div class="text-xs text-slate-500">
+                                <div class="text-xs opacity-90">
                                     Calcolo composto
                                 </div>
                             </div>
@@ -823,23 +844,7 @@ function copiaOrdine() {
                             </div>
                         </div>
 
-                        <div class="card">
-                            <div class="cardHead bg-slate-50">
-                                <div class="font-extrabold text-slate-900">
-                                    📝 Note
-                                </div>
-                                <div class="text-xs text-slate-500">
-                                    Invio = a capo
-                                </div>
-                            </div>
-                            <div class="p-4">
-                                <textarea
-                                    v-model="form.Annotazioni"
-                                    rows="2"
-                                    class="input"
-                                ></textarea>
-                            </div>
-                        </div>
+
 
                         <div
                             v-if="Object.keys(form.errors).length"
@@ -918,5 +923,17 @@ function copiaOrdine() {
 .btn-danger {
     @apply px-4 py-2 rounded-xl bg-red-600 text-white font-semibold
   shadow hover:bg-red-700 transition disabled:opacity-60 disabled:cursor-not-allowed;
+}
+.input-icon {
+    @apply relative;
+}
+
+.input-icon svg {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-slate-400;
+}
+
+.input-icon input,
+.input-icon textarea {
+    @apply pl-10;
 }
 </style>

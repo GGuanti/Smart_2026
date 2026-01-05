@@ -13,64 +13,65 @@ class OrdineController extends Controller
 {
     // app/Http/Controllers/OrdineController.php
 
-public function copia($id)
-{
-    $old = TabOrdine::findOrFail($id);
-    abort_if($old->user_id !== auth()->id(), 403);
+    public function copia($id)
+    {
+        $old = TabOrdine::findOrFail($id);
+        abort_if($old->user_id !== auth()->id(), 403);
 
-    return DB::transaction(function () use ($old) {
+        return DB::transaction(function () use ($old) {
 
-        // 1) nuovo Nordine (esempio: max+1)
-        $newNordine = (int) DB::table('tab_ordine')->max('Nordine') + 1;
+            // 1) nuovo Nordine (esempio: max+1)
+            $newNordine = (int) DB::table('tab_ordine')->max('Nordine') + 1;
 
-        // 2) crea nuova testata copiando campi (escludi ID/Nordine/date conferma ecc)
-        $new = $old->replicate([
-            'ID',        // chiave
-            'Nordine',   // numero ordine
-            'DataConferma',
-        ]);
+            // 2) crea nuova testata copiando campi (escludi ID/Nordine/date conferma ecc)
+            $new = $old->replicate([
+                'ID',        // chiave
+                'Nordine',   // numero ordine
+                'DataConferma',
+            ]);
 
-        $new->Nordine = $newNordine;
-        $new->user_id = auth()->id(); // sicurezza
+            $new->Nordine = $newNordine;
+            $new->user_id = auth()->id(); // sicurezza
 
-        // opzionale: reset campi “stato”
-        $new->TipoDoc = 'Preventivo';
-        $new->DataConferma = null;
+            // opzionale: reset campi “stato”
+            $new->TipoDoc = 'Preventivo';
+            $new->DataConferma = null;
 
-        $new->save();
+            $new->save();
 
-        // 3) copia righe collegate via Nordine
-        $rows = DB::table('tab_elementi_ordine')
-            ->where('Nordine', $old->Nordine)
-            ->get();
+            // 3) copia righe collegate via Nordine
+            $rows = DB::table('tab_elementi_ordine')
+                ->where('Nordine', $old->Nordine)
+                ->get();
 
-        foreach ($rows as $r) {
-            $arr = (array) $r;
+            foreach ($rows as $r) {
+                $arr = (array) $r;
 
-            // se la tabella righe ha id autoincrement, toglilo
-            unset($arr['id']);
-            unset($arr['ID']);
-            unset($arr['Id']); // nel dubbio
+                // se la tabella righe ha id autoincrement, toglilo
+                unset($arr['id']);
+                unset($arr['ID']);
+                unset($arr['Id']); // nel dubbio
 
-            // assegna al nuovo Nordine
-            $arr['Nordine'] = $newNordine;
+                // assegna al nuovo Nordine
+                $arr['Nordine'] = $newNordine;
 
-            // timestamps se esistono
-            if (array_key_exists('created_at', $arr)) $arr['created_at'] = now();
-            if (array_key_exists('updated_at', $arr)) $arr['updated_at'] = now();
+                // timestamps se esistono
+                if (array_key_exists('created_at', $arr)) $arr['created_at'] = now();
+                if (array_key_exists('updated_at', $arr)) $arr['updated_at'] = now();
 
-            DB::table('tab_elementi_ordine')->insert($arr);
-        }
+                DB::table('tab_elementi_ordine')->insert($arr);
+            }
 
-        // 4) torna all’edit del nuovo ordine
-        return redirect()->route('ordini.edit', $new->ID)
-            ->with('success', "Ordine copiato in Nordine {$newNordine}");
-    });
-}
+            // 4) torna all’edit del nuovo ordine
+            return redirect()->route('ordini.edit', $new->ID)
+                ->with('success', "Ordine copiato in Nordine {$newNordine}");
+        });
+    }
 
     public function index(Request $request)
     {
         $q = $request->string('q')->toString();
+        $stato = $request->string('stato')->toString(); // ✅ nuovo
 
         $ordini = TabOrdine::query()
             ->where('user_id', auth()->id())
@@ -83,13 +84,19 @@ public function copia($id)
                         ->orWhere('IdCitta', 'like', "%{$q}%");
                 });
             })
+            ->when($stato, function ($query) use ($stato) {
+                $query->where('TipoDoc', $stato); // ✅ filtro stato
+            })
             ->orderByDesc('Nordine')
             ->paginate(15)
             ->withQueryString();
 
         return inertia('Ordini/Index', [
             'ordini' => $ordini,
-            'filters' => ['q' => $q],
+            'filters' => [
+                'q' => $q,
+                'stato' => $stato, // ✅ rimanda al frontend
+            ],
         ]);
     }
     public function create()
@@ -112,8 +119,8 @@ public function copia($id)
             'trasportiList' => $Trasp,
             'regioneUtente' => (string) (auth()->user()->trasporto ?? ''),
             'tariffeTrasporto' => DB::table('tab_costo_trasporto')
-        ->select('regione','costo','min_tass')
-        ->get(),
+                ->select('regione', 'costo', 'min_tass')
+                ->get(),
         ]);
     }
     public function edit($id)
@@ -121,10 +128,10 @@ public function copia($id)
         $ordine = TabOrdine::with('righe')->findOrFail($id);
         abort_if($ordine->user_id !== auth()->id(), 403);
 
-    // 2️⃣ QUI VA IL TOTALE RIGHE 👇
-    $QtaTotRighe = (float) DB::table('tab_elementi_ordine')
-        ->where('Nordine', $ordine->Nordine)
-        ->sum('qta');
+        // 2️⃣ QUI VA IL TOTALE RIGHE 👇
+        $QtaTotRighe = (float) DB::table('tab_elementi_ordine')
+            ->where('Nordine', $ordine->Nordine)
+            ->sum('qta');
 
         $Trasp = DB::table('tab_trasporto')
             ->select('id', 'des')
@@ -144,8 +151,8 @@ public function copia($id)
             'QtaTotRighe' => (float)$QtaTotRighe,
             'regioneUtente' => (string) (auth()->user()->trasporto ?? ''),
             'tariffeTrasporto' => DB::table('tab_costo_trasporto')
-        ->select('regione','costo','min_tass')
-        ->get(),
+                ->select('regione', 'costo', 'min_tass')
+                ->get(),
         ]);
     }
     public function store(Request $request)
@@ -169,7 +176,7 @@ public function copia($id)
             'Annotazioni' => 'nullable|string',
             'IdIva' => 'nullable|integer|exists:tab_iva,id',
             'IdTrasporto' => 'nullable|integer',
-            'CstTrasporto'=> 'nullable|integer',
+            'CstTrasporto' => 'nullable|integer',
 
         ]);
 
@@ -221,7 +228,7 @@ public function copia($id)
             'DataCons'    => 'nullable|date',
             'IdIva' => 'nullable|integer|exists:tab_iva,id',
             'IdTrasporto' => 'nullable|integer',
-            'CstTrasporto'=> 'nullable|integer',
+            'CstTrasporto' => 'nullable|integer',
 
         ]);
         abort_if($ordine->user_id !== auth()->id(), 403);
@@ -239,22 +246,21 @@ public function copia($id)
             ->with('success', 'Ordine aggiornato');
     }
     public function destroy($id)
-{
-    $ordine = TabOrdine::findOrFail($id);
-    abort_if($ordine->user_id !== auth()->id(), 403);
+    {
+        $ordine = TabOrdine::findOrFail($id);
+        abort_if($ordine->user_id !== auth()->id(), 403);
 
-    DB::transaction(function () use ($ordine) {
-        // 1) cancella tutte le righe collegate (via Nordine)
-        DB::table('tab_elementi_ordine')
-            ->where('Nordine', $ordine->Nordine)
-            ->delete();
+        DB::transaction(function () use ($ordine) {
+            // 1) cancella tutte le righe collegate (via Nordine)
+            DB::table('tab_elementi_ordine')
+                ->where('Nordine', $ordine->Nordine)
+                ->delete();
 
-        // 2) cancella testata
-        $ordine->delete();
-    });
+            // 2) cancella testata
+            $ordine->delete();
+        });
 
-    return redirect()->route('ordini.index')
-        ->with('success', 'Ordine e righe eliminati');
-}
-
+        return redirect()->route('ordini.index')
+            ->with('success', 'Ordine e righe eliminati');
+    }
 }

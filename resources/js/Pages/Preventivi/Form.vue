@@ -985,12 +985,22 @@ watch(
         form.righe.forEach((riga, i) => {
             if (newV?.[i] === oldV?.[i]) return;
             bumpImgKeyOnly(riga);
-
+            aggiornaDimLCombo(riga, true); // ✅ Aggiorna=True
             cascadeRiga(riga);
             refreshPrezzo(riga);
         });
     },
     { immediate: true }
+);
+watch(
+    () => form.righe.map((r) => r.IdSoluzione),
+    (newV, oldV) => {
+        form.righe.forEach((riga, i) => {
+            if (newV?.[i] === oldV?.[i]) return;
+            applyDimLRules(riga, true);
+            refreshPrezzo(riga);
+        });
+    }
 );
 
 // 2) campi che influenzano filtri/prezzo -> cascata + prezzo (NO foto)
@@ -1018,6 +1028,17 @@ watch(
         form.righe.forEach((riga, i) => {
             if (newV?.[i] === oldV?.[i]) return;
             cascadeRiga(riga);
+            refreshPrezzo(riga);
+        });
+    }
+);
+watch(
+    () => form.righe.map((r) => r.IdSoluzione),
+    (newV, oldV) => {
+        form.righe.forEach((riga, i) => {
+            if (newV?.[i] === oldV?.[i]) return;
+
+            aggiornaDimLCombo(riga, true); // ✅ Aggiorna=True
             refreshPrezzo(riga);
         });
     }
@@ -1163,6 +1184,18 @@ function MaggKitScFM(riga) {
     if (!tt) return 0;
     return Number(tt?.magg_kit_scorr ?? 0) || 0;
 }
+function tipiImbotteById(IdTipTelaio) {
+    return (
+        props.imbotte.find(
+            (im) => Number(im.id_imbotte) === Number(IdTipTelaio)
+        ) || null
+    );
+}
+function MaggImbotte(riga) {
+    const im = tipiImbotteById(riga.IdImbotte);
+    if (!im) return 0;
+    return Number(im?.importo ?? 0) || 0;
+}
 function MaggManuale(riga) {
     const mm = Number(riga.PrezzoMan ?? 0);
     return Number.isFinite(mm) ? mm : 0;
@@ -1257,6 +1290,7 @@ function totaleRigaD(riga) {
         MaggVetro(riga) +
         MaggMan(riga) +
         MaggSerr(riga) +
+        MaggImbotte(riga) +
         MaggCer(riga)
     );
 }
@@ -1421,6 +1455,210 @@ function loadValPredToRow(riga) {
         timeout: 1200,
     });
 }
+/* ===================== DIML editabile (VBA AggiornaDimL) ===================== */
+
+function modelloCodePerRiga(riga) {
+    return String(modelloNomePerRiga(riga) ?? "")
+        .trim()
+        .toUpperCase();
+}
+
+function dimLRulesForRiga(riga) {
+    const mod = modelloCodePerRiga(riga);
+    const sol = String(soluzioneCodePerRiga(riga) ?? "")
+        .trim()
+        .toUpperCase();
+
+    let dimAForced = 2140; // default
+    let dimLOptions = [];
+
+    if (mod === "BL1" || mod === "BL2") {
+        dimLOptions = [800, 900, 1000];
+        dimAForced = 2100;
+        return { dimLOptions, dimAForced, dimLDefault: 900, showWarn: true };
+    }
+
+    if (["GS1", "GS2", "GS3", "GS4"].includes(mod)) {
+        if (sol === "BT") {
+            dimLOptions = [780, 880, 980];
+            dimAForced = 2140;
+            return { dimLOptions, dimAForced, dimLDefault: 880 };
+        }
+        if (sol === "SI") {
+            dimLOptions = [740, 840, 940];
+            dimAForced = 2150;
+            return { dimLOptions, dimAForced, dimLDefault: 840 };
+        }
+        if (sol === "SE") {
+            dimLOptions = [700, 800, 900, 1000];
+            dimAForced = 2200;
+            return { dimLOptions, dimAForced, dimLDefault: 900 };
+        }
+    }
+
+    // regole generali
+    if (["LIBRB", "TELBT", "BT", "RT", "TELP"].includes(sol)) {
+        dimLOptions = [680, 780, 880, 980, 1080];
+    } else if (sol === "BT2A") {
+        dimLOptions = [1090, 1190, 1290];
+    } else if (sol === "BT2S") {
+        dimLOptions = [1290, 1490, 1690, 1890];
+    } else if (
+        ["LIBA", "LIBS", "SE", "SES", "ESLIDEM1", "ESLIDES1"].includes(sol)
+    ) {
+        dimLOptions = [680, 780, 880, 980, 1080];
+    } else if (["SE2M", "SE2S", "ESLIDEM2", "ESLIDES2"].includes(sol)) {
+        dimLOptions = [1280, 1480, 1680, 1880];
+    } else if (["SI", "TELSI", "SIS"].includes(sol)) {
+        dimLOptions = [640, 740, 840, 940, 1040];
+        dimAForced = 2150;
+    } else if (["SI2S", "SI2M"].includes(sol)) {
+        dimLOptions = [1240, 1440, 1640, 1840];
+        dimAForced = 2150;
+    } else {
+        if (sol) return { dimLOptions: [], dimAForced: null, unhandled: true };
+        return { dimLOptions: [], dimAForced: null };
+    }
+
+    const dimLDefault =
+        dimLOptions.length >= 3 ? dimLOptions[2] : dimLOptions[0] ?? null;
+
+    return { dimLOptions, dimAForced, dimLDefault };
+}
+
+function setDimLOptionsOnRow(riga) {
+    const { dimLOptions } = dimLRulesForRiga(riga);
+    riga._dimLOptions = dimLOptions ?? [];
+    return riga._dimLOptions;
+}
+
+function applyDimLRules(riga, aggiorna = false) {
+    const { dimLOptions, dimAForced, dimLDefault, showWarn, unhandled } =
+        dimLRulesForRiga(riga);
+
+    riga._dimLOptions = dimLOptions ?? [];
+
+    if (unhandled) {
+        toast.warning(
+            "⚠️ Sistema non gestito per DimL (" +
+                (soluzioneCodePerRiga(riga) || "") +
+                ")",
+            { position: "top-left", timeout: 2500 }
+        );
+    }
+
+    if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
+
+    if (aggiorna && dimLOptions?.length) {
+        riga.DimL = Number(dimLDefault);
+    }
+
+    if (showWarn && aggiorna) {
+        toast.info("Attenzione misura luce di passaggio", {
+            position: "top-left",
+            timeout: 2500,
+        });
+    }
+}
+
+/**
+ * Validazione “post edit”:
+ * - se DimL non è ammessa -> torna al default (3° valore o primo)
+ * (così rimane editabile, ma rispetta le regole)
+ */
+function validateDimL(riga) {
+    const opts = Array.isArray(riga._dimLOptions)
+        ? riga._dimLOptions
+        : setDimLOptionsOnRow(riga);
+
+    if (!opts.length) return; // nessuna regola => libero
+
+    const cur = Number(riga.DimL);
+    const ok = opts.some((v) => Number(v) === cur);
+
+    if (!ok) {
+        const fallback = opts.length >= 3 ? opts[2] : opts[0];
+        riga.DimL = Number(fallback);
+
+        toast.warning("DimL non valida: riportata al valore ammesso", {
+            position: "top-left",
+            timeout: 1800,
+        });
+    }
+}
+function dimLOptionsPerRiga(riga) {
+    // cache a bordo riga
+    if (!Array.isArray(riga._dimLOptions)) {
+        riga._dimLOptions = dimLRulesForRiga(riga).dimLOptions ?? [];
+    }
+    return riga._dimLOptions;
+}
+
+// chiamala quando cambia modello/soluzione
+function aggiornaDimLCombo(riga, aggiorna = false) {
+    const { dimLOptions, dimAForced, dimLDefault, showWarn, unhandled } =
+        dimLRulesForRiga(riga);
+
+    riga._dimLOptions = dimLOptions ?? [];
+
+    if (unhandled) {
+        toast.warning("⚠️ Sistema non gestito per DimL", {
+            position: "top-left",
+            timeout: 2500,
+        });
+    }
+
+    // come VBA: DimA forzata solo quando Aggiorna=True
+    if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
+
+    // come VBA: DimL default solo quando Aggiorna=True
+    if (aggiorna && riga._dimLOptions.length) {
+        riga.DimL = Number(dimLDefault);
+    }
+
+    if (showWarn && aggiorna) {
+        toast.info("Attenzione misura luce di passaggio", {
+            position: "top-left",
+            timeout: 2500,
+        });
+    }
+}
+function onDimSpFocus(riga) {
+    // salva valore precedente
+    riga._dimSpPrev = riga.DimSp;
+
+    // svuota il campo per mostrare la lista
+    riga.DimSp = "";
+}
+
+function onDimSpBlur(riga) {
+    // se l'utente non ha scelto nulla → ripristina
+    if (riga.DimSp === "" || riga.DimSp === null) {
+        riga.DimSp = Number(riga._dimSpPrev ?? 110);
+    } else {
+        riga.DimSp = Number(riga.DimSp);
+    }
+
+    delete riga._dimSpPrev;
+}
+function onDimLFocus(riga) {
+    // salva valore precedente
+    riga._dimLPrev = riga.DimL;
+
+    // svuota il campo per mostrare la lista
+    riga.DimL = "";
+}
+
+function onDimLBlur(riga) {
+    // se l'utente non ha scelto nulla → ripristina
+    if (riga.DimL === "" || riga.DimL === null) {
+        riga.DimL = Number(riga._dimLPrev ?? 880);
+    } else {
+        riga.DimL = Number(riga.DimL);
+    }
+
+    delete riga._dimLPrev;
+}
 </script>
 
 <template>
@@ -1435,7 +1673,7 @@ function loadValPredToRow(riga) {
                 >
                     <div class="flex items-center gap-3">
                         <img
-                            src="/Logo.jpg"
+                            src="/Logo1.png"
                             alt="Logo"
                             class="h-10 w-auto hidden md:block"
                         />
@@ -1460,23 +1698,16 @@ function loadValPredToRow(riga) {
                         </div>
 
                         <div
-                            class="col-span-12 md:col-span-5 rounded-2xl border bg-white shadow-sm p-4"
+                            class="col-span-12 md:col-span-5 rounded-xl border bg-white shadow-sm p-3"
                         >
-                            <div class="text-xs font-semibold text-gray-500">
-                                Totale preventivo
-                            </div>
-
-                            <div
-                                class="mt-1 rounded-2xl border-2 border-indigo-500 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-md"
-                            >
+                            <div class="rounded-xl border bg-indigo-50 p-3">
                                 <div
-                                    class="text-xs uppercase font-bold text-indigo-600 tracking-wide"
+                                    class="text-[10px] text-indigo-600 font-bold uppercase"
                                 >
-                                    Importo finale
+                                    Totale Listino
                                 </div>
-
                                 <div
-                                    class="text-2xl md:text-3xl font-extrabold text-indigo-900 mt-1"
+                                    class="text-lg font-extrabold text-indigo-900"
                                 >
                                     € {{ totalePreventivo.toFixed(2) }}
                                 </div>
@@ -1607,7 +1838,7 @@ function loadValPredToRow(riga) {
                                     <div
                                         class="p-3 grid grid-cols-12 gap-x-4 gap-y-1.5"
                                     >
-                                        <div class="col-span-12 md:col-span-6">
+                                        <div class="col-span-12 md:col-span-4">
                                             <label
                                                 class="text-sm font-semibold text-gray-800"
                                             >
@@ -1632,7 +1863,7 @@ function loadValPredToRow(riga) {
                                             </select>
                                         </div>
 
-                                        <div class="col-span-12 md:col-span-6">
+                                        <div class="col-span-12 md:col-span-8">
                                             <label
                                                 class="text-sm font-semibold text-gray-800"
                                                 >Soluzione</label
@@ -1678,7 +1909,6 @@ function loadValPredToRow(riga) {
                                                     :key="x.IdFinAnta"
                                                     :value="x.IdFinAnta"
                                                 >
-                                                    {{ x.Tipologia }} -
                                                     {{ x.Colore }}
                                                 </option>
                                             </select>
@@ -1726,7 +1956,7 @@ function loadValPredToRow(riga) {
                                                 </option>
                                             </select>
                                         </div>
-                                        <div class="col-span-12 md:col-span-6">
+                                        <div class="col-span-12 md:col-span-9">
                                             <label
                                                 class="text-sm font-semibold text-gray-800"
                                                 >Imbotte</label
@@ -1752,8 +1982,27 @@ function loadValPredToRow(riga) {
                                                 </option>
                                             </select>
                                         </div>
-
-                                        <div class="col-span-12 md:col-span-6">
+                                        <div class="col-span-12 md:col-span-3">
+                                            <label
+                                                class="text-sm font-semibold text-gray-800"
+                                                >Apertura</label
+                                            >
+                                            <select
+                                                v-model.number="riga.IdApertura"
+                                                class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                            >
+                                                <option
+                                                    v-for="a in aperturePerRiga(
+                                                        riga
+                                                    )"
+                                                    :key="a.IdApertura"
+                                                    :value="a.IdApertura"
+                                                >
+                                                    {{ a.Des }}
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div class="col-span-12 md:col-span-12">
                                             <label
                                                 class="text-sm font-semibold text-gray-800"
                                                 >Maniglia</label
@@ -1780,26 +2029,6 @@ function loadValPredToRow(riga) {
                                             </select>
                                         </div>
 
-                                        <div class="col-span-12 md:col-span-6">
-                                            <label
-                                                class="text-sm font-semibold text-gray-800"
-                                                >Apertura</label
-                                            >
-                                            <select
-                                                v-model.number="riga.IdApertura"
-                                                class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                            >
-                                                <option
-                                                    v-for="a in aperturePerRiga(
-                                                        riga
-                                                    )"
-                                                    :key="a.IdApertura"
-                                                    :value="a.IdApertura"
-                                                >
-                                                    {{ a.Des }}
-                                                </option>
-                                            </select>
-                                        </div>
                                         <div class="col-span-12 md:col-span-12">
                                             <label
                                                 class="text-sm font-semibold text-gray-800"
@@ -1991,12 +2220,30 @@ function loadValPredToRow(riga) {
                                                     class="text-xs font-semibold text-gray-600"
                                                     >DimL</label
                                                 >
+
                                                 <input
-                                                    v-model.number="riga.DimL"
-                                                    type="number"
+                                                    v-model="riga.DimL"
+                                                    type="text"
+                                                    inputmode="numeric"
+                                                    pattern="[0-9]*"
                                                     class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                                    :list="`diml-list-${riga.uid}`"
+                                                     @focus="onDimLFocus(riga)"
+                                                    @blur="onDimLBlur(riga)"
                                                     @keydown.enter="focusNext"
                                                 />
+
+                                                <datalist
+                                                    :id="`diml-list-${riga.uid}`"
+                                                >
+                                                    <option
+                                                        v-for="v in dimLOptionsPerRiga(
+                                                            riga
+                                                        )"
+                                                        :key="v"
+                                                        :value="v"
+                                                    />
+                                                </datalist>
                                             </div>
                                             <div>
                                                 <label
@@ -2015,12 +2262,26 @@ function loadValPredToRow(riga) {
                                                     class="text-xs font-semibold text-gray-600"
                                                     >DimSp</label
                                                 >
+
                                                 <input
-                                                    v-model.number="riga.DimSp"
-                                                    type="number"
+                                                    v-model="riga.DimSp"
+                                                    type="text"
+                                                    inputmode="numeric"
+                                                    pattern="[0-9]*"
                                                     class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                                    :list="`dimsp-list-${riga.uid}`"
+                                                    @focus="onDimSpFocus(riga)"
+                                                    @blur="onDimSpBlur(riga)"
                                                     @keydown.enter="focusNext"
                                                 />
+
+                                                <datalist
+                                                    :id="`dimsp-list-${riga.uid}`"
+                                                >
+                                                    <option value="80" />
+                                                    <option value="110" />
+                                                    <option value="130" />
+                                                </datalist>
                                             </div>
                                         </div>
 
@@ -2105,6 +2366,17 @@ function loadValPredToRow(riga) {
                                                     listinoPorta(riga).toFixed(
                                                         2
                                                     )
+                                                }}
+                                            </div>
+                                            <div class="text-xs text-slate-600">
+                                                Maggiorazione Imbotte
+                                            </div>
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
+                                                €
+                                                {{
+                                                    MaggImbotte(riga).toFixed(2)
                                                 }}
                                             </div>
                                             <div class="text-xs text-slate-600">

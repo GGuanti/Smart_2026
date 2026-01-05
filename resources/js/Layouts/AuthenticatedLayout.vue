@@ -284,7 +284,7 @@ const page = usePage();
                                     </span>
                                 </template>
                                 <template #content>
-                                    <DropdownLink :href="route('profile.edit')"
+                                    <DropdownLink v-if="$page.props.auth.user.profilo === 'admin'" :href="route('profile.edit')"
                                         >Profilo</DropdownLink
                                     >
                                     <DropdownLink

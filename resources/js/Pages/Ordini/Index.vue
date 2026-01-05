@@ -7,18 +7,19 @@ import { useToast } from "vue-toastification";
 const toast = useToast();
 const confirmDeleteId = ref(null);
 const isCopyingId = ref(null);
-
 const props = defineProps({
     ordini: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
 });
+const stato = ref(props.filters?.stato ?? "");
+const statiOrdine = ["Preventivo", "Ordine", "Ordine inviato", "Consegnato"];
 
 const q = ref(props.filters?.q ?? "");
 
 function search() {
     router.get(
         route("ordini.index"),
-        { q: q.value },
+        { q: q.value, stato: stato.value },
         { preserveState: true, replace: true, preserveScroll: true }
     );
 }
@@ -147,6 +148,21 @@ function docPillClass(tipo) {
                             class="input flex-1 min-w-[240px]"
                             placeholder="Cerca: Nordine, cliente, telefono, città…"
                         />
+                        <!-- ✅ FILTRO STATO -->
+                        <select
+                            v-model="stato"
+                            class="input w-[220px]"
+                            @change="search"
+                        >
+                            <option value="">Tutti gli stati</option>
+                            <option
+                                v-for="s in statiOrdine"
+                                :key="s"
+                                :value="s"
+                            >
+                                {{ s }}
+                            </option>
+                        </select>
 
                         <button class="btn btn-ghost" @click="clearSearch">
                             Azzera
@@ -178,16 +194,16 @@ function docPillClass(tipo) {
                                     </th>
                                     <th class="px-4 py-3 text-left">Cliente</th>
                                     <th class="px-4 py-3 text-left">
-                                        Contatto
+                                        Telefono
                                     </th>
                                     <th class="px-4 py-3 text-left">Città</th>
-                                    <th class="px-4 py-3 text-left">
+                                    <th class="px-4 py-3 text-center">
                                         Data Ordine
                                     </th>
-                                    <th class="px-4 py-3 text-left">
+                                    <th class="px-4 py-3 text-center">
                                         Data Consegna
                                     </th>
-                                    <th class="px-4 py-3 text-right">Azioni</th>
+                                    <th class="px-4 py-3 text-center">Azioni</th>
                                 </tr>
                             </thead>
 
@@ -201,14 +217,14 @@ function docPillClass(tipo) {
                                         {{ o.Nordine }}
                                     </td>
                                     <!-- Tipo Documento -->
-                                    <div class="px-4 py-4">
+                                    <td class="px-4 py-4">
                                         <span
                                             class="pill"
                                             :class="docPillClass(o.TipoDoc)"
                                         >
                                             {{ o.TipoDoc || "—" }}
                                         </span>
-                                    </div>
+                                    </td>
                                     <td class="px-4 py-3">
                                         <div class="font-semibold">
                                             {{ o.CognomeNome }}
@@ -224,10 +240,10 @@ function docPillClass(tipo) {
 
                                     <td class="px-4 py-3">{{ o.IdCitta }}</td>
 
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 text-center">
                                         {{ fmtDateIT(o.DataOrdine) }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 text-center">
                                         {{ fmtDateIT(o.DataCons) }}
                                     </td>
 

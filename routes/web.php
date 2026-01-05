@@ -3,7 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-
+use App\Http\Controllers\ProfileTabbedController;
 use App\Http\Controllers\{
     ProfileController,
     ClientController,
@@ -36,7 +36,12 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\PrintController;
 use App\Http\Controllers\ListinoController;
 use App\Http\Controllers\OrdineReportController;
+Route::middleware(['auth'])->group(function () {
 
+    Route::get('/profilo/tabbed', [ProfileTabbedController::class, 'index'])
+        ->name('profilo.tabbed');
+
+});
 Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
     ->name('listini.valpred.save');
 
