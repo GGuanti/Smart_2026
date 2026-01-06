@@ -33,7 +33,10 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
-
+        $user = $request->user();
+        if (($user->profilo ?? null) === 'Isomax') {
+            return redirect()->intended('/ordini');
+        }
         return redirect()->intended(route('dashboard'));
     }
 
