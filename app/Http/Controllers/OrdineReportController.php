@@ -56,9 +56,9 @@ class OrdineReportController extends Controller
         $totaleIva         = (float)($ordine->TotaleIva ?? 0);
         $totaleComplessivo = (float)($ordine->TotaleComplessivo ?? ($totaleImponibile + $totaleIva));
         if ($TipoStampa === 'Prev') {
-            $NomeReport = 'reports.ordini.Preventivo_isomax';
+            $NomeReport = 'Reports.ordini.preventivo_isomax';
         } else {
-            $NomeReport = 'reports.ordini.conferma_isomax';
+            $NomeReport = 'Reports.ordini.conferma_isomax';
         }
         return Pdf::loadView($NomeReport, [
             'ordine' => $ordine,
