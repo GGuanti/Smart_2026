@@ -423,6 +423,10 @@
   font-weight: bold;
   font-style: normal;
 }
+
+* {
+  font-family: "DejaVu", sans-serif !important;
+}
     </style>
 </head>
 
