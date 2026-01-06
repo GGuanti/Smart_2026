@@ -588,6 +588,7 @@ function imbottePerRiga(riga) {
             return sp0 && fs;
         });
     }
+console.log("dimSp", dimSp, "res", res, "idTip", idTip, "soluzione", soluzione);
 
     return all
         .filter((i) => {
@@ -658,6 +659,11 @@ function cernId(c) {
         "id",
     ]);
 }
+function cernModello(c) {
+    // campo DB: tab_cerniere.modello
+    // può essere "T" oppure lista tipo "S5B;S1I49" oppure ";S5B;S1I49;"
+    return String(c?.modello ?? "").trim();
+}
 function cernDes(c) {
     return pick(c, [
         "des_cernira",
@@ -712,41 +718,60 @@ const SET_TELP = new Set([
     "ESLIDES1",
     "ESLIDES2",
 ]);
+function filtroModelloPerRiga(riga) {
+    // token modello selezionato (nome modello)
+    // es: "S5B", "S1I49", "BL1"...
+    return String(modelloNome(modelloById(riga.IdModello)) ?? "").trim();
+}
 
 function cernierePerRiga(riga) {
     const all = Array.isArray(props.cerniere) ? props.cerniere : [];
     if (!all.length) return [];
 
-    const modelloNomeSel = String(
-        modelloNome(modelloById(riga.IdModello)) ?? ""
-    ).trim();
+    const modelloNomeSel = String(modelloNome(modelloById(riga.IdModello)) ?? "").trim();
     const filtroSoluzione = filtroSoluzionePerRiga(riga);
     const filtroCollezione = filtroCollezionePerRiga(riga);
+
+    // ✅ nuovo: filtro modello (token)
+    const filtroModello = filtroModelloPerRiga(riga); // es. "S5B"
 
     if (modelloNomeSel === "BL1" || modelloNomeSel === "BL2") {
         return all
             .filter((c) => cernFiltroSistema(c) === "BL")
-            .sort((a, b) =>
-                String(cernDes(a)).localeCompare(String(cernDes(b)))
-            );
+            .sort((a, b) => String(cernDes(a)).localeCompare(String(cernDes(b))));
     }
+
+
 
     if (SET_TELP.has(filtroSoluzione) || SET_TELP.has(modelloNomeSel)) {
         return all
-            .filter((c) => cernFiltroSistema(c) === "TELP")
-            .sort((a, b) =>
-                String(cernDes(a)).localeCompare(String(cernDes(b)))
-            );
+            .filter((c) => cernFiltroSistema(c) === "TelP")
+            .sort((a, b) => String(cernDes(a)).localeCompare(String(cernDes(b))));
     }
 
     return all
         .filter((c) => {
+            // 1) sistema
             if (cernFiltroSistema(c) !== "T") return false;
-            if (!filtroCollezione) return true;
-            return tokenListHas(cernCollezione(c), filtroCollezione);
+
+            // 2) collezione
+            if (filtroCollezione && !tokenListHas(cernCollezione(c), filtroCollezione)) {
+                return false;
+            }
+
+            // 3) ✅ modello
+            // se non ho filtro modello -> ok
+            // se la cerniera ha "T" -> ok
+            // altrimenti deve contenere il token modello
+            if (filtroModello && !tokenListHas(cernModello(c), filtroModello)) {
+                return false;
+            }
+
+            return true;
         })
         .sort((a, b) => Number(cernId(a) ?? 0) - Number(cernId(b) ?? 0));
 }
+
 
 /* ===================== Serrature ===================== */
 function filtroSerraturaPerRiga(riga) {
@@ -869,6 +894,7 @@ function ensureTipoTelaioValido(riga) {
     );
 }
 function ensureImbotteValida(riga) {
+
     ensureFirstValid(
         riga,
         "IdImbotte",
@@ -934,6 +960,7 @@ function cascadeRiga(riga) {
     ensureTelaioValido(riga);
 
     ensureTipoTelaioValido(riga);
+
     ensureImbotteValida(riga);
 
     ensureManigliaValida(riga);
@@ -2272,6 +2299,7 @@ function onDimLBlur(riga) {
                                                     :list="`dimsp-list-${riga.uid}`"
                                                     @focus="onDimSpFocus(riga)"
                                                     @blur="onDimSpBlur(riga)"
+                                                    @change=""
                                                     @keydown.enter="focusNext"
                                                 />
 

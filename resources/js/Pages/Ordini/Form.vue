@@ -262,9 +262,9 @@ onMounted(() => {
             form.IdIva = iva22.id;
         }
     }
-    if (!isEdit.value && !form.IdTrasporto && props.trasportiList?.length) {
-        form.IdTrasporto = props.trasportiList[0].id;
-    }
+    if (form.IdTrasporto == null || form.IdTrasporto === "") {
+    form.IdTrasporto = 2;
+  }
 });
 watch(
     () => [
@@ -330,6 +330,7 @@ function copiaOrdine() {
         }
     );
 }
+
 </script>
 
 <template>
