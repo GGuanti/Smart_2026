@@ -34,7 +34,8 @@ class Kernel extends HttpKernel
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,
-
+        'isomax' => \App\Http\Middleware\ProfiloIsomax::class,
+        'nurith' => \App\Http\Middleware\ProfiloNuirht::class,
 
     ];
 }

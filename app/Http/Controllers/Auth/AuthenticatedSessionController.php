@@ -37,6 +37,9 @@ class AuthenticatedSessionController extends Controller
         if (($user->profilo ?? null) === 'Isomax') {
             return redirect()->intended('/ordini');
         }
+        if (($user->profilo ?? null) === 'Nurith') {
+            return redirect()->intended('/calendar');
+        }
         return redirect()->intended(route('dashboard'));
     }
 
