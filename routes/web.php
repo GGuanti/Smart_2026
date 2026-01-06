@@ -61,6 +61,12 @@ Route::get('/listini/{listino}/modifica', [ListinoController::class, 'edit'])->n
 Route::put('/listini/{listino}', [ListinoController::class, 'update'])->name('listini.update');
 
 use App\Http\Controllers\OrdineController;
+Route::get('/', function () {
+    if (auth()->check() && auth()->user()->profilo === 'Isomax') {
+        return redirect('/ordini');
+    }
+    return redirect('/dashboard');
+});
 
 Route::prefix('ordini')->name('ordini.')->group(function () {
     Route::get('/', [OrdineController::class, 'index'])->name('index');
