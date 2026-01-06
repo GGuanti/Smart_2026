@@ -108,10 +108,11 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
+
+
+
 Route::middleware(['auth', 'verified'])->group(function () {
-
     Route::resource('ordini', OrdineController::class);
-
     Route::post('/ordini/{id}/copia', [OrdineController::class, 'copia'])
         ->name('ordini.copia');
 
