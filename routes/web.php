@@ -164,6 +164,10 @@ Route::middleware(['auth', 'nurith'])->group(function () {
         ->name('appointments.import.csv');
     Route::resource('appointments', AppointmentController::class)
         ->except(['show']);
+    Route::put(
+        '/appointments/{appointment}/move',
+        [AppointmentController::class, 'move']
+    )->name('appointments.move');
 });
 
 /*

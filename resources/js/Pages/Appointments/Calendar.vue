@@ -1362,7 +1362,7 @@ onMounted(() => {
                     }}
                 </button>
                 <button
-                 v-if="$page.props.auth.user.profilo === 'admin'"
+                 v-if="$page.props.auth.user.name === 'Giuseppe Guanti'"
                     class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
                     :disabled="EtImportaDati"
                     @click="ImportaDati"

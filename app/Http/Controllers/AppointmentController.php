@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
+
+
+
 class AppointmentController extends Controller
 {
     public function EseguiAccess(Request $request)
@@ -797,8 +800,48 @@ class AppointmentController extends Controller
         return redirect()->route('appointments.calendar')->with('success', 'Appuntamento eliminato.');
     }
 
-    // Sposta evento dal calendario (drag & drop)
     public function move(Request $request, Appointment $appointment)
+    {
+        $validated = $request->validate([
+            'start'  => ['required', 'date'],
+            'end'    => ['nullable', 'date'],
+            'allDay' => ['required', 'boolean'],
+        ]);
+
+
+        if ($validated['allDay']) {
+            // allDay -> giorno intero
+            $start = Carbon::parse($validated['start'])
+            ->setTimezone('Europe/Rome')
+            ->startOfDay();
+
+            $appointment->update([
+                'DataInizio' => $start->toDateTimeString(),
+                'DataFine'   => $start->copy()->endOfDay()->toDateTimeString(),
+            ]);
+        } else {
+            // evento con orario: end DEVE esserci
+            if (empty($validated['end'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'end è obbligatorio per eventi non allDay',
+                ], 422);
+            }
+
+            $start = Carbon::parse($validated['start'])->setTimezone('Europe/Rome');
+            $end   = Carbon::parse($request->end)->setTimezone('Europe/Rome');
+
+            $appointment->update([
+                'DataInizio' => $start->toDateTimeString(),
+                'DataFine'   => $end->toDateTimeString(),
+            ]);
+        }
+
+      //  return response()->json(['success' => true]);
+    }
+
+    // Sposta evento dal calendario (drag & drop)
+    public function move1(Request $request, Appointment $appointment)
     {
         $validated = $request->validate([
             'start'  => ['required'],
