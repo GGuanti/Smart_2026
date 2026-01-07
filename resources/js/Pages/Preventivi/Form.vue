@@ -1874,6 +1874,7 @@ function onDimLBlur(riga) {
 
                                             <select
                                                 v-model.number="riga.IdModello"
+                                                translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                                 @change="
                                                     applyValPredFromModel(riga);
