@@ -255,11 +255,18 @@ function tipologiaAntaPerRiga(riga) {
     const listino = listinoById(riga.IdModello);
     return (listino?.finiture_anta ?? "").toString().trim();
 }
+
 function coloriAntaPerRiga(riga) {
-    const tip = tipologiaAntaPerRiga(riga);
-    if (!tip) return [];
-    return (Array.isArray(props.colAnta) ? props.colAnta : []).filter(
-        (x) => String(x.Tipologia ?? x.tipologia ?? "").trim() === tip
+  const tip = tipologiaAntaPerRiga(riga);
+  if (!tip) return [];
+
+  return (Array.isArray(props.colAnta) ? props.colAnta : [])
+    .filter(x => String(x.Tipologia ?? x.tipologia ?? "").trim() === tip)
+    .sort((a, b) =>
+      String(a.Colore ?? "").localeCompare(String(b.Colore ?? ""), "it", {
+        sensitivity: "base", // ignora maiuscole/accenti
+        numeric: true,       // se hai "RAL 10" vs "RAL 2"
+      })
     );
 }
 
@@ -588,7 +595,16 @@ function imbottePerRiga(riga) {
             return sp0 && fs;
         });
     }
-console.log("dimSp", dimSp, "res", res, "idTip", idTip, "soluzione", soluzione);
+    console.log(
+        "dimSp",
+        dimSp,
+        "res",
+        res,
+        "idTip",
+        idTip,
+        "soluzione",
+        soluzione
+    );
 
     return all
         .filter((i) => {
@@ -728,7 +744,9 @@ function cernierePerRiga(riga) {
     const all = Array.isArray(props.cerniere) ? props.cerniere : [];
     if (!all.length) return [];
 
-    const modelloNomeSel = String(modelloNome(modelloById(riga.IdModello)) ?? "").trim();
+    const modelloNomeSel = String(
+        modelloNome(modelloById(riga.IdModello)) ?? ""
+    ).trim();
     const filtroSoluzione = filtroSoluzionePerRiga(riga);
     const filtroCollezione = filtroCollezionePerRiga(riga);
 
@@ -738,15 +756,17 @@ function cernierePerRiga(riga) {
     if (modelloNomeSel === "BL1" || modelloNomeSel === "BL2") {
         return all
             .filter((c) => cernFiltroSistema(c) === "BL")
-            .sort((a, b) => String(cernDes(a)).localeCompare(String(cernDes(b))));
+            .sort((a, b) =>
+                String(cernDes(a)).localeCompare(String(cernDes(b)))
+            );
     }
-
-
 
     if (SET_TELP.has(filtroSoluzione) || SET_TELP.has(modelloNomeSel)) {
         return all
             .filter((c) => cernFiltroSistema(c) === "TelP")
-            .sort((a, b) => String(cernDes(a)).localeCompare(String(cernDes(b))));
+            .sort((a, b) =>
+                String(cernDes(a)).localeCompare(String(cernDes(b)))
+            );
     }
 
     return all
@@ -755,7 +775,10 @@ function cernierePerRiga(riga) {
             if (cernFiltroSistema(c) !== "T") return false;
 
             // 2) collezione
-            if (filtroCollezione && !tokenListHas(cernCollezione(c), filtroCollezione)) {
+            if (
+                filtroCollezione &&
+                !tokenListHas(cernCollezione(c), filtroCollezione)
+            ) {
                 return false;
             }
 
@@ -771,7 +794,6 @@ function cernierePerRiga(riga) {
         })
         .sort((a, b) => Number(cernId(a) ?? 0) - Number(cernId(b) ?? 0));
 }
-
 
 /* ===================== Serrature ===================== */
 function filtroSerraturaPerRiga(riga) {
@@ -894,7 +916,6 @@ function ensureTipoTelaioValido(riga) {
     );
 }
 function ensureImbotteValida(riga) {
-
     ensureFirstValid(
         riga,
         "IdImbotte",
@@ -1686,6 +1707,39 @@ function onDimLBlur(riga) {
 
     delete riga._dimLPrev;
 }
+function normColor(s) {
+  return String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " "); // normalizza spazi
+}
+
+function syncTelaioToAntaColor(riga) {
+  // se non ho modello, niente
+  if (!riga?.IdModello) return;
+
+  const antaOpts = Array.isArray(coloriAntaPerRiga(riga)) ? coloriAntaPerRiga(riga) : [];
+  const telOpts  = Array.isArray(finitureTelaioPerRiga(riga)) ? finitureTelaioPerRiga(riga) : [];
+
+  // trova l'opzione pannello selezionata
+  const antaSel = antaOpts.find(o => Number(o.IdFinAnta) === Number(riga.IdColAnta));
+  const antaColor = normColor(antaSel?.Colore);
+
+  if (!antaColor || !telOpts.length) return;
+
+  // se il telaio attuale ha già lo stesso colore, non fare nulla
+  const telSel = telOpts.find(o => Number(o.IdFinTelaio) === Number(riga.IdColTelaio));
+  if (telSel && normColor(telSel.Colore) === antaColor) return;
+
+  // cerca tra le finiture telaio quella con stesso "Colore"
+  const match = telOpts.find(o => normColor(o.Colore) === antaColor);
+
+  // se trovata, seleziona
+  if (match) {
+    riga.IdColTelaio = Number(match.IdFinTelaio);
+  }
+  // altrimenti: non forzare nulla (oppure riga.IdColTelaio = null)
+}
 </script>
 
 <template>
@@ -1900,6 +1954,7 @@ function onDimLBlur(riga) {
                                                 v-model.number="
                                                     riga.IdSoluzione
                                                 "
+                                                translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm focus:ring focus:ring-blue-200"
                                                 @keydown.enter.prevent="
                                                     focusNext
@@ -1924,8 +1979,12 @@ function onDimLBlur(riga) {
                                             >
                                             <select
                                                 v-model.number="riga.IdColAnta"
+                                                translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                                 :disabled="!riga.IdModello"
+                                                @change="
+                                                    syncTelaioToAntaColor(riga)
+                                                "
                                                 @keydown.enter.prevent="
                                                     focusNext
                                                 "
@@ -1950,6 +2009,7 @@ function onDimLBlur(riga) {
                                                 v-model.number="
                                                     riga.IdColTelaio
                                                 "
+                                                translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                                 :disabled="!riga.IdModello"
                                             >
@@ -1971,6 +2031,7 @@ function onDimLBlur(riga) {
                                             >
                                             <select
                                                 v-model="riga.IdTipTelaio"
+                                                translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                             >
                                                 <option
@@ -1992,6 +2053,7 @@ function onDimLBlur(riga) {
 
                                             <select
                                                 v-model.number="riga.IdImbotte"
+                                                translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                             >
                                                 <option
@@ -2256,7 +2318,7 @@ function onDimLBlur(riga) {
                                                     pattern="[0-9]*"
                                                     class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                                                     :list="`diml-list-${riga.uid}`"
-                                                     @focus="onDimLFocus(riga)"
+                                                    @focus="onDimLFocus(riga)"
                                                     @blur="onDimLBlur(riga)"
                                                     @keydown.enter="focusNext"
                                                 />
