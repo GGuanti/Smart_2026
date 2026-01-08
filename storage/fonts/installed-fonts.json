@@ -8,5 +8,8 @@
     "dvs": {
         "normal": "H:\\my-app\\storage\\fonts\/\/dvs_normal_7839f0bd66083bfc4a6933abe35896eb",
         "bold": "dvs_bold_cde7617e7b48a5ee6ba4fad47e3bc8b4"
+    },
+    "dejavu": {
+        "normal": "dejavu_normal_d7b31e6b65105a9a4e8093f4ee753712"
     }
 }

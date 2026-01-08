@@ -117,7 +117,7 @@ class OrdineReportController extends Controller
 
 
         try {
-            $pdf = Pdf::loadView('reports.ordini.conferma_isomax', [
+            $pdf = Pdf::loadView('reportisomax.conferma_isomax', [
                 'ordine' => $ordine,
                 'righe' => $righe,
                 'utente' => optional(auth()->user())->name,
