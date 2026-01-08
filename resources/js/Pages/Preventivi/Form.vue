@@ -257,17 +257,17 @@ function tipologiaAntaPerRiga(riga) {
 }
 
 function coloriAntaPerRiga(riga) {
-  const tip = tipologiaAntaPerRiga(riga);
-  if (!tip) return [];
+    const tip = tipologiaAntaPerRiga(riga);
+    if (!tip) return [];
 
-  return (Array.isArray(props.colAnta) ? props.colAnta : [])
-    .filter(x => String(x.Tipologia ?? x.tipologia ?? "").trim() === tip)
-    .sort((a, b) =>
-      String(a.Colore ?? "").localeCompare(String(b.Colore ?? ""), "it", {
-        sensitivity: "base", // ignora maiuscole/accenti
-        numeric: true,       // se hai "RAL 10" vs "RAL 2"
-      })
-    );
+    return (Array.isArray(props.colAnta) ? props.colAnta : [])
+        .filter((x) => String(x.Tipologia ?? x.tipologia ?? "").trim() === tip)
+        .sort((a, b) =>
+            String(a.Colore ?? "").localeCompare(String(b.Colore ?? ""), "it", {
+                sensitivity: "base", // ignora maiuscole/accenti
+                numeric: true, // se hai "RAL 10" vs "RAL 2"
+            })
+        );
 }
 
 const SOLUZIONI_SPECIALI = new Set([
@@ -1708,37 +1708,45 @@ function onDimLBlur(riga) {
     delete riga._dimLPrev;
 }
 function normColor(s) {
-  return String(s ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " "); // normalizza spazi
+    return String(s ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " "); // normalizza spazi
 }
 
 function syncTelaioToAntaColor(riga) {
-  // se non ho modello, niente
-  if (!riga?.IdModello) return;
+    // se non ho modello, niente
+    if (!riga?.IdModello) return;
 
-  const antaOpts = Array.isArray(coloriAntaPerRiga(riga)) ? coloriAntaPerRiga(riga) : [];
-  const telOpts  = Array.isArray(finitureTelaioPerRiga(riga)) ? finitureTelaioPerRiga(riga) : [];
+    const antaOpts = Array.isArray(coloriAntaPerRiga(riga))
+        ? coloriAntaPerRiga(riga)
+        : [];
+    const telOpts = Array.isArray(finitureTelaioPerRiga(riga))
+        ? finitureTelaioPerRiga(riga)
+        : [];
 
-  // trova l'opzione pannello selezionata
-  const antaSel = antaOpts.find(o => Number(o.IdFinAnta) === Number(riga.IdColAnta));
-  const antaColor = normColor(antaSel?.Colore);
+    // trova l'opzione pannello selezionata
+    const antaSel = antaOpts.find(
+        (o) => Number(o.IdFinAnta) === Number(riga.IdColAnta)
+    );
+    const antaColor = normColor(antaSel?.Colore);
 
-  if (!antaColor || !telOpts.length) return;
+    if (!antaColor || !telOpts.length) return;
 
-  // se il telaio attuale ha già lo stesso colore, non fare nulla
-  const telSel = telOpts.find(o => Number(o.IdFinTelaio) === Number(riga.IdColTelaio));
-  if (telSel && normColor(telSel.Colore) === antaColor) return;
+    // se il telaio attuale ha già lo stesso colore, non fare nulla
+    const telSel = telOpts.find(
+        (o) => Number(o.IdFinTelaio) === Number(riga.IdColTelaio)
+    );
+    if (telSel && normColor(telSel.Colore) === antaColor) return;
 
-  // cerca tra le finiture telaio quella con stesso "Colore"
-  const match = telOpts.find(o => normColor(o.Colore) === antaColor);
+    // cerca tra le finiture telaio quella con stesso "Colore"
+    const match = telOpts.find((o) => normColor(o.Colore) === antaColor);
 
-  // se trovata, seleziona
-  if (match) {
-    riga.IdColTelaio = Number(match.IdFinTelaio);
-  }
-  // altrimenti: non forzare nulla (oppure riga.IdColTelaio = null)
+    // se trovata, seleziona
+    if (match) {
+        riga.IdColTelaio = Number(match.IdFinTelaio);
+    }
+    // altrimenti: non forzare nulla (oppure riga.IdColTelaio = null)
 }
 </script>
 
@@ -1749,80 +1757,89 @@ function syncTelaioToAntaColor(riga) {
         <div class="py-10">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- HEADER -->
-                <div
-                    class="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-                >
-                    <div class="flex items-center gap-3">
-                        <img
-                            src="/Logo1.png"
-                            alt="Logo"
-                            class="h-10 w-auto hidden md:block"
-                        />
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h1
-                                    class="text-2xl font-extrabold tracking-tight"
-                                >
-                                    Preventivi · Nuovo
-                                </h1>
-                                <span
-                                    class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold"
-                                    >ERP</span
-                                >
-                            </div>
-                            <div class="text-sm text-gray-500">
-                                Nordine
-                                <span class="font-semibold text-gray-700"
-                                    >#{{ props.ordine?.Nordine }}</span
-                                >
-                            </div>
-                        </div>
-
+                <div class="sticky top-0 z-40 bg-white border-b">
+                    <div class="h-[88px] flex items-center px-4">
                         <div
-                            class="col-span-12 md:col-span-5 rounded-xl border bg-white shadow-sm p-3"
+                            class="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
                         >
-                            <div class="rounded-xl border bg-indigo-50 p-3">
-                                <div
-                                    class="text-[10px] text-indigo-600 font-bold uppercase"
-                                >
-                                    Totale Listino
+                            <div class="flex items-center gap-3">
+                                <img
+                                    src="/Logo1.png"
+                                    alt="Logo"
+                                    class="h-10 w-auto hidden md:block"
+                                />
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h1
+                                            class="text-2xl font-extrabold tracking-tight"
+                                        >
+                                            Preventivi · Nuovo
+                                        </h1>
+                                        <span
+                                            class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold"
+                                            >ERP</span
+                                        >
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        Nordine
+                                        <span
+                                            class="font-semibold text-gray-700"
+                                            >#{{ props.ordine?.Nordine }}</span
+                                        >
+                                    </div>
                                 </div>
+
                                 <div
-                                    class="text-lg font-extrabold text-indigo-900"
+                                    class="col-span-12 md:col-span-5 rounded-xl border bg-white shadow-sm p-3"
                                 >
-                                    € {{ totalePreventivo.toFixed(2) }}
+                                    <div
+                                        class="rounded-xl border bg-indigo-50 p-3"
+                                    >
+                                        <div
+                                            class="text-[10px] text-indigo-600 font-bold uppercase"
+                                        >
+                                            Totale Listino
+                                        </div>
+                                        <div
+                                            class="text-lg font-extrabold text-indigo-900"
+                                        >
+                                            € {{ totalePreventivo.toFixed(2) }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            <div class="flex gap-2 justify-end">
+                                <Link
+                                    :href="
+                                        route('ordini.edit', props.ordine.ID)
+                                    "
+                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm"
+                                >
+                                    <ArrowLeft class="w-4 h-4" />
+                                    Torna ordine
+                                </Link>
+
+                                <button
+                                    type="button"
+                                    @click="addRiga"
+                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-900 shadow-sm"
+                                >
+                                    <Plus class="w-4 h-4" />
+                                    Aggiungi riga
+                                </button>
+
+                                <button
+                                    type="button"
+                                    :disabled="form.processing"
+                                    @click="submitAll"
+                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm disabled:opacity-50"
+                                >
+                                    <Save class="w-4 h-4" />
+                                    Salva preventivo
+                                </button>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="flex gap-2 justify-end">
-                        <Link
-                            :href="route('ordini.edit', props.ordine.ID)"
-                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm"
-                        >
-                            <ArrowLeft class="w-4 h-4" />
-                            Torna ordine
-                        </Link>
-
-                        <button
-                            type="button"
-                            @click="addRiga"
-                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-900 shadow-sm"
-                        >
-                            <Plus class="w-4 h-4" />
-                            Aggiungi riga
-                        </button>
-
-                        <button
-                            type="button"
-                            :disabled="form.processing"
-                            @click="submitAll"
-                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm disabled:opacity-50"
-                        >
-                            <Save class="w-4 h-4" />
-                            Salva preventivo
-                        </button>
                     </div>
                 </div>
 
