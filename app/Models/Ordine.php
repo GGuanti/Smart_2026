@@ -57,7 +57,6 @@ class Ordine extends Model
         'TipoDoc',
         'CkImballo',
 
-        'IdIva',
         'KmMontaggio',
         'CstMontaggio',
         'CstTrasporto',

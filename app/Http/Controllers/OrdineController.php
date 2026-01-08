@@ -126,7 +126,8 @@ class OrdineController extends Controller
     public function edit($id)
     {
         $ordine = TabOrdine::with('righe')->findOrFail($id);
-        abort_if($ordine->user_id !== auth()->id(), 403);
+
+       // abort_if($ordine->user_id !== auth()->id(), 403);
 
         // 2️⃣ QUI VA IL TOTALE RIGHE 👇
         $QtaTotRighe = (float) DB::table('tab_elementi_ordine')
@@ -207,7 +208,7 @@ class OrdineController extends Controller
             ->route('ordini.edit', $ordine->ID)
             ->with('success', "Ordine creato: N° {$ordine->Nordine}");
     }
-    public function update(Request $request, TabOrdine $ordine)
+    public function update(Request $request, TabOrdine $ordini)
     {
         $data = $request->validate([
             'CognomeNome' => 'nullable|string|max:50',
@@ -231,7 +232,9 @@ class OrdineController extends Controller
             'CstTrasporto' => 'nullable|integer',
 
         ]);
-        abort_if($ordine->user_id !== auth()->id(), 403);
+
+
+        abort_if($ordini->user_id !== auth()->id(), 403);
         if (empty($data['IdIva'])) {
             $iva22 = DB::table('tab_iva')
                 ->where('valore', 22)
@@ -239,10 +242,10 @@ class OrdineController extends Controller
 
             $data['IdIva'] = $iva22;
         }
-        $ordine->update($data);
+        $ordini->update($data);
 
         return redirect()
-            ->route('ordini.edit', $ordine->ID)
+            ->route('ordini.edit', $ordini->ID)
             ->with('success', 'Ordine aggiornato');
     }
     public function destroy($id)

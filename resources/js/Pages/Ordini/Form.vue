@@ -184,8 +184,12 @@ function submit() {
         },
     };
 
+    const ordineId = form.ID ?? props.ordine?.ID;
+
     if (isEdit.value) {
-        form.put(route("ordini.update", form.ID ?? props.ordine?.ID), opts);
+
+        form.put(route("ordini.update", { ordini: ordineId }), opts);
+        // oppure: form.put(route("ordini.update", ordineId), opts);
     } else {
         form.post(route("ordini.store"), opts);
     }
