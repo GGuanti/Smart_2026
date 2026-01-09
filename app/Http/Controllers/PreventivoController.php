@@ -263,7 +263,7 @@ class PreventivoController extends Controller
 
         return redirect()
             ->route('ordini.edit', $ordine->ID)
-            ->with('success', '✅ Riga preventivo aggiornata');
+             ->with('success', '✅ Riga preventivo aggiornata');
     }
 
     public function destroy(TabOrdine $ordine, TabElementiOrdine $elemento)

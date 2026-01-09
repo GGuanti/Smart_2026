@@ -1,14 +1,18 @@
 <script setup>
-import { Head, Link, useForm } from "@inertiajs/vue3";
-import { router } from "@inertiajs/vue3";
+import { Head, Link, useForm, router } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import flatPickr from "vue-flatpickr-component";
 import "flatpickr/dist/flatpickr.css";
 import { Italian } from "flatpickr/dist/l10n/it.js";
 import { Trash2, Save, X } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, ref, onBeforeUnmount } from "vue";
 import { useToast } from "vue-toastification";
 const toast = useToast();
+
+const confirmDelete = ref(false);
+const isDeleting = ref(false);
+let confirmTimer = null;
+
 const focusNext = (event) => {
     event.preventDefault();
 
@@ -48,6 +52,10 @@ function newItem() {
         Coprifili: false,
         Fermavetri: false,
         OrdineVetri: false,
+
+        _confirmDelete: false,
+        _isDeleting: false,
+        _confirmTimer: null,
     };
 }
 
@@ -58,6 +66,25 @@ function addItem() {
 function removeItem(uid) {
     const idx = form.items.findIndex((x) => x.uid === uid);
     if (idx === -1) return;
+
+    const it = form.items[idx];
+
+    // 1️⃣ primo click → conferma
+    if (!it._confirmDelete) {
+        it._confirmDelete = true;
+
+        it._confirmTimer = setTimeout(() => {
+            it._confirmDelete = false;
+        }, 3000);
+
+        return;
+    }
+
+    // 2️⃣ secondo click → rimuove
+    clearTimeout(it._confirmTimer);
+    it._isDeleting = true;
+
+    // rimozione immediata (solo frontend)
     form.items.splice(idx, 1);
 }
 
@@ -146,6 +173,10 @@ const form = useForm({
                   Coprifili: !!x.Coprifili,
                   Accessori: !!x.Accessori,
                   OrdineVetri: !!x.OrdineVetri,
+
+                  _confirmDelete: false,
+                  _isDeleting: false,
+                  _confirmTimer: null,
               }))
             : [newItem()],
 });
@@ -164,17 +195,41 @@ const submit = () => {
     });
 };
 const deleteAppointment = () => {
-    if (confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
-        router.delete(route("appointments.destroy", props.appointment.id), {
-            onSuccess: () =>
-                (window.location.href = route("appointments.calendar")),
-            onError: () =>
-                toast.error("Errore durante l'eliminazione.", {
-                    position: "top-left",
-                }),
-        });
+    // 1° click: attiva conferma (senza popup browser)
+    if (!confirmDelete.value) {
+        confirmDelete.value = true;
+
+        // reset automatico dopo 3 secondi
+        confirmTimer = setTimeout(() => {
+            confirmDelete.value = false;
+        }, 3000);
+
+        return;
     }
+
+    // 2° click: elimina davvero
+    clearTimeout(confirmTimer);
+    isDeleting.value = true;
+
+    router.delete(route("appointments.destroy", props.appointment.id), {
+        onSuccess: () => {
+            window.location.href = route("appointments.calendar");
+        },
+        onError: () => {
+            toast?.error?.("Errore durante l'eliminazione.", {
+                position: "top-left",
+            });
+        },
+        onFinish: () => {
+            isDeleting.value = false;
+            confirmDelete.value = false;
+        },
+    });
 };
+
+onBeforeUnmount(() => {
+    if (confirmTimer) clearTimeout(confirmTimer);
+});
 </script>
 
 <template>
@@ -233,10 +288,24 @@ const deleteAppointment = () => {
                                     <button
                                         type="button"
                                         @click="deleteAppointment"
-                                        class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                        :disabled="isDeleting"
+                                        class="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white disabled:opacity-50"
+                                        :class="[
+                                            isDeleting
+                                                ? 'bg-red-400 cursor-not-allowed'
+                                                : confirmDelete
+                                                ? 'bg-red-700 hover:bg-red-800'
+                                                : 'bg-red-600 hover:bg-red-700',
+                                        ]"
                                     >
                                         <Trash2 class="w-4 h-4" />
-                                        Elimina
+                                        {{
+                                            isDeleting
+                                                ? "Eliminazione..."
+                                                : confirmDelete
+                                                ? "⚠️ Conferma"
+                                                : "Elimina"
+                                        }}
                                     </button>
                                 </div>
                             </div>
@@ -481,9 +550,7 @@ const deleteAppointment = () => {
                                     >
                                         <option value="">— Seleziona —</option>
                                         <option value="AR">Archi</option>
-                                        <option value="CP">
-                                            Coprifili
-                                        </option>
+                                        <option value="CP">Coprifili</option>
                                         <option value="CA">
                                             Cover Alluminio
                                         </option>
@@ -496,9 +563,7 @@ const deleteAppointment = () => {
                                         <option value="PA">Persiane</option>
                                         <option value="SG">Sghembi</option>
                                         <option value="SC">Scuroni</option>
-                                        <option value="VA">
-                                            Varie
-                                        </option>
+                                        <option value="VA">Varie</option>
                                     </select>
                                 </div>
 
@@ -542,9 +607,23 @@ const deleteAppointment = () => {
                                     <button
                                         type="button"
                                         @click="removeItem(it.uid)"
-                                        class="px-3 py-2 rounded-lg bg-red-600 text-white text-sm"
+                                        :disabled="it._isDeleting"
+                                        class="px-3 py-2 rounded-lg text-white text-sm"
+                                        :class="[
+                                            it._isDeleting
+                                                ? 'bg-red-400 cursor-not-allowed'
+                                                : it._confirmDelete
+                                                ? 'bg-red-700 hover:bg-red-800'
+                                                : 'bg-red-600 hover:bg-red-700',
+                                        ]"
                                     >
-                                        Elimina
+                                        {{
+                                            it._isDeleting
+                                                ? "Eliminazione..."
+                                                : it._confirmDelete
+                                                ? "⚠️ Conferma"
+                                                : "Elimina"
+                                        }}
                                     </button>
                                 </div>
                             </div>

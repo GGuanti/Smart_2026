@@ -6,6 +6,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useToast } from "vue-toastification";
 import { Save, Trash2, ArrowLeft, Plus } from "lucide-vue-next";
 import axios from "axios";
+const savedMsg = ref(false);
+const savedErr = ref(false);
+const savedText = ref("");
+let savedT = null;
 
 /* ===================== Props ===================== */
 const props = defineProps({
@@ -1112,16 +1116,16 @@ function totaleRiga(r) {
 
 /* ===================== Azioni righe ===================== */
 function addRiga() {
+
     form.righe.push(newRigaFromElemento());
-    toast.success("➕ Riga aggiunta", { position: "top-left", timeout: 1200 });
+
+    showSavedMsg("✅ Riga inserita", 1500);
 }
 
 function removeRigaLocal(i) {
     form.righe.splice(i, 1);
-    toast.info("Riga rimossa (non ancora salvata)", {
-        position: "top-left",
-        timeout: 1200,
-    });
+
+    showSavedMsg("🗑️ Riga rimossa", 1500);
 }
 
 function copyRiga(riga, index) {
@@ -1351,16 +1355,29 @@ function syncPrezzoCad(riga) {
 function submitAll() {
     form.Nordine = props.ordine?.Nordine ?? form.Nordine;
 
+    // reset messaggi
+    savedMsg.value = false;
+    savedErr.value = false;
+    clearTimeout(savedT);
+
     form.post(route("preventivi.store", props.ordine.ID), {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success("✅ Preventivo salvato", { position: "top-left" });
-            router.reload({ only: ["elementi"] });
+             showSavedMsg("✅ Preventivo salvato", 1500);
+
+            // aggiorna solo i dati, senza “scombussolare” la pagina
+            router.reload({
+                only: ["elementi"],
+                preserveScroll: true,
+                preserveState: true,
+            });
         },
-        onError: () =>
-            toast.error("❌ Errore nel salvataggio", { position: "top-left" }),
+        onError: () => {
+            showErrorMsg(2500);
+        },
     });
 }
+
 function valPredPayloadFromRiga(riga) {
     // qui metti ESATTAMENTE i campi che vuoi salvare come default per il modello
     // (io ti metto tutti quelli “di configurazione”)
@@ -1748,6 +1765,35 @@ function syncTelaioToAntaColor(riga) {
     }
     // altrimenti: non forzare nulla (oppure riga.IdColTelaio = null)
 }
+function showSavedMsg(text, ms = 1500) {
+    savedText.value = text;
+    savedMsg.value = true;
+    savedErr.value = false;
+
+    clearTimeout(savedT);
+    savedT = setTimeout(() => {
+        savedMsg.value = false;
+        savedText.value = "";
+    }, ms);
+}
+
+function showErrorMsg(text = "❌ Errore nel salvataggio", ms = 2500) {
+    savedText.value = text;
+    savedErr.value = true;
+    savedMsg.value = false;
+
+    clearTimeout(savedT);
+    savedT = setTimeout(() => {
+        savedErr.value = false;
+        savedText.value = "";
+    }, ms);
+}
+
+
+onBeforeUnmount(() => {
+    window.removeEventListener("keydown", onKey);
+    clearTimeout(savedT);
+});
 </script>
 
 <template>
@@ -1759,27 +1805,21 @@ function syncTelaioToAntaColor(riga) {
                 <!-- HEADER -->
                 <div class="sticky top-0 z-40 bg-white border-b">
                     <div class="h-[88px] flex items-center px-4">
-                        <div
-                            class="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-                        >
-                            <div class="flex items-center gap-3">
+                        <div class="w-full flex items-center gap-3">
+                            <!-- SINISTRA -->
+                            <div class="flex items-center gap-3 min-w-0">
                                 <img
                                     src="/Logo1.png"
                                     alt="Logo"
                                     class="h-10 w-auto hidden md:block"
                                 />
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <h1
-                                            class="text-2xl font-extrabold tracking-tight"
-                                        >
-                                            Preventivi · Nuovo
-                                        </h1>
-                                        <span
-                                            class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold"
-                                            >ERP</span
-                                        >
-                                    </div>
+
+                                <div class="min-w-0">
+                                    <h1
+                                        class="text-2xl font-extrabold tracking-tight"
+                                    >
+                                        Preventivo
+                                    </h1>
                                     <div class="text-sm text-gray-500">
                                         Nordine
                                         <span
@@ -1790,35 +1830,38 @@ function syncTelaioToAntaColor(riga) {
                                 </div>
 
                                 <div
-                                    class="col-span-12 md:col-span-5 rounded-xl border bg-white shadow-sm p-3"
+                                    class="rounded-xl border bg-white shadow-sm p-3"
                                 >
                                     <div
-                                        class="rounded-xl border bg-indigo-50 p-3"
+                                        class="text-[10px] text-indigo-600 font-bold uppercase"
                                     >
-                                        <div
-                                            class="text-[10px] text-indigo-600 font-bold uppercase"
-                                        >
-                                            Totale Listino
-                                        </div>
-                                        <div
-                                            class="text-lg font-extrabold text-indigo-900"
-                                        >
-                                            € {{ totalePreventivo.toFixed(2) }}
-                                        </div>
+                                        Totale Listino
+                                    </div>
+                                    <div
+                                        class="text-lg font-extrabold text-indigo-900"
+                                    >
+                                        € {{ totalePreventivo.toFixed(2) }}
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="flex gap-2 justify-end">
-                                <Link
-                                    :href="
-                                        route('ordini.edit', props.ordine.ID)
+                            <!-- DESTRA (spinto all'estremo) -->
+                            <div class="ml-auto flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    @click="
+                                        router.visit(
+                                            route(
+                                                'ordini.edit',
+                                                props.ordine?.id ??
+                                                    props.ordine?.ID
+                                            )
+                                        )
                                     "
                                     class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm"
                                 >
-                                    <ArrowLeft class="w-4 h-4" />
-                                    Torna ordine
-                                </Link>
+                                    <ArrowLeft class="w-4 h-4" /> Torna ordine
+                                </button>
 
                                 <button
                                     type="button"
@@ -1829,15 +1872,33 @@ function syncTelaioToAntaColor(riga) {
                                     Aggiungi riga
                                 </button>
 
-                                <button
-                                    type="button"
-                                    :disabled="form.processing"
-                                    @click="submitAll"
-                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm disabled:opacity-50"
-                                >
-                                    <Save class="w-4 h-4" />
-                                    Salva preventivo
-                                </button>
+                                <div class="relative flex items-center">
+                                    <button
+                                        type="button"
+                                        :disabled="form.processing"
+                                        @click="submitAll"
+                                        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm disabled:opacity-50"
+                                    >
+                                        <Save class="w-4 h-4" />
+                                        Salva preventivo
+                                    </button>
+
+                                    <transition
+                                        enter-active-class="transition ease-out duration-200"
+                                        enter-from-class="opacity-0 translate-x-2"
+                                        enter-to-class="opacity-100 translate-x-0"
+                                        leave-active-class="transition ease-in duration-200"
+                                        leave-from-class="opacity-100 translate-x-0"
+                                        leave-to-class="opacity-0 translate-x-2"
+                                    >
+                                        <span
+                                            v-if="savedMsg"
+                                            class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full ml-3 inline-flex items-center rounded-lg bg-green-100 text-green-800 px-3 py-2 text-sm font-semibold"
+                                        >
+                                            {{ savedText }}
+                                        </span>
+                                    </transition>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2199,7 +2260,7 @@ function syncTelaioToAntaColor(riga) {
                                                 v-model.number="
                                                     riga.IdSerratura
                                                 "
-                                                class="w-full rounded-lg border px-2 py-1.5 text-sm"
+                                                class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                             >
                                                 <option
                                                     v-for="s in serraturePerRiga(
@@ -2224,7 +2285,7 @@ function syncTelaioToAntaColor(riga) {
                                             >
                                             <textarea
                                                 v-model="riga.NoteMan"
-                                                rows="1"
+                                                rows="10"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                                 placeholder="Annotazioni lavorazioni..."
                                             ></textarea>
@@ -2620,10 +2681,12 @@ function syncTelaioToAntaColor(riga) {
                         </button>
 
                         <button
-                            type="submit"
+                            type="button"
                             :disabled="form.processing"
-                            class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                            @click="submitAll"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm disabled:opacity-50"
                         >
+                            <Save class="w-4 h-4" />
                             Salva preventivo
                         </button>
                     </div>

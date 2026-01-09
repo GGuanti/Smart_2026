@@ -127,7 +127,7 @@ class OrdineController extends Controller
     {
         $ordine = TabOrdine::with('righe')->findOrFail($id);
 
-       // abort_if($ordine->user_id !== auth()->id(), 403);
+        // abort_if($ordine->user_id !== auth()->id(), 403);
 
         // 2️⃣ QUI VA IL TOTALE RIGHE 👇
         $QtaTotRighe = (float) DB::table('tab_elementi_ordine')

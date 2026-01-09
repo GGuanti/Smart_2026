@@ -10,6 +10,10 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import itLocale from "@fullcalendar/core/locales/it";
 
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.css";
+import { Italian } from "flatpickr/dist/l10n/it.js";
+
 // Vue
 import {
     ref,
@@ -195,7 +199,6 @@ const c = () => {
     );
 };
 
-
 const importReport = computed(() => page.props.flash?.import_report || null);
 
 // (se ti serve)
@@ -242,28 +245,51 @@ const selectedWeek = ref("");
 // -----------------------------
 function parseAnyDate(dateLike) {
     if (!dateLike) return null;
-
-    if (dateLike instanceof Date) {
-        return isNaN(dateLike) ? null : dateLike;
-    }
+    if (dateLike instanceof Date) return isNaN(dateLike) ? null : dateLike;
 
     const s = String(dateLike).trim();
 
+    // yyyy-mm-dd hh:mm:ss
     if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
         const d = new Date(s.replace(" ", "T"));
         return isNaN(d) ? null : d;
     }
 
+    // yyyy-mm-dd hh:mm
     if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(s)) {
         const d = new Date(s.replace(" ", "T") + ":00");
         return isNaN(d) ? null : d;
     }
 
+    // yyyy-mm-dd
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
         const d = new Date(`${s}T00:00:00`);
         return isNaN(d) ? null : d;
     }
 
+    // ✅ dd/mm/yyyy hh:mm
+    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+    if (m) {
+        const dd = Number(m[1]),
+            mm = Number(m[2]),
+            yy = Number(m[3]);
+        const HH = Number(m[4]),
+            MM = Number(m[5]);
+        const d = new Date(yy, mm - 1, dd, HH, MM, 0);
+        return isNaN(d) ? null : d;
+    }
+
+    // ✅ dd/mm/yyyy
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+        const dd = Number(m[1]),
+            mm = Number(m[2]),
+            yy = Number(m[3]);
+        const d = new Date(yy, mm - 1, dd, 0, 0, 0);
+        return isNaN(d) ? null : d;
+    }
+
+    // fallback generico
     const d = new Date(s);
     return isNaN(d) ? null : d;
 }
@@ -924,13 +950,149 @@ function buildRows() {
         _raw: a,
     }));
 }
+const sorterDate = (a, b) => {
+    const ta = parseAnyDate(a)?.getTime() ?? -Infinity;
+    const tb = parseAnyDate(b)?.getTime() ?? -Infinity;
+    return ta - tb;
+};
+function headerDatePicker(headerValue, rowValue, rowData, filterParams) {
+    // qui non serve: la logica filtro la mettiamo in headerFilterFunc sotto
+    return true;
+}
+
+// editor header (crea input + flatpickr)
+function headerFilterDatePicker(cell, onRendered, success, cancel) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Seleziona…";
+    input.style.width = "100%";
+    input.style.boxSizing = "border-box";
+
+    onRendered(() => {
+        const fp = flatpickr(input, {
+            locale: Italian,
+            dateFormat: "d/m/Y",
+            allowInput: true,
+            clickOpens: true,
+            disableMobile: true,
+            onChange: (selectedDates, dateStr) => {
+                // dateStr è già "gg/mm/aaaa"
+                success(dateStr);
+            },
+            onClose: (selectedDates, dateStr) => {
+                // se chiudi senza selezionare, non fare nulla
+            },
+        });
+
+        // se Tabulator distrugge/rifa la testata, evita leak
+        input._flatpickrInstance = fp;
+    });
+
+    // quando scrivi a mano e premi invio
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") success(input.value);
+        if (e.key === "Escape") cancel();
+    });
+
+    // comodo: doppio click per svuotare
+    input.addEventListener("dblclick", () => {
+        input.value = "";
+        success("");
+    });
+
+    return input;
+}
+function ymdToTime(ymd) {
+    // ymd = "YYYY-MM-DD"
+    if (!ymd) return null;
+    const d = parseAnyDate(ymd); // usa la tua
+    return d ? d.getTime() : null;
+}
+
+// ✅ Tabulator headerFilterFunc: range date (DA / A) su rowValue
+function headerFilterDateRangeIt(headerValue, rowValue) {
+    // headerValue arriva come { from:"gg/mm/aaaa", to:"gg/mm/aaaa" }
+    const hv = headerValue || {};
+    const fromYmd = parseItToYmd(hv.from || "");
+    const toYmd = parseItToYmd(hv.to || "");
+
+    // se non metto nulla, non filtro
+    if (!fromYmd && !toYmd) return true;
+
+    const rvYmd = normYmd(rowValue);
+    if (!rvYmd) return false;
+
+    const t = ymdToTime(rvYmd);
+    if (t === null) return false;
+
+    const tf = fromYmd ? ymdToTime(fromYmd) : null;
+    const tt = toYmd ? ymdToTime(toYmd) : null;
+
+    if (tf !== null && t < tf) return false;
+    if (tt !== null && t > tt) return false;
+
+    return true;
+}
+function headerFilterDateRangePicker(cell, onRendered, success, cancel) {
+    const wrap = document.createElement("div");
+    wrap.className = "hf-range";
+
+    const inputFrom = document.createElement("input");
+    inputFrom.type = "text";
+    inputFrom.placeholder = "Da";
+    inputFrom.className = "hf-range-input";
+
+    const inputTo = document.createElement("input");
+    inputTo.type = "text";
+    inputTo.placeholder = "A";
+    inputTo.className = "hf-range-input";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "✕";
+    btn.title = "Reset";
+    btn.className = "hf-range-btn";
+
+    function emit() {
+        success({
+            from: inputFrom.value || "",
+            to: inputTo.value || "",
+        });
+    }
+
+    onRendered(() => {
+        const common = {
+            locale: Italian,
+            dateFormat: "d/m/Y",
+            allowInput: true,
+            clickOpens: true,
+            disableMobile: true,
+        };
+
+        flatpickr(inputFrom, { ...common, onChange: emit });
+        flatpickr(inputTo, { ...common, onChange: emit });
+    });
+
+    btn.addEventListener("click", () => {
+        inputFrom.value = "";
+        inputTo.value = "";
+        emit();
+    });
+
+    wrap.appendChild(inputFrom);
+    wrap.appendChild(inputTo);
+    wrap.appendChild(btn);
+
+    return wrap;
+}
+
 
 function initTabulator() {
     const cols = [
         {
             title: "Itinerario",
             field: "description",
-            minWidth: 140,
+            minWidth: 160,
             headerFilter: "input",
             headerFilterPlaceholder: "Filtra…",
             formatter: (cell) => {
@@ -941,24 +1103,27 @@ function initTabulator() {
             },
         },
         {
-            title: "Data Produzione",
-            field: "DataInizio",
-            sorter: "datetime",
-            width: 100,
-            headerFilter: "input",
-            headerFilterPlaceholder: "gg/mm/aaaa",
-            headerFilterFunc: headerFilterDateIt,
-            formatter: (cell) => formatDateIt(cell.getValue()),
-        },
+    title: "Data Produzione",
+    field: "DataInizio",
+    width: 190,   // ⬅️ minimo consigliato
+    sorter: sorterDate,
+
+    headerFilter: headerFilterDateRangePicker,
+    headerFilterLiveFilter: false,
+    headerFilterFunc: headerFilterDateRangeIt,
+
+    formatter: (cell) => formatDateIt(cell.getValue()),
+},
         {
             title: "Data Consegna",
             field: "DataConsegna",
-            sorter: "datetime",
-            width: 100,
-            headerFilter: "input",
-            headerFilterFunc: headerFilterDateIt,
-            headerFilterPlaceholder: "gg/mm/aaaa",
-            formatter: (cell) => formatDateIt(cell.getValue()),
+            sorter: sorterDate,
+            width: 160,
+            headerFilter: headerFilterDateRangePicker,
+    headerFilterLiveFilter: false,
+    headerFilterFunc: headerFilterDateRangeIt,
+
+    formatter: (cell) => formatDateIt(cell.getValue()),
         },
         {
             title: "Ordine",
@@ -1001,7 +1166,6 @@ function initTabulator() {
 
             headerFilter: "input",
             headerFilterPlaceholder: "Filtra…",
-
         },
         {
             title: "Prodotto",
@@ -1056,24 +1220,29 @@ function initTabulator() {
         "tickCross",
         "textarea",
     ]);
+
     cols.forEach((c) => {
-        if ("headerFilter" in c) {
-            if (
-                typeof c.headerFilter !== "string" ||
-                !allowed.has(c.headerFilter)
-            ) {
-                console.warn(
-                    "Fix headerFilter non valido:",
-                    c.title,
-                    c.field,
-                    c.headerFilter
-                );
-                delete c.headerFilter;
-                delete c.headerFilterParams;
-                delete c.headerFilterFunc;
-                delete c.headerFilterPlaceholder;
-            }
-        }
+        if (!("headerFilter" in c)) return;
+
+        // ✅ se è una funzione custom (datepicker ecc) VA BENE
+        if (typeof c.headerFilter === "function") return;
+
+        // ✅ se è stringa deve essere tra quelle ammesse
+        if (typeof c.headerFilter === "string" && allowed.has(c.headerFilter))
+            return;
+
+        // ❌ altrimenti lo togliamo
+        console.warn(
+            "Fix headerFilter non valido:",
+            c.title,
+            c.field,
+            c.headerFilter
+        );
+        delete c.headerFilter;
+        delete c.headerFilterParams;
+        delete c.headerFilterFunc;
+        delete c.headerFilterPlaceholder;
+        delete c.headerFilterLiveFilter;
     });
 
     if (!tableEl.value || tab) return;
@@ -1350,7 +1519,7 @@ onMounted(() => {
                     Aggiungi Evento
                 </Link>
                 <button
-                v-if="isAdmin"
+                    v-if="isAdmin"
                     class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
                     :disabled="EtEseguiAccess"
                     @click="EseguiAccess"
@@ -1362,7 +1531,7 @@ onMounted(() => {
                     }}
                 </button>
                 <button
-                 v-if="$page.props.auth.user.name === 'Giuseppe Guanti'"
+                    v-if="$page.props.auth.user.name === 'Giuseppe Guanti'"
                     class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
                     :disabled="EtImportaDati"
                     @click="ImportaDati"
@@ -1650,4 +1819,62 @@ onMounted(() => {
     font-size: 12px;
     background: #fff;
 }
+.tabulator-header-filter {
+    padding: 3px 4px !important;
+}
+
+.tabulator-header-filter input {
+    max-width: 100% !important;
+}
+.tabulator ... .tabulator-header-filter input {
+  width: 100% !important;
+  min-width: 70px;
+}
+/* ✅ Range date header filter: verticale (Da sopra, A sotto) */
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range{
+  display: grid;
+  grid-template-columns: 1fr 26px;   /* col 1 = input, col 2 = X */
+  grid-template-rows: auto auto;     /* 2 righe: Da, A */
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-input{
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  height: 26px;
+  padding: 2px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* input Da riga 1 col 1 */
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-input:first-child{
+  grid-row: 1;
+  grid-column: 1;
+}
+
+/* input A riga 2 col 1 */
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-input:nth-child(2){
+  grid-row: 2;
+  grid-column: 1;
+}
+
+/* bottone X: col 2, occupa 2 righe */
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-btn{
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 26px;
+  height: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+
 </style>

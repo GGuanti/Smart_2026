@@ -18,7 +18,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 class AppointmentController extends Controller
 {
     public function EseguiAccess(Request $request)
-        {
+    {
     }
     public function ImportaDati(Request $request)
     {
@@ -173,7 +173,7 @@ class AppointmentController extends Controller
                     'raw_user_id' => $r['user_id'] ?? null,
                     'parsed' => $this->int0($r['user_id'] ?? 0),
                     'auth' => auth()->id(),
-                  ]);
+                ]);
                 $r = [];
                 foreach ($header as $i => $col) $r[$col] = $row[$i] ?? null;
 
@@ -185,8 +185,8 @@ class AppointmentController extends Controller
                 $Nordine = (int)$NordineRaw;
 
                 // campi
-               // $csvUserId       = (int)($this->int0($r['user_id'] ?? 0) ?: auth()->id());
-               $csvUserId = auth()->id();
+                // $csvUserId       = (int)($this->int0($r['user_id'] ?? 0) ?: auth()->id());
+                $csvUserId = auth()->id();
                 $csvTitle        = $this->nullIfEmpty($r['title'] ?? null);
                 $csvDescription  = $this->nullIfEmpty($r['description'] ?? null);
                 $csvStatus       = $this->nullIfEmpty($r['status'] ?? null);
@@ -221,14 +221,14 @@ class AppointmentController extends Controller
                             'user_id'        => $csvUserId,
                             'title'          => $csvTitle ?? $appt->title,
                             'description'    => $csvDescription, // può diventare null se vuoto
-                          //  'DataInizio'     => $dInizio ?? $appt->DataInizio,
-                          //  'DataFine'       => $dFine ?? ($dInizio ?? $appt->DataFine),
-                          //  'status'         => $csvStatus ?? $appt->status,
+                            //  'DataInizio'     => $dInizio ?? $appt->DataInizio,
+                            //  'DataFine'       => $dFine ?? ($dInizio ?? $appt->DataFine),
+                            //  'status'         => $csvStatus ?? $appt->status,
                             'Riferimento'    => $csvRiferimento,
                             'DataConferma'   => $dConferma,
                             'DataConsegna'   => $dConsegna,
                             'Colore'         => $csvColore,
-                         //   'Pezzi'          => $csvPezzi,
+                            //   'Pezzi'          => $csvPezzi,
                             'Annotazioni'    => $csvAnnotazioni,
                             'StatoMagazzino' => $csvStatoMag,
                             'Prodotto'       => $prodArr, // array
@@ -793,13 +793,32 @@ class AppointmentController extends Controller
 
 
     // Elimina un appuntamento
-    public function destroy(Appointment $appointment)
+    public function destroy1(Appointment $appointment)
     {
         $appointment->delete();
 
         return redirect()->route('appointments.calendar')->with('success', 'Appuntamento eliminato.');
     }
+    public function destroy($id)
+    {
+        $appointment = Appointment::findOrFail($id);
 
+        // sicurezza: solo proprietario (o metti policy)
+        abort_if($appointment->user_id !== auth()->id(), 403);
+
+        DB::transaction(function () use ($appointment) {
+            // 1) elimina items legati per Nordine
+            DB::table('appointment_items')
+                ->where('Nordine', $appointment->Nordine)
+                ->delete();
+
+            // 2) elimina appointment
+            $appointment->delete();
+        });
+
+        return redirect()->route('appointments.calendar')
+            ->with('success', 'Appuntamento eliminato.');
+    }
     public function move(Request $request, Appointment $appointment)
     {
         $validated = $request->validate([
@@ -812,8 +831,8 @@ class AppointmentController extends Controller
         if ($validated['allDay']) {
             // allDay -> giorno intero
             $start = Carbon::parse($validated['start'])
-            ->setTimezone('Europe/Rome')
-            ->startOfDay();
+                ->setTimezone('Europe/Rome')
+                ->startOfDay();
 
             $appointment->update([
                 'DataInizio' => $start->toDateTimeString(),
@@ -837,7 +856,7 @@ class AppointmentController extends Controller
             ]);
         }
 
-      //  return response()->json(['success' => true]);
+        //  return response()->json(['success' => true]);
     }
 
     // Sposta evento dal calendario (drag & drop)

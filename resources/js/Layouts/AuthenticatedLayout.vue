@@ -307,12 +307,12 @@ const page = usePage();
             </div>
         </header>
 
-        <!-- Flash message -->
+        <!-- Flash message
         <div class="w-full mt-4 px-4" v-if="page.props.flash?.success">
             <div class="bg-green-100 text-green-800 p-3 rounded shadow text-sm">
                 {{ page.props.flash.success }}
             </div>
-        </div>
+        </div> -->
 
         <!-- Main content -->
         <main class="w-full px-0 py-0">
