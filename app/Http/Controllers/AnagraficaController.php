@@ -177,8 +177,10 @@ class AnagraficaController extends Controller
     ]);
 
     Anagrafica::create($data);
-
-    return redirect()->route('anagrafica.index')->with('success', 'Record creato con successo');
+    return redirect()
+    ->back()
+    ->with('success', 'Salvato');
+   //   return redirect()->route('anagrafica.index')->with('success', 'Record creato con successo');
 }
 
     public function edit($id)
@@ -319,6 +321,8 @@ $attivita = $attivita->map(function ($a) use ($progettiFigli) {
         'progetti.NOrdineCup as NOrdineCup',
         'progetti.DtOrdineCup as DtOrdineCup',
         'progetti.Note as Note',
+        'progetti.DataContratto as DataContratto',
+        'progetti.DescrizioneProgetto as DescrizioneProgetto',
         // se ti serve anche il CodCliente di attivita, alias separato:
         // 'attivita.CodCliente as AttivitaCodCliente',
 
@@ -577,8 +581,11 @@ $Visite = $query->get();
     ]);
 
     $anagrafica->update($data);
+    return redirect()
+    ->back()
+    ->with('success', 'Salvato');
 
-    return redirect()->route('anagrafica.index')->with('success', 'Record aggiornato con successo.');
+//     return redirect()->route('anagrafica.index')->with('success', 'Record aggiornato con successo.');
 }
 
 

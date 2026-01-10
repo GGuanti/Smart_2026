@@ -292,4 +292,15 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
+//Salvataggio Colonne griglia
+Route::middleware('auth')->group(function () {
+    Route::get('/user/columns', [UserPreferenceController::class, 'get']);
+    Route::post('/user/columns', [UserPreferenceController::class, 'save']);
+    Route::get('/preferences', [UserPreferenceController::class, 'get']);
+});
+Route::middleware(['auth'])->group(function () {
+    //    Route::post('/user/columns', [UserPreferenceController::class, 'save']);
+});
+
+
 require __DIR__ . '/auth.php';

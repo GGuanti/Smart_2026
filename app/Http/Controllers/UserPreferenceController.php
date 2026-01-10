@@ -12,11 +12,7 @@ class UserPreferenceController extends Controller
         $key = $request->query('key');
         $prefs = auth()->user()->table_preferences ?? [];
 
-        Log::info('[UserPreferenceController@get]', [
-            'user_id' => auth()->id(),
-            'key' => $key,
-            'loaded_columns' => $prefs[$key] ?? []
-        ]);
+
 
         return response()->json($prefs[$key] ?? []);
     }

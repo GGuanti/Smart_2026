@@ -9,9 +9,13 @@ class ProfiloNurith
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check() || auth()->user()->profilo !== 'Nurith') {
+        $user = auth()->user();
+
+        if (!$user || !in_array($user->profilo, ['Nurith', 'admin'], true)) {
             abort(403);
         }
+
+
 
         return $next($request);
     }
