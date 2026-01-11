@@ -49,6 +49,8 @@ use App\Http\Controllers\{
 
     Auth\AuthenticatedSessionController,
 };
+use App\Http\Controllers\ListinoValPredController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -137,8 +139,15 @@ Route::middleware(['auth', 'isomax'])->group(function () {
     Route::post('/listini', [ListinoController::class, 'store'])->name('listini.store');
     Route::get('/listini/{listino}/modifica', [ListinoController::class, 'edit'])->name('listini.edit');
     Route::put('/listini/{listino}', [ListinoController::class, 'update'])->name('listini.update');
-    Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
-        ->name('listini.valpred.save');
+   //  Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
+   //      ->name('listini.valpred.save');
+
+   Route::get('/listini/{listino}/valpred', [ListinoValPredController::class, 'show'])
+   ->name('listini.valpred.show');
+
+Route::put('/listini/{listino}/valpred', [ListinoValPredController::class, 'store'])
+   ->name('listini.valpred.store');
+
 });
 
 Route::middleware(['auth'])->group(function () {

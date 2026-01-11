@@ -1095,6 +1095,20 @@ watch(
         });
     }
 );
+watch(
+    () => form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}`),
+    (newV, oldV) => {
+        if (!oldV) return; // evita F5/mount
+        form.righe.forEach(async (riga, i) => {
+            if (newV[i] === oldV[i]) return;
+
+            // Se cambia modello/soluzione: prova a caricare ValPred specifico
+            await loadValPredModelSol(riga);
+
+            // Se non esiste ValPred, la cascata normale già mette i primi validi (nel tuo watcher “campi”)
+        });
+    }
+);
 
 /* ===================== Totali ===================== */
 const totalePreventivo = computed(() =>
@@ -1116,7 +1130,6 @@ function totaleRiga(r) {
 
 /* ===================== Azioni righe ===================== */
 function addRiga() {
-
     form.righe.push(newRigaFromElemento());
 
     showSavedMsg("✅ Riga inserita", 1500);
@@ -1363,7 +1376,7 @@ function submitAll() {
     form.post(route("preventivi.store", props.ordine.ID), {
         preserveScroll: true,
         onSuccess: () => {
-             showSavedMsg("✅ Preventivo salvato", 1500);
+            showSavedMsg("✅ Preventivo salvato", 1500);
 
             // aggiorna solo i dati, senza “scombussolare” la pagina
             router.reload({
@@ -1377,8 +1390,62 @@ function submitAll() {
         },
     });
 }
-
 function valPredPayloadFromRiga(riga) {
+    return {
+        IdSoluzione: riga.IdSoluzione ?? null,
+        IdColAnta: riga.IdColAnta ?? null,
+        IdColTelaio: riga.IdColTelaio ?? null,
+        IdManiglia: riga.IdManiglia ?? null,
+        IdApertura: riga.IdApertura ?? null,
+        IdTipTelaio: riga.IdTipTelaio ?? null,
+        IdImbotte: riga.IdImbotte ?? null,
+        IdVetro: riga.IdVetro ?? null,
+        IdColFerr: riga.IdColFerr ?? null,
+        IdSerratura: riga.IdSerratura ?? null,
+        CkTaglioObl: riga.CkTaglioObl ?? "No",
+
+        // opzionale misure
+        DimL: riga.DimL ?? null,
+        DimA: riga.DimA ?? null,
+        DimSp: riga.DimSp ?? null,
+    };
+}
+async function saveValPredModelSol(riga) {
+    if (!riga.IdModello || !riga.IdSoluzione) return;
+
+    const valpred = valPredPayloadFromRiga(riga);
+
+    await router.put(
+        route("listini.valpred.store", riga.IdModello),
+        {
+            id_tab_soluzioni: riga.IdSoluzione,
+            valpred,
+        },
+        { preserveScroll: true }
+    );
+}
+
+async function loadValPredModelSol(riga) {
+    if (!riga.IdModello || !riga.IdSoluzione) return;
+
+    const { data } = await axios.get(
+        route("listini.valpred.show", riga.IdModello),
+        { params: { id_tab_soluzioni: riga.IdSoluzione } }
+    );
+
+    const vp = data?.valpred;
+    if (!vp) return;
+
+    for (const [k, v] of Object.entries(vp)) {
+        if (k.startsWith("Id") && v != null) riga[k] = Number(v);
+        else riga[k] = v;
+    }
+
+    cascadeRiga(riga);
+    refreshPrezzo(riga);
+}
+
+function valPredPayloadFromRigaOld(riga) {
     // qui metti ESATTAMENTE i campi che vuoi salvare come default per il modello
     // (io ti metto tutti quelli “di configurazione”)
     return {
@@ -1789,7 +1856,6 @@ function showErrorMsg(text = "❌ Errore nel salvataggio", ms = 2500) {
     }, ms);
 }
 
-
 onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
     clearTimeout(savedT);
@@ -1927,6 +1993,27 @@ onBeforeUnmount(() => {
                                 <!-- 📋 COPIA -->
                                 <button
                                     type="button"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                                    @click="saveValPredModelSol(riga)"
+                                    :disabled="
+                                        !riga.IdModello || !riga.IdSoluzione
+                                    "
+                                >
+                                    💾 Val. Predef.
+                                </button>
+
+                             <!--    <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
+                                    @click="loadValPredModelSol(riga)"
+                                    :disabled="
+                                        !riga.IdModello || !riga.IdSoluzione
+                                    "
+                                >
+                                    📥 Val. Predef.
+                                </button>
+                                 <button
+                                    type="button"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
                                     @click="loadValPredToRow(riga)"
                                     :disabled="!riga.IdModello"
@@ -1944,7 +2031,7 @@ onBeforeUnmount(() => {
                                     title="Salva come valori predefiniti per il modello"
                                 >
                                     💾 Val. Predef.
-                                </button>
+                                </button> -->
                                 <button
                                     type="button"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white text-sm"
