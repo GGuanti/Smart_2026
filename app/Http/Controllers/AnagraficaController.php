@@ -6,43 +6,52 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Log;
 
 class AnagraficaController extends Controller
 {
     public function index(Request $request)
-{
-    try {
+    {
         $tipoU = $request->query('tipoU', 'U');
 
-        $allColumns = Schema::getColumnListing('anagrafica');
-
-        $exclude = ['password', 'remember_token'];
-        $columns = array_values(array_diff($allColumns, $exclude));
-
-        $orderCol = in_array('A_NomeVisualizzato', $columns) ? 'A_NomeVisualizzato' : $columns[0];
-
-        $records = \App\Models\Anagrafica::where('B_TipoU', $tipoU)
-            ->select($columns)
-            ->orderBy($orderCol)
+        $records = Anagrafica::where('B_TipoU', $tipoU)
+            ->select([
+                'IDAnagrafica',
+                'CodCliente',
+                'B_TipoU',
+                'A_NomeVisualizzato',
+                'AI_PartitaIVA',
+                'AH_CodiceFiscalePG',
+                'AG_CodiceFiscalePF',
+                'AE_IndirizzoEmail',
+                'AD_Cellulare',
+                'AM_Professione1',
+                'AN_Professione2',
+                'AN_Professione3',
+                'R_ComuneResidenza',
+                'AR_DataDomanda',
+                'AS_DataApprovazioneCDA',
+                'AT_DataVersamento',
+                'AU_DataRatifica',
+                'Stato',
+                'VisitaMedica',
+            ])
+            ->orderBy('A_NomeVisualizzato')
             ->get();
 
-        return \Inertia\Inertia::render('Anagrafica/Index', [
+        return Inertia::render('Anagrafica/Index', [
             'records' => $records,
-            'columns' => $columns,
+            'columns' => [
+                'IDAnagrafica', 'CodCliente', 'B_TipoU', 'A_NomeVisualizzato',
+                'AI_PartitaIVA', 'AH_CodiceFiscalePG', 'AG_CodiceFiscalePF',
+                'AE_IndirizzoEmail', 'AD_Cellulare', 'AM_Professione1',
+                'AN_Professione2', 'AN_Professione3', 'R_ComuneResidenza',
+                'AR_DataDomanda', 'AS_DataApprovazioneCDA', 'AT_DataVersamento',
+                'AU_DataRatifica', 'Stato', 'VisitaMedica'
+            ],
             'nomeTabella' => 'anagrafica',
             'tipoU' => $tipoU,
         ]);
-    } catch (\Throwable $e) {
-        Log::error('ANAGRAFICA INDEX ERROR', [
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-        ]);
-        throw $e; // così lo vedi nei log cloud
     }
-}
 
     public function list(Request $request)
     {
