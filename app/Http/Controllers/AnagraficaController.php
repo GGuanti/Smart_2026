@@ -7,33 +7,42 @@ use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 class AnagraficaController extends Controller
 {
     public function index(Request $request)
 {
-    $tipoU = $request->query('tipoU', 'U');
+    try {
+        $tipoU = $request->query('tipoU', 'U');
 
-    $allColumns = Schema::getColumnListing('anagrafica');
+        $allColumns = Schema::getColumnListing('anagrafica');
 
-    $exclude = ['password', 'remember_token'];
-    $columns = array_values(array_diff($allColumns, $exclude));
+        $exclude = ['password', 'remember_token'];
+        $columns = array_values(array_diff($allColumns, $exclude));
 
-    $orderCol = in_array('A_NomeVisualizzato', $columns) ? 'A_NomeVisualizzato' : $columns[0];
+        $orderCol = in_array('A_NomeVisualizzato', $columns) ? 'A_NomeVisualizzato' : $columns[0];
 
-    $records = Anagrafica::where('B_TipoU', $tipoU)
-        ->select($columns)
-        ->orderBy($orderCol)
-        ->get();
+        $records = \App\Models\Anagrafica::where('B_TipoU', $tipoU)
+            ->select($columns)
+            ->orderBy($orderCol)
+            ->get();
 
-    return Inertia::render('Anagrafica/Index', [
-        'records' => $records,
-        'columns' => $columns,
-        'nomeTabella' => 'anagrafica',
-        'tipoU' => $tipoU,
-    ]);
+        return \Inertia\Inertia::render('Anagrafica/Index', [
+            'records' => $records,
+            'columns' => $columns,
+            'nomeTabella' => 'anagrafica',
+            'tipoU' => $tipoU,
+        ]);
+    } catch (\Throwable $e) {
+        Log::error('ANAGRAFICA INDEX ERROR', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]);
+        throw $e; // così lo vedi nei log cloud
+    }
 }
-
 
     public function list(Request $request)
     {
