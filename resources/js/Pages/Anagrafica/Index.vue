@@ -24,28 +24,113 @@ const pageSize = ref(20);
 const totalCount = computed(() => props.records?.length ?? 0);
 
 // ✅ Carica preferenze colonne salvate
-const loadUserColumns = async () => {
-    try {
-        const { data } = await axios.get("/preferences", {
-            params: { key: gridKey },
-        });
+const DATE_FIELDS = new Set([
+  "AR_DataDomanda",
+  "AS_DataApprovazioneCDA",
+  "AT_DataVersamento",
+  "AU_DataRatifica",
+]);
 
-        return data.length
-            ? data
-            : props.columns.map((col) => ({
-                  title: col.replace(/_/g, " "),
-                  field: col,
-                  headerFilter: true,
-              }));
-    } catch (err) {
-        console.error("❌ Errore caricamento colonne:", err);
-        return props.columns.map((col) => ({
-            title: col.replace(/_/g, " "),
-            field: col,
-            headerFilter: true,
-        }));
-    }
+const formatDDMMYYYY = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d)) return String(value);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = d.getFullYear();
+  return `${dd}/${mm}/${yy}`;
 };
+
+const dateSorter = (a, b) =>
+  (a ? new Date(a) : new Date(0)) - (b ? new Date(b) : new Date(0));
+
+function buildBaseColumns() {
+  return props.columns.map((col) => {
+    const base = {
+      title: COLUMN_LABELS[col] ?? col.replace(/_/g, " "),
+      field: col,
+      headerFilter: true,
+    };
+
+    if (DATE_FIELDS.has(col)) {
+      return {
+        ...base,
+        sorter: dateSorter,
+        headerFilter: "input",
+        formatter: (cell) =>
+          `<span class="font-bold text-slate-700">${formatDDMMYYYY(cell.getValue())}</span>`,
+        width: 140,
+      };
+    }
+
+    return base;
+  });
+}
+
+
+// applica width/visible/order salvati senza perdere formatter ecc.
+function applyLayoutToBaseColumns(baseColumns, layout) {
+  if (!Array.isArray(layout) || layout.length === 0) return baseColumns;
+
+  const byField = new Map(baseColumns.map((c) => [c.field, { ...c }]));
+  const ordered = [];
+
+  for (const l of layout) {
+    if (!l?.field) continue;
+    const col = byField.get(l.field);
+    if (!col) continue;
+
+    if (l.width) col.width = l.width;
+    if (typeof l.visible === "boolean") col.visible = l.visible;
+
+    ordered.push(col);
+    byField.delete(l.field);
+  }
+
+  // aggiungi eventuali nuove colonne non presenti nel layout salvato
+  for (const [, col] of byField) ordered.push(col);
+
+  return ordered;
+}
+const COLUMN_LABELS = {
+  IDAnagrafica: "ID",
+  CodCliente: "Codice",
+  B_TipoU: "Tipo",
+  A_NomeVisualizzato: "Nome",
+  AI_PartitaIVA: "Partita IVA",
+  AH_CodiceFiscalePG: "CF (PG)",
+  AG_CodiceFiscalePF: "CF (PF)",
+  AE_IndirizzoEmail: "Email",
+  AD_Cellulare: "Cellulare",
+  AM_Professione1: "Professione",
+  AN_Professione2: "Professione 2",
+  AN_Professione3: "Professione 3",
+  R_ComuneResidenza: "Comune",
+  AR_DataDomanda: "Data Domanda",
+  AS_DataApprovazioneCDA: "Data CDA",
+  AT_DataVersamento: "Data Vers.",
+  AU_DataRatifica: "Data Ratifica",
+  Stato: "Stato",
+  VisitaMedica: "Visita Medica",
+};
+const loadUserColumns = async () => {
+  const baseColumns = buildBaseColumns();
+
+  try {
+    const { data } = await axios.get("/TabAnagUser", { params: { key: gridKey } });
+
+    if (Array.isArray(data) && data.length) {
+      return applyLayoutToBaseColumns(baseColumns, data);
+    }
+
+    return baseColumns;
+  } catch (err) {
+    console.error("❌ Errore caricamento colonne:", err);
+    return baseColumns;
+  }
+};
+
+
 
 // ✅ Salva configurazione colonne (esclude "Azioni")
 const saveUserColumns = () => {
@@ -64,6 +149,52 @@ const saveUserColumns = () => {
         },
         body: JSON.stringify({ key: gridKey, columns: layout }),
     }).catch((error) => console.error("❌ Errore salvataggio colonne:", error));
+};
+// ❌ non permettere di nascondere "Azioni"
+const EXCLUDE_FIELDS = new Set(["azioni"]);
+
+// ✅ costruisce menu show/hide colonne + salva/reset
+const buildColumnsMenu = () => {
+  if (!tableInstance) return [];
+
+  const cols = tableInstance.getColumns().filter((c) => {
+    const def = c.getDefinition();
+    return def?.field && !EXCLUDE_FIELDS.has(def.field);
+  });
+
+  const menu = [
+    { label: "💾 Salva layout", action: saveUserColumns },
+    { label: "♻️ Ripristina layout", action: resetUserColumns },
+    { separator: true },
+  ];
+
+  cols.forEach((col) => {
+    const def = col.getDefinition();
+    menu.push({
+      label: `${col.isVisible() ? "✅" : "⬜"} ${def.title}`,
+      action: () => {
+        col.toggle();
+        saveUserColumns();
+      },
+    });
+  });
+
+  return menu;
+};
+
+
+// ✅ (opzionale) apri il menu colonne dal bottone “Colonne”
+const openColumnsMenu = (evt) => {
+    if (!tableInstance) return;
+
+    // prendo una colonna qualsiasi che abbia headerMenu (Azioni)
+    const actionsCol = tableInstance.getColumn("azioni");
+    if (!actionsCol) return;
+
+    // Tabulator non ha “open menu” ufficiale pubblico.
+    // Trick: simula click sull'header della colonna, apre header menu.
+    const el = actionsCol.getElement();
+    if (el) el.click();
 };
 
 // ✅ Reset colonne
@@ -121,6 +252,7 @@ onMounted(async () => {
     tabulatorColumns.unshift({
         title: "Azioni",
         field: "azioni",
+        headerMenu: () => buildColumnsMenu(),
         headerSort: false,
         hozAlign: "center",
         width: 120,
@@ -129,7 +261,7 @@ onMounted(async () => {
         formatter: () => `
   <div class="actWrap">
     <button class="actBtn actEdit" data-action="edit" title="Modifica">✏️</button>
-    <button class="actBtn actDel" data-action="delete" title="Elimina">🗑️</button>
+  <!--  <button class="actBtn actDel" data-action="delete" title="Elimina">🗑️</button> -->
   </div>
 `,
         cellClick: (e, cell) => {
@@ -153,7 +285,7 @@ onMounted(async () => {
         columns: tabulatorColumns,
         layout: "fitColumns",
         height: "100%",
-
+rowHeight: 36,
         // UX
         reactiveData: true,
         movableColumns: true,
@@ -235,6 +367,7 @@ onUnmounted(() => {
                         <button @click="resetUserColumns" class="btn btnGhost">
                             ♻️ Reset
                         </button>
+
                         <button
                             @click="router.visit(`/${nomeTabella}/create`)"
                             class="btn btnGreen"
@@ -248,7 +381,7 @@ onUnmounted(() => {
             <!-- TABLE CARD -->
             <div class="card">
                 <div class="tableWrap">
-                    <div ref="tableRef" class="w-full h-full" />
+                    <div ref="tableRef" class="tabWrap smartGrid" />
                 </div>
             </div>
         </div>
@@ -256,10 +389,9 @@ onUnmounted(() => {
 </template>
 
 <style>
-@import "tabulator-tables/dist/css/tabulator.min.css";
-
 /* ===== Layout ===== */
 .pageWrap {
+    padding-top: 0 !important;
     height: calc(100vh - 0px);
     padding: 18px;
     background: linear-gradient(180deg, #f8fafc, #ffffff);
@@ -277,6 +409,7 @@ onUnmounted(() => {
     background: linear-gradient(90deg, #ffffff, #f8fafc);
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
     margin-bottom: 12px;
+     margin-top: 0 !important;
 }
 
 .heroLeft {
@@ -451,29 +584,7 @@ onUnmounted(() => {
     height: 100%;
 }
 
-/* ===== Tabulator skin ===== */
-.tabulator {
-    border: 0 !important;
-    font-size: 0.9rem;
-}
 
-.tabulator .tabulator-header {
-    background: #f8fafc !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-}
-
-.tabulator .tabulator-col .tabulator-col-title {
-    font-weight: 900 !important;
-    color: #334155 !important;
-}
-
-.tabulator .tabulator-row {
-    border-bottom: 1px solid #f1f5f9 !important;
-}
-
-.tabulator .tabulator-row:hover {
-    background: #f8fafc !important;
-}
 
 /* Azioni */
 .actWrap {
@@ -587,47 +698,57 @@ onUnmounted(() => {
     color: var(--s-primary-700);
     border-color: rgba(255, 255, 255, 0.35);
 }
-.tabulator{
-  border: 0 !important;
-  font-size: 0.9rem;
-}
-
-.tabulator .tabulator-header{
-  background: #f1f5f9 !important;
-  border-bottom: 1px solid var(--s-border) !important;
-}
-
-.tabulator .tabulator-col .tabulator-col-title{
-  font-weight: 900 !important;
-  color: #334155 !important;
-}
-
-.tabulator .tabulator-row{
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-
-.tabulator .tabulator-row:hover{
-  background: #f8fafc !important;
-}
 
 /* riga selezionata/attiva (stile blu) */
-.tabulator .tabulator-row.tabulator-selected{
-  background: rgba(59,130,246,.12) !important;
+.tabulator .tabulator-row.tabulator-selected {
+    background: rgba(59, 130, 246, 0.12) !important;
 }
-.actWrap{ display:flex; justify-content:center; gap:8px; }
-.actBtn{
-  border-radius: 12px;
-  padding: 6px 10px;
-  font-weight: 900;
-  border: 1px solid var(--s-border);
-  background: #fff;
-  box-shadow: 0 10px 22px rgba(15,23,42,.08);
-  cursor:pointer;
-  transition:.15s;
+.actWrap {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
 }
-.actBtn:hover{ transform: translateY(-1px); }
+.actBtn {
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-weight: 900;
+    border: 1px solid var(--s-border);
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    cursor: pointer;
+    transition: 0.15s;
+}
+.actBtn:hover {
+    transform: translateY(-1px);
+}
 
-.actEdit{ background: var(--s-warn-bg); border-color: var(--s-warn-br); color: var(--s-warn-tx); }
-.actDel{  background: var(--s-danger-bg); border-color: var(--s-danger-br); color: var(--s-danger-tx); }
+.actEdit {
+    background: var(--s-warn-bg);
+    border-color: var(--s-warn-br);
+    color: var(--s-warn-tx);
+}
+.actDel {
+    background: var(--s-danger-bg);
+    border-color: var(--s-danger-br);
+    color: var(--s-danger-tx);
+}
+/* elimina spazio sopra la tabella */
+.tableWrap {
+    padding-top: 0 !important;
+}
+
+.tabWrap {
+    margin-top: 0 !important;
+}
+
+/* header filtri: stringi l’altezza */
+.tabulator .tabulator-header-filter {
+    padding: 2px 4px !important;
+}
+
+/* elimina spazio inutile tra header e body */
+.tabulator .tabulator-header {
+    margin-bottom: 0 !important;
+}
 
 </style>

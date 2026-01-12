@@ -14,7 +14,8 @@ import AutoComplete from 'primevue/autocomplete'
 import 'primevue/resources/themes/lara-light-blue/theme.css'
 import 'primevue/resources/primevue.min.css'
 import 'primeicons/primeicons.css'
-
+import "tabulator-tables/dist/css/tabulator.min.css";
+import "../css/tabulator-smart.css";
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel'
 
 createInertiaApp({

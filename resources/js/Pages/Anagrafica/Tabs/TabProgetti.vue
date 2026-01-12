@@ -6,6 +6,8 @@ import { TabulatorFull as Tabulator } from "tabulator-tables";
 import "tabulator-tables/dist/css/tabulator.min.css";
 import { usePage } from "@inertiajs/vue3";
 
+
+
 const toast = useToast();
 const page = usePage();
 

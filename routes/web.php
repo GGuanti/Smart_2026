@@ -312,7 +312,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/user/columns', [UserPreferenceController::class, 'get']);
     Route::post('/user/columns', [UserPreferenceController::class, 'save']);
-  //  Route::get('/preferences', [UserPreferenceController::class, 'get']);
+    Route::get('/TabAnagUser', [UserPreferenceController::class, 'get']);
 });
 Route::middleware(['auth'])->group(function () {
     //    Route::post('/user/columns', [UserPreferenceController::class, 'save']);

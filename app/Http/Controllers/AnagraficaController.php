@@ -10,48 +10,30 @@ use Illuminate\Support\Facades\DB;
 class AnagraficaController extends Controller
 {
     public function index(Request $request)
-    {
-        $tipoU = $request->query('tipoU', 'U');
+{
+    $tipoU = $request->query('tipoU', 'U');
 
-        $records = Anagrafica::where('B_TipoU', $tipoU)
-            ->select([
-                'IDAnagrafica',
-                'CodCliente',
-                'B_TipoU',
-                'A_NomeVisualizzato',
-                'AI_PartitaIVA',
-                'AH_CodiceFiscalePG',
-                'AG_CodiceFiscalePF',
-                'AE_IndirizzoEmail',
-                'AD_Cellulare',
-                'AM_Professione1',
-                'AN_Professione2',
-                'AN_Professione3',
-                'R_ComuneResidenza',
-                'AR_DataDomanda',
-                'AS_DataApprovazioneCDA',
-                'AT_DataVersamento',
-                'AU_DataRatifica',
-                'Stato',
-                'VisitaMedica',
-            ])
-            ->orderBy('A_NomeVisualizzato')
-            ->get();
+    // ✅ tutte le colonne reali della tabella (schema)
+    $allColumns = \Schema::getColumnListing('anagrafica');
 
-        return Inertia::render('Anagrafica/Index', [
-            'records' => $records,
-            'columns' => [
-                'IDAnagrafica', 'CodCliente', 'B_TipoU', 'A_NomeVisualizzato',
-                'AI_PartitaIVA', 'AH_CodiceFiscalePG', 'AG_CodiceFiscalePF',
-                'AE_IndirizzoEmail', 'AD_Cellulare', 'AM_Professione1',
-                'AN_Professione2', 'AN_Professione3', 'R_ComuneResidenza',
-                'AR_DataDomanda', 'AS_DataApprovazioneCDA', 'AT_DataVersamento',
-                'AU_DataRatifica', 'Stato', 'VisitaMedica'
-            ],
-            'nomeTabella' => 'anagrafica',
-            'tipoU' => $tipoU,
-        ]);
-    }
+    // (opzionale) escludi colonne tecniche/sensibili
+    $exclude = ['password', 'remember_token']; // esempio
+    $columns = array_values(array_diff($allColumns, $exclude));
+
+    // ✅ dati: puoi selezionare tutte le colonne
+    $records = Anagrafica::where('B_TipoU', $tipoU)
+        ->select($columns)
+        ->orderBy('A_NomeVisualizzato')
+        ->get();
+
+    return Inertia::render('Anagrafica/Index', [
+        'records' => $records,
+        'columns' => $columns,
+        'nomeTabella' => 'anagrafica',
+        'tipoU' => $tipoU,
+    ]);
+}
+
 
     public function list(Request $request)
     {
