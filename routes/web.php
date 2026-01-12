@@ -50,8 +50,15 @@ use App\Http\Controllers\{
     Auth\AuthenticatedSessionController,
 };
 use App\Http\Controllers\ListinoValPredController;
+use App\Http\Controllers\UserPreferenceControllerN;
 
-
+Route::middleware(['auth'])->group(function () {
+    Route::get('/stampa/settimana/{year}/{week}', [PrintController::class, 'Settimana'])
+    ->name('print.week.pdf');
+    Route::get('/preferences', [UserPreferenceControllerN::class, 'show']);
+    Route::post('/preferences', [UserPreferenceControllerN::class, 'store']);
+    Route::delete('/preferences', [UserPreferenceControllerN::class, 'destroy']); // ✅
+});
 /*
 |--------------------------------------------------------------------------
 | Home / Redirect iniziale
@@ -305,7 +312,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/user/columns', [UserPreferenceController::class, 'get']);
     Route::post('/user/columns', [UserPreferenceController::class, 'save']);
-    Route::get('/preferences', [UserPreferenceController::class, 'get']);
+  //  Route::get('/preferences', [UserPreferenceController::class, 'get']);
 });
 Route::middleware(['auth'])->group(function () {
     //    Route::post('/user/columns', [UserPreferenceController::class, 'save']);

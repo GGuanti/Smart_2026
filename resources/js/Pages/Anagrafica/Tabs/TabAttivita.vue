@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { usePage, router } from "@inertiajs/vue3";
-import ModalProjectForm from "./ModalProjectForm.vue"; // oppure '@/Components/ModalProjectForm.vue'
+import ModalProjectForm from "./ModalProjectForm.vue";
 
 const props = defineProps({
     codCliente: { type: String, required: true },
@@ -14,9 +14,7 @@ const isAdmin = computed(() => page.props?.auth?.user?.profilo === "admin");
 
 // stato pannelli attività
 const open = ref(null);
-const toggle = (id) => {
-    open.value = open.value === id ? null : id;
-};
+const toggle = (id) => (open.value = open.value === id ? null : id);
 
 // filtro attività per cliente
 const attivitaCliente = computed(() =>
@@ -25,9 +23,9 @@ const attivitaCliente = computed(() =>
 
 // modal state
 const modalOpen = ref(false);
-const editMode = ref(false); // false=create, true=edit
-const selectedActivity = ref(null); // attività corrente
-const selectedProject = ref(null); // progetto in modifica
+const editMode = ref(false);
+const selectedActivity = ref(null);
+const selectedProject = ref(null);
 
 const openNewProject = (a) => {
     selectedActivity.value = a;
@@ -43,9 +41,7 @@ const openEditProject = (a, p) => {
     modalOpen.value = true;
 };
 
-const reloadProjects = () => {
-    router.reload({ only: ["attivita"] });
-};
+const reloadProjects = () => router.reload({ only: ["attivita"] });
 
 const destroyProject = (p) => {
     if (!isAdmin.value) return;
@@ -57,152 +53,282 @@ const destroyProject = (p) => {
     }
 };
 
-// util formattazione
 const fmtDate = (d) => {
-    if (!d) return "";
+    if (!d) return "—";
     const date = typeof d === "string" ? new Date(d) : d;
     return isNaN(date)
         ? d
-        : new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(
-              date
-          );
+        : new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(date);
 };
+
+const short = (s) => String(s ?? "").trim();
 </script>
 
 <template>
-    <div class="p-4 bg-white rounded shadow">
-        <h2 class="text-lg font-semibold mb-4">Attività</h2>
-
+    <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <!-- Header -->
         <div
-            v-for="a in attivitaCliente"
-            :key="a.IDAttivita"
-            class="mb-4 border rounded overflow-hidden"
+            class="flex items-start justify-between gap-4 p-5 border-b border-slate-200"
         >
-            <!-- Header attività -->
-            <button
-                type="button"
-                @click="toggle(a.IDAttivita)"
-                class="w-full text-left px-4 py-2 bg-gray-100 hover:bg-gray-200 flex items-center justify-between"
-                :aria-expanded="open === a.IDAttivita"
-            >
-                <div class="truncate">
-                    <strong>#{{ a.IDAttivita }}</strong> — {{ a.NomeAttivita }}
-                    <span class="text-sm text-gray-500 ml-2"
-                        >({{ a.DesProgetto }})</span
+            <div>
+                <div class="flex items-center gap-2">
+                    <div
+                        class="h-9 w-9 rounded-xl bg-indigo-50 ring-1 ring-indigo-100 flex items-center justify-center"
                     >
-                </div>
-                <span class="ml-3 text-gray-600" aria-hidden="true">
-                    {{ open === a.IDAttivita ? "▾" : "▸" }}
-                </span>
-            </button>
-
-            <!-- Corpo attività -->
-            <div v-show="open === a.IDAttivita" class="border-t">
-                <!-- Barra azioni -->
-                <div class="px-4 pt-4 flex items-center justify-between">
-                    <div class="text-sm text-gray-600">
-                        Progetti collegati all’attività #{{ a.IDAttivita }}
+                        <span class="text-indigo-700">📌</span>
                     </div>
-                    <button
-                        v-if="isAdmin"
-                        type="button"
-                        @click="openNewProject(a)"
-                        class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                        + Aggiungi progetto
-                    </button>
+                    <div>
+                        <h2 class="text-lg font-extrabold text-slate-900">
+                            Attività
+                        </h2>
+                        <p class="text-sm text-slate-500">
+                            Elenco attività e progetti collegati al cliente
+                            <span class="font-semibold text-slate-700">
+                                {{ codCliente }}
+                            </span>
+                        </p>
+                    </div>
                 </div>
+            </div>
 
-                <!-- Tabella progetti -->
-                <div class="p-4 overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="p-2 border whitespace-nowrap">
-                                    IdProgetto
-                                </th>
-                                <th class="p-2 border">Ragione Sociale</th>
-                                <th class="p-2 border whitespace-nowrap">
-                                    Data Inizio
-                                </th>
-                                <th class="p-2 border whitespace-nowrap">
-                                    Data Fine
-                                </th>
-                                <th class="p-2 border whitespace-nowrap">
-                                    Data Pagamento
-                                </th>
-                                <th class="p-2 border">Note</th>
-                                <th class="p-2 border text-center">Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="p in a.progetti ?? []"
-                                :key="p.IdProgetto"
-                            >
-                                <td class="p-2 border align-top">
-                                    {{ p.IdProgetto }}
-                                </td>
-                                <td class="p-2 border">
-                                    {{ p.RagioneSocialeCommittenti }}
-                                </td>
-                                <td class="p-2 border">
-                                    {{ fmtDate(p.DataInzProgetto) }}
-                                </td>
-                                <td class="p-2 border">
-                                    {{ fmtDate(p.DataFineProgetto) }}
-                                </td>
-                                <td class="p-2 border">
-                                    {{ fmtDate(p.DataPagamento) }}
-                                </td>
-                                <td class="p-2 border">
-                                    <span class="line-clamp-3">{{
-                                        p.Note
-                                    }}</span>
-                                </td>
-                                <td
-                                    class="p-2 border text-center whitespace-nowrap"
-                                >
-                                    <button
-                                        type="button"
-                                        @click="openEditProject(a, p)"
-                                        class="px-2 py-1 border rounded hover:bg-gray-50"
-                                        title="Modifica"
-                                    >
-                                        ✏️
-                                    </button>
-                                    <button
-                                        v-if="isAdmin"
-                                        type="button"
-                                        @click="destroyProject(p)"
-                                        class="px-2 py-1 border rounded hover:bg-gray-50"
-                                        title="Elimina"
-                                    >
-                                        🗑️
-                                    </button>
-
-                                </td>
-                            </tr>
-
-                            <tr v-if="(a.progetti ?? []).length === 0">
-                                <td
-                                    colspan="7"
-                                    class="text-center text-gray-500 py-2"
-                                >
-                                    Nessun progetto collegato
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div
+                class="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200"
+            >
+                <span class="text-sm text-slate-600">Totale:</span>
+                <span
+                    class="text-sm font-bold text-slate-900 tabular-nums"
+                >
+                    {{ attivitaCliente.length }}
+                </span>
             </div>
         </div>
 
-        <div
-            v-if="attivitaCliente.length === 0"
-            class="text-sm text-gray-500 px-1 pb-2"
-        >
-            Nessuna attività per il cliente selezionato.
+        <!-- Body -->
+        <div class="p-5">
+            <!-- Empty state -->
+            <div
+                v-if="attivitaCliente.length === 0"
+                class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"
+            >
+                <div class="text-3xl mb-2">🗂️</div>
+                <div class="text-slate-900 font-semibold">
+                    Nessuna attività per il cliente selezionato
+                </div>
+                <div class="text-sm text-slate-500 mt-1">
+                    Quando saranno presenti attività, le vedrai qui con i progetti collegati.
+                </div>
+            </div>
+
+            <!-- Accordion cards -->
+            <div v-else class="space-y-4">
+                <div
+                    v-for="a in attivitaCliente"
+                    :key="a.IDAttivita"
+                    class="rounded-2xl border border-slate-200 overflow-hidden bg-white"
+                >
+                    <!-- Header attività -->
+                    <button
+                        type="button"
+                        @click="toggle(a.IDAttivita)"
+                        class="w-full text-left px-4 py-3 md:px-5 md:py-4 bg-gradient-to-r from-slate-50 to-white hover:from-slate-100 hover:to-white transition flex items-center justify-between gap-4"
+                        :aria-expanded="open === a.IDAttivita"
+                    >
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-bold text-white"
+                                >
+                                    #{{ a.IDAttivita }}
+                                </span>
+
+                                <span class="font-semibold text-slate-900 truncate">
+                                    {{ a.NomeAttivita }}
+                                </span>
+
+                                <span
+                                    v-if="short(a.DesProgetto)"
+                                    class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100"
+                                >
+                                    {{ a.DesProgetto }}
+                                </span>
+                            </div>
+
+                            <div class="mt-1 text-xs text-slate-500">
+                                Progetti: <span class="font-semibold text-slate-700">{{ (a.progetti ?? []).length }}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <span
+                                class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+                                :class="[
+                                    open === a.IDAttivita
+                                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                                        : 'bg-slate-50 text-slate-600 ring-slate-200',
+                                ]"
+                            >
+                                {{ open === a.IDAttivita ? "Aperto" : "Chiuso" }}
+                            </span>
+
+                            <span
+                                class="text-slate-600 text-lg"
+                                aria-hidden="true"
+                            >
+                                {{ open === a.IDAttivita ? "▾" : "▸" }}
+                            </span>
+                        </div>
+                    </button>
+
+                    <!-- Corpo attività -->
+                    <transition
+                        enter-active-class="transition duration-200 ease-out"
+                        enter-from-class="opacity-0 -translate-y-1"
+                        enter-to-class="opacity-100 translate-y-0"
+                        leave-active-class="transition duration-150 ease-in"
+                        leave-from-class="opacity-100 translate-y-0"
+                        leave-to-class="opacity-0 -translate-y-1"
+                    >
+                        <div v-show="open === a.IDAttivita" class="border-t border-slate-200">
+                            <!-- Action bar -->
+                            <div class="px-4 md:px-5 pt-4 flex flex-wrap items-center justify-between gap-3">
+                                <div class="text-sm text-slate-600">
+                                    Progetti collegati all’attività
+                                    <span class="font-semibold text-slate-800">#{{ a.IDAttivita }}</span>
+                                </div>
+
+                                <button
+                                    v-if="isAdmin"
+                                    type="button"
+                                    @click="openNewProject(a)"
+                                    class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.99] transition"
+                                >
+                                    <span>＋</span>
+                                    <span>Aggiungi progetto</span>
+                                </button>
+                            </div>
+
+                            <!-- Projects table -->
+                            <div class="p-4 md:p-5 overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="sticky top-0">
+                                        <tr class="bg-slate-50 text-slate-700">
+                                            <th class="p-3 text-left font-bold border-b border-slate-200 whitespace-nowrap">
+                                                Id
+                                            </th>
+                                            <th class="p-3 text-left font-bold border-b border-slate-200">
+                                                Committente
+                                            </th>
+                                            <th class="p-3 text-left font-bold border-b border-slate-200 whitespace-nowrap">
+                                                Inizio
+                                            </th>
+                                            <th class="p-3 text-left font-bold border-b border-slate-200 whitespace-nowrap">
+                                                Fine
+                                            </th>
+                                            <th class="p-3 text-left font-bold border-b border-slate-200 whitespace-nowrap">
+                                                Pagamento
+                                            </th>
+                                            <th class="p-3 text-left font-bold border-b border-slate-200">
+                                                Note
+                                            </th>
+                                            <th class="p-3 text-center font-bold border-b border-slate-200 whitespace-nowrap">
+                                                Azioni
+                                            </th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr
+                                            v-for="p in a.progetti ?? []"
+                                            :key="p.IdProgetto"
+                                            class="hover:bg-slate-50/70 transition"
+                                        >
+                                            <td class="p-3 align-top whitespace-nowrap">
+                                                <span class="inline-flex items-center rounded-lg bg-slate-900 px-2 py-1 text-xs font-bold text-white">
+                                                    #{{ p.IdProgetto }}
+                                                </span>
+                                            </td>
+
+                                            <!-- Committente: Cod + Ragione Sociale -->
+                                            <td class="p-3 align-top">
+                                                <div class="leading-tight">
+                                                    <div class="font-semibold text-slate-900">
+                                                        {{ p.CodCommittente ?? "—" }}
+                                                    </div>
+                                                    <div class="text-xs text-slate-500">
+                                                        {{ p.RagioneSocialeCommittenti ?? "—" }}
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <td class="p-3 align-top whitespace-nowrap text-slate-700">
+                                                {{ fmtDate(p.DataInzProgetto) }}
+                                            </td>
+                                            <td class="p-3 align-top whitespace-nowrap text-slate-700">
+                                                {{ fmtDate(p.DataFineProgetto) }}
+                                            </td>
+                                            <td class="p-3 align-top whitespace-nowrap text-slate-700">
+                                                {{ fmtDate(p.DataPagamento) }}
+                                            </td>
+
+                                            <td class="p-3 align-top">
+                                                <span class="text-slate-700 line-clamp-3">
+                                                    {{ p.Note ?? "—" }}
+                                                </span>
+                                            </td>
+
+                                            <td class="p-3 align-top text-center whitespace-nowrap">
+                                                <div class="inline-flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        @click="openEditProject(a, p)"
+                                                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99] transition"
+                                                        title="Modifica"
+                                                    >
+                                                        ✏️ <span class="hidden sm:inline">Modifica</span>
+                                                    </button>
+
+                                                    <button
+                                                        v-if="isAdmin"
+                                                        type="button"
+                                                        @click="destroyProject(p)"
+                                                        class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 active:scale-[0.99] transition"
+                                                        title="Elimina"
+                                                    >
+                                                        🗑️ <span class="hidden sm:inline">Elimina</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        <tr v-if="(a.progetti ?? []).length === 0">
+                                            <td colspan="7" class="py-10 text-center">
+                                                <div class="inline-flex flex-col items-center gap-2">
+                                                    <div class="text-3xl">📭</div>
+                                                    <div class="font-semibold text-slate-800">
+                                                        Nessun progetto collegato
+                                                    </div>
+                                                    <div class="text-sm text-slate-500">
+                                                        Aggiungi un progetto per iniziare.
+                                                    </div>
+
+                                                    <button
+                                                        v-if="isAdmin"
+                                                        type="button"
+                                                        @click="openNewProject(a)"
+                                                        class="mt-2 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition"
+                                                    >
+                                                        ＋ Aggiungi progetto
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </transition>
+                </div>
+            </div>
         </div>
 
         <!-- MODALE -->

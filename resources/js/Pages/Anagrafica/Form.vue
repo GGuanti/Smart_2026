@@ -404,13 +404,17 @@ watch(
     <AuthenticatedLayout>
         <div class="page">
             <!-- ===== HERO / HEADER ===== -->
-            <div class="hero">
-                <div class="heroInner">
+            <div class="hero py-1">
+                <div
+                    class="heroInner flex items-center justify-between gap-4 py-1"
+                >
                     <div class="flex items-center gap-3">
                         <div class="logoPill">👤</div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h1 class="heroTitle">
+                                <h1
+                                    class="heroTitle leading-tight text-xl md:text-2xl"
+                                >
                                     {{
                                         props.anagrafica
                                             ? "Modifica Utente"
@@ -433,7 +437,7 @@ watch(
                                     </span>
                                 </span>
                             </div>
-                            <p class="heroSub">
+                            <p class="heroSub mt-0.5 leading-snug text-sm">
                                 Dati anagrafici, residenza, fiscali, attività e
                                 report giornate.
                             </p>
@@ -523,7 +527,6 @@ watch(
                             </button>
                         </div>
                     </div>
-
                     <Tabs
                         :tipoU="form.B_TipoU"
                         :errors="form.errors"
@@ -631,7 +634,7 @@ watch(
                                     >
                                     <div class="iconInputWrap">
                                         <MapPin
-                                            class="iconLeft icon-residenza"
+                                            class="iconLeft"
                                         />
 
                                         <input
@@ -662,7 +665,7 @@ watch(
                                     >
                                     <div class="iconInputWrap">
                                         <BadgeCheck
-                                            class="iconLeft icon-soggiorno"
+                                            class="iconLeft"
                                         />
                                         <input
                                             name="M_SiglaNascita"
@@ -890,7 +893,7 @@ watch(
                                             >
                                             <div class="iconInputWrap">
                                                 <MapPin
-                                                    class="iconLeft icon-residenza"
+                                                    class="iconLeft"
                                                 />
                                                 <input
                                                     name="P_IndirizzoResidenza"
@@ -1068,9 +1071,7 @@ watch(
                                 <div class="sectionCard">
                                     <div class="sectionHead">
                                         <div class="sectionTitle">
-                                            <Navigation
-                                                class="iconLeft icon-domicilio"
-                                            />
+
                                             <div>
                                                 <div class="font-extrabold">
                                                     Domicilio
@@ -1094,7 +1095,7 @@ watch(
                                             >
                                             <div class="iconInputWrap">
                                                 <MapPin
-                                                    class="iconLeft icon-residenza"
+                                                    class="iconLeft"
                                                 />
                                                 <input
                                                     name="V_IndirizzoDomicilio"
@@ -1265,9 +1266,7 @@ watch(
                                 <div class="sectionCard">
                                     <div class="sectionHead">
                                         <div class="sectionTitle">
-                                            <BadgeCheck
-                                                class="iconLeft icon-soggiorno"
-                                            />
+
                                             <div>
                                                 <div class="font-extrabold">
                                                     Permesso di soggiorno
@@ -1430,7 +1429,7 @@ watch(
                                                 >Codice Fiscale</label
                                             >
                                             <Hash
-                                                class="iconLeft icon-fiscale"
+                                                class="iconLeft"
                                             />
                                             <input
                                                 v-model="
@@ -1458,7 +1457,7 @@ watch(
                                                 >Partita IVA</label
                                             >
                                             <Briefcase
-                                                class="iconLeft icon-fiscale"
+                                                class="iconLeft"
                                             />
                                             <input
                                                 v-model="form.AI_PartitaIVA"
@@ -1489,7 +1488,7 @@ watch(
                                                 >Regime Agevolato</label
                                             >
                                             <BadgePercent
-                                                class="iconLeft icon-money"
+                                                class="iconLeft"
                                             />
                                             <input
                                                 v-model="
@@ -1504,7 +1503,7 @@ watch(
                                                 >Assegni Familiari</label
                                             >
                                             <Users
-                                                class="iconLeft icon-money"
+                                                class="iconLeft"
                                             />
                                             <input
                                                 v-model="form.AssegniFam"
@@ -1517,7 +1516,7 @@ watch(
                                                 >INPS Ridotta</label
                                             >
                                             <ShieldCheck
-                                                class="iconLeft icon-money"
+                                                class="iconLeft"
                                             />
                                             <input
                                                 v-model="form.INPSridotta"
@@ -1530,7 +1529,7 @@ watch(
                                                 >Detrazione Lav. Dip.</label
                                             >
                                             <MinusCircle
-                                                class="iconLeft icon-money"
+                                                class="iconLeft"
                                             />
                                             <input
                                                 v-model="form.DetrLav"
@@ -1542,7 +1541,7 @@ watch(
                                             <label class="label"
                                                 >Bonus 100€</label
                                             >
-                                            <Euro class="iconLeft icon-money" />
+                                            <Euro class="iconLeft" />
                                             <input
                                                 v-model="form.BonusRenzi"
                                                 class="input inputIcon"
@@ -1876,14 +1875,14 @@ watch(
                             />
                         </template>
 
-                        <!--     <template #attivita>
+                        <!--    <template #attivita>
                             <TabAttivita
                                 :codCliente="form.CodCliente"
                                 :attivita="props.attivita"
                                 :clienti="props.clienti"
                             />
                         </template> -->
-                        <template #notespese>
+                                                <template #notespese>
                             <TabNoteSpese
                                 :codCliente="form.CodCliente"
                                 :noteSpese="props.NoteSpese"
@@ -1989,27 +1988,38 @@ watch(
 /* HERO */
 .hero {
     @apply rounded-3xl border bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg;
+    @apply py-2;                 /* ✅ compatto */
+    padding-bottom: 0.25rem;     /* ✅ ancora più vicino ai tabs */
 }
+
 .heroInner {
-    @apply w-full px-6 py-5 flex flex-col lg:flex-row gap-4
-           lg:items-center lg:justify-between;
+    @apply w-full px-6 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between;
+    @apply py-2;                 /* ✅ compatto */
+    padding-bottom: 0.15rem;
 }
+
 .heroTitle {
-    @apply text-2xl md:text-3xl font-extrabold tracking-tight;
+    @apply font-extrabold tracking-tight;
 }
+
 .heroSub {
-    @apply text-xs md:text-sm text-white/80 mt-1;
+    @apply text-xs md:text-sm text-white/80;
+    margin-top: 0.15rem;         /* ✅ meno aria */
+    margin-bottom: 0;            /* ✅ attacca tabs */
 }
+
+.logoPill {
+    @apply w-10 h-10 grid place-items-center rounded-2xl bg-white/15 border border-white/20 text-lg;
+}
+
 .heroRight {
     @apply bg-white/10 backdrop-blur rounded-2xl border border-white/20 p-4 w-full lg:w-[420px];
-}
-.logoPill {
-    @apply w-11 h-11 grid place-items-center rounded-2xl bg-white/15 border border-white/20 text-xl;
 }
 
 /* CONTENT */
 @media (min-width: 1920px) {
     .contentCard {
+
         max-width: 1800px;
         margin-left: auto;
         margin-right: auto;

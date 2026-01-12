@@ -25,7 +25,7 @@ const props = defineProps({
 
 const selectedTab = ref("generali");
 
-/* 🎯 DEFINIZIONE TAB + ICONE */
+/* 🎯 DEFINIZIONE TAB + ICONE    { key: "attivita", label: "Attività", icon: Activity } */
 const tabs = computed(() => {
     if (props.tipoU === "U") {
         return [
@@ -36,7 +36,6 @@ const tabs = computed(() => {
             { key: "librosoci", label: "Libro Soci", icon: BookOpen },
             { key: "sicurezza", label: "Sicurezza", icon: ShieldCheck },
             { key: "progetti", label: "Progetti", icon: FolderKanban },
-            { key: "attivita", label: "Attività", icon: Activity },
             { key: "notespese", label: "Note Spese", icon: Receipt },
             { key: "giornate", label: "Giornate", icon: CalendarDays },
             { key: "contratti", label: "Contratti", icon: FileSignature },
@@ -132,42 +131,55 @@ const is = (k) => selectedTab.value === k;
     display: flex;
     flex-direction: column;
     min-height: 0;
+     margin-top: 0;
 }
 
 /* TAB BAR */
-.tabsBar {
-    position: sticky;
-    z-index: 30;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid #e5e7eb;
-    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+
+tabsBar {
+  position: sticky;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e5e7eb;
+
+  /* ✅ riduci altezza */
+  padding-top: 0.10rem;
+  padding-bottom: 0.10rem;
+
+  /* ✅ ombra più leggera (meno “spazio percepito”) */
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
 }
 
 /* ROW */
 .tabsRow {
-    display: flex;
-    gap: 10px;
-    padding: 10px 12px;
-    overflow-x: auto;
+  display: flex;
+  gap: 8px;
+
+  /* ✅ prima era 10px 12px */
+  padding: 6px 10px;
+
+  overflow-x: auto;
 }
 
 /* TAB BUTTON */
 .tabBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 9999px;
-    font-weight: 800;
-    font-size: 13px;
-    background: #f8fafc;
-    color: #475569;
-    border: 1px solid #e5e7eb;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 
+  /* ✅ prima era 10px 14px */
+  padding: 7px 12px;
+
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 12.5px;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
 .tabBtn:hover {
     background: #eef2ff;
     color: #1e40af;
@@ -189,13 +201,12 @@ const is = (k) => selectedTab.value === k;
 
 /* ICON */
 .tabIcon {
-    width: 16px;
-    height: 16px;
-    opacity: 0.85;
+  width: 15px;
+  height: 15px;
+  opacity: 0.85;
 }
-.activeIcon {
-    opacity: 1;
-}
+
+
 
 /* LABEL */
 .tabLabel {
@@ -223,8 +234,14 @@ const is = (k) => selectedTab.value === k;
     min-height: 0;
     overflow-y: auto;
     background: white;
+    margin-top: 0 !important;
+  padding-top: 0 !important;
 }
+/* CONTENUTO: “attaccato” ai tab */
 .tabsContent {
-    padding: 20px;
+  /* ✅ prima era 20px + pt 0.75rem */
+  padding: 12px 16px;
+  margin-top: 0 !important;
+  padding-top: 10px; /* se vuoi ancora più attaccato metti 6px */
 }
 </style>

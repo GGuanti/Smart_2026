@@ -291,7 +291,7 @@ $attivita = $attivita->map(function ($a) use ($progettiFigli) {
                 'progetti.IdProgetto as IdProgetto',
         'progetti.IdAttivita as IdAttivita',
         'progetti.IdProg as IdProg',
-        'progetti.CodCliente as CodCliente',               // 👈 prefissato
+        'progetti.CodCliente as CodCommittente',               // 👈 prefissato
         'progetti.RagioneSocialeCommittenti as RagioneSocialeCommittenti',
         'progetti.TipologiaSimulatore as TipologiaSimulatore',
         'progetti.DataInzProgetto as DataInzProgetto',
