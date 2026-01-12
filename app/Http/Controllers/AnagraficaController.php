@@ -23,10 +23,10 @@ class AnagraficaController extends Controller
 
         $orderCol = in_array('A_NomeVisualizzato', $columns) ? 'A_NomeVisualizzato' : $columns[0];
 
-        $records = Anagrafica::where('B_TipoU', $tipoU)
-        ->select(['IDAnagrafica','CodCliente','B_TipoU','A_NomeVisualizzato'])
-        ->orderBy('A_NomeVisualizzato')
-        ->get();
+        $records = \App\Models\Anagrafica::where('B_TipoU', $tipoU)
+            ->select($columns)
+            ->orderBy($orderCol)
+            ->get();
 
         return \Inertia\Inertia::render('Anagrafica/Index', [
             'records' => $records,
