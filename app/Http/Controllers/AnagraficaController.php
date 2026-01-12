@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AnagraficaController extends Controller
 {
@@ -13,17 +14,16 @@ class AnagraficaController extends Controller
 {
     $tipoU = $request->query('tipoU', 'U');
 
-    // ✅ tutte le colonne reali della tabella (schema)
-    $allColumns = \Schema::getColumnListing('anagrafica');
+    $allColumns = Schema::getColumnListing('anagrafica');
 
-    // (opzionale) escludi colonne tecniche/sensibili
-    $exclude = ['password', 'remember_token']; // esempio
+    $exclude = ['password', 'remember_token'];
     $columns = array_values(array_diff($allColumns, $exclude));
 
-    // ✅ dati: puoi selezionare tutte le colonne
+    $orderCol = in_array('A_NomeVisualizzato', $columns) ? 'A_NomeVisualizzato' : $columns[0];
+
     $records = Anagrafica::where('B_TipoU', $tipoU)
         ->select($columns)
-        ->orderBy('A_NomeVisualizzato')
+        ->orderBy($orderCol)
         ->get();
 
     return Inertia::render('Anagrafica/Index', [
