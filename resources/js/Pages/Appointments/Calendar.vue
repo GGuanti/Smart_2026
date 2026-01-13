@@ -759,6 +759,7 @@ const calendarOptions = ref({
             white-space:nowrap;
             overflow:hidden;
             text-overflow:ellipsis;
+            color:#000000;
           ">${title}</span>
         </div>
       `,
