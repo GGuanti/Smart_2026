@@ -692,7 +692,7 @@ const getFilteredEvents = () =>
             appointment.status === "Da Pianificare"
                 ? "#FAFAFA"
                 : appointment.status === "Pianificato"
-                ? "#F59E0B"
+                ? "#FFF3B0"
                 : appointment.status === "Completato"
                 ? "#10B981"
                 : "#EF4444",
