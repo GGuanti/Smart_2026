@@ -690,7 +690,7 @@ const getFilteredEvents = () =>
         end: appointment.DataFine,
         backgroundColor:
             appointment.status === "Da Pianificare"
-                ? "#FEF3C7"
+                ? "#FAFAFA"
                 : appointment.status === "Pianificato"
                 ? "#F59E0B"
                 : appointment.status === "Completato"
