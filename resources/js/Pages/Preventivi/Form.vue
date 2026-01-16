@@ -241,6 +241,51 @@ function fotoUrlForRiga(riga) {
     if (!nome) return "/Foto/placeholder.jpg";
     return `/Foto/${encodeURIComponent(nome)}.jpg?v=${riga._imgKey ?? 0}`;
 }
+function fotoUrlAntaRiga(riga) {
+  if (!riga?.IdModello || !riga?.IdColAnta) return "/Foto/placeholder.jpg";
+
+  const opts = Array.isArray(coloriAntaPerRiga(riga)) ? coloriAntaPerRiga(riga) : [];
+
+  const sel = opts.find(o => Number(o.IdFinAnta ?? o.id ?? o.ID) === Number(riga.IdColAnta));
+  if (!sel) return "/Foto/placeholder.jpg";
+
+  // 🔑 qui metti la PRIORITÀ corretta del tuo DB:
+  // se hai un campo tipo Foto/Essenza/NomeFile usa quello, altrimenti usa Colore.
+  const rawName =
+    (sel.Foto ?? sel.foto ?? sel.Essenza ?? sel.essenza ?? sel.NomeFile ?? sel.nome_file ?? sel.Path ?? sel.path ?? "")
+      .toString()
+      .trim()
+    || (sel.Colore ?? sel.colore ?? "").toString().trim();
+
+  if (!rawName) return "/Foto/placeholder.jpg";
+
+  // (opzionale) normalizza un minimo, evita doppi spazi
+  const fileName = rawName.replace(/\s+/g, " ");
+
+  return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${riga._imgKey ?? 0}`;
+}
+function fotoUrlTelaioRiga(riga) {
+  if (!riga?.IdModello || !riga?.IdColTelaio) return "/Foto/placeholder.jpg";
+
+  const opts = Array.isArray(finitureTelaioPerRiga(riga)) ? finitureTelaioPerRiga(riga) : [];
+
+  const sel = opts.find(o => Number(o.IdFinTelaio ?? o.id ?? o.ID) === Number(riga.IdColTelaio));
+  if (!sel) return "/Foto/placeholder.jpg";
+
+  // ✅ priorità: campo file (se esiste) -> altrimenti Colore
+  const rawName =
+    (sel.Foto ?? sel.foto ?? sel.Essenza ?? sel.essenza ?? sel.NomeFile ?? sel.nome_file ?? sel.Path ?? sel.path ?? "")
+      .toString()
+      .trim()
+    || (sel.Colore ?? sel.colore ?? "").toString().trim();
+
+  if (!rawName) return "/Foto/placeholder.jpg";
+
+  const fileName = rawName.replace(/\s+/g, " ");
+
+  return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${riga._imgKey ?? 0}`;
+}
+
 
 /* ===================== Filtri + opzioni per riga ===================== */
 function tipologiaSoluzioniPerRiga(riga) {
@@ -1109,7 +1154,15 @@ watch(
         });
     }
 );
-
+watch(
+  () => form.righe.map(r => r.IdColAnta),
+  (newV, oldV) => {
+    form.righe.forEach((riga, i) => {
+      if (newV?.[i] === oldV?.[i]) return;
+      bumpImgKeyOnly(riga);
+    });
+  }
+);
 /* ===================== Totali ===================== */
 const totalePreventivo = computed(() =>
     form.righe.reduce((sum, r) => {
@@ -2425,44 +2478,29 @@ onBeforeUnmount(() => {
                                                 >
                                                     <!-- immagine fissa -->
                                                     <img
-                                                        src="/Foto/Essenze/QR.jpg"
-                                                        class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-                                                        @click="
-                                                            openZoom(
-                                                                '/Foto/Essenze/QR.jpg'
-                                                            )
-                                                        "
-                                                        @error="onImgError"
-                                                    />
+                                                     :src="fotoUrlAntaRiga(riga)"
+                                                    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
+                                                    @click="
+                                                        openZoom(
+                                                            fotoUrlAntaRiga(riga)
+                                                        )
+                                                    "
+                                                    @error="onImgError"
+                                                />
                                                     <img
-                                                        src="/Foto/Essenze/QRT.jpg"
-                                                        class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-                                                        @click="
-                                                            openZoom(
-                                                                '/Foto/Essenze/QRT.jpg'
-                                                            )
-                                                        "
-                                                        @error="onImgError"
-                                                    />
-                                                    <img
-                                                        src="/Foto/Essenze/QRV.jpg"
-                                                        class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-                                                        @click="
-                                                            openZoom(
-                                                                '/Foto/Essenze/QRV.jpg'
-                                                            )
-                                                        "
-                                                        @error="onImgError"
-                                                    />
+                                                     :src="fotoUrlTelaioRiga(riga)"
+                                                    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
+                                                    @click="
+                                                        openZoom(
+                                                            fotoUrlTelaioRiga(riga)
+                                                        )
+                                                    "
+                                                    @error="onImgError"
+                                                />
+
                                                 </div>
-                                                <! <img
-                                                            :key="`thumb-3-${riga.IdModello}-${riga._imgKey}`"
-                                                            :src="fotoUrlAntaRiga(riga)"
-                                                            class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-                                                            @click="openZoom(fotoUrlAntaRiga(riga))"
-                                                            @error="onImgError"
-                                                        />
-                                                sss -->
+
+
                                             </div>
                                         </div>
 

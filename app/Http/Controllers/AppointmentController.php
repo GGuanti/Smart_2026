@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Jobs\ProcessOutboxAppointments;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Appointment;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
-
+use Illuminate\Support\Str;
 
 
 
@@ -662,7 +662,7 @@ class AppointmentController extends Controller
                 'Pezzi' => (int) $sum,
                 'Prodotto' => $prodotti,
             ]);
-
+            $this->outboxUpsertAppointment($appointment);
             // redirect dove preferisci:
             return redirect()
                 ->route('appointments.edit', $appointment->id)
@@ -749,7 +749,8 @@ class AppointmentController extends Controller
 
         // ✅ aggiorno testata
         $appointment->update($validated);
-
+        $this->outboxUpsertAppointment($appointment);
+        ProcessOutboxAppointments::dispatch();
         // ✅ riscrivo righe (semplice e robusto)
         $appointment->items()->delete();
 
@@ -807,6 +808,7 @@ class AppointmentController extends Controller
         abort_if($appointment->user_id !== auth()->id(), 403);
 
         DB::transaction(function () use ($appointment) {
+            $nordine = (int) $appointment->Nordine;
             // 1) elimina items legati per Nordine
             DB::table('appointment_items')
                 ->where('Nordine', $appointment->Nordine)
@@ -814,6 +816,8 @@ class AppointmentController extends Controller
 
             // 2) elimina appointment
             $appointment->delete();
+            $this->outboxDeleteAppointmentByNordine($nordine);
+            ProcessOutboxAppointments::dispatch();
         });
 
         return redirect()->route('appointments.calendar')
@@ -838,6 +842,8 @@ class AppointmentController extends Controller
                 'DataInizio' => $start->toDateTimeString(),
                 'DataFine'   => $start->copy()->endOfDay()->toDateTimeString(),
             ]);
+            $this->outboxUpsertAppointment($appointment);
+            ProcessOutboxAppointments::dispatch();
         } else {
             // evento con orario: end DEVE esserci
             if (empty($validated['end'])) {
@@ -854,6 +860,9 @@ class AppointmentController extends Controller
                 'DataInizio' => $start->toDateTimeString(),
                 'DataFine'   => $end->toDateTimeString(),
             ]);
+            $this->outboxUpsertAppointment($appointment);
+            ProcessOutboxAppointments::dispatch();
+
         }
 
         //  return response()->json(['success' => true]);
@@ -892,4 +901,72 @@ class AppointmentController extends Controller
 
         // return response()->json(['success' => true]);
     }
+        // ------------------------------------------------------------
+    // OUTBOX helpers (mysql_main)
+    // ------------------------------------------------------------
+
+    private function outboxUpsertAppointment(Appointment $appointment): void
+    {
+        // 🔑 chiave stabile: Nordine (coerente col legame items)
+        $key = ['Nordine' => (int) $appointment->Nordine];
+
+        // Dati da replicare (scegliamo campi espliciti per evitare roba inutile)
+        $data = [
+            'user_id'        => (int) $appointment->user_id,
+            'Nordine'        => (int) $appointment->Nordine,
+            'title'          => $appointment->title,
+            'description'    => $appointment->description,
+            'DataInizio'     => $appointment->DataInizio,
+            'DataFine'       => $appointment->DataFine,
+            'status'         => $appointment->status,
+            'Riferimento'    => $appointment->Riferimento,
+            'DataConferma'   => $appointment->DataConferma,
+            'DataConsegna'   => $appointment->DataConsegna,
+            'Colore'         => $appointment->Colore,
+            'Pezzi'          => (int) ($appointment->Pezzi ?? 0),
+            'Annotazioni'    => $appointment->Annotazioni,
+            'StatoMagazzino' => $appointment->StatoMagazzino,
+            'Prodotto'       => $appointment->Prodotto, // json/array cast ok
+            'updated_at'     => now()->toDateTimeString(),
+        ];
+
+        DB::connection('mysql_main')->table('sync_outbox')->insert([
+            'event_id'       => (string) Str::uuid(),
+            'type'           => 'appointments.upsert',
+            'aggregate_type' => 'appointments',
+            'aggregate_id'   => (int) $appointment->Nordine, // coerente con key
+            'payload'        => json_encode([
+                'key'  => $key,
+                'data' => $data,
+            ], JSON_UNESCAPED_UNICODE),
+            'status'         => 'pending',
+            'attempts'       => 0,
+            'available_at'   => null,
+            'last_error'     => null,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+    }
+
+    private function outboxDeleteAppointmentByNordine(int $nordine): void
+    {
+        $key = ['Nordine' => (int) $nordine];
+
+        DB::connection('mysql_main')->table('sync_outbox')->insert([
+            'event_id'       => (string) Str::uuid(),
+            'type'           => 'appointments.delete',
+            'aggregate_type' => 'appointments',
+            'aggregate_id'   => (int) $nordine,
+            'payload'        => json_encode([
+                'key' => $key,
+            ], JSON_UNESCAPED_UNICODE),
+            'status'         => 'pending',
+            'attempts'       => 0,
+            'available_at'   => null,
+            'last_error'     => null,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+    }
+
 }
