@@ -644,16 +644,7 @@ function imbottePerRiga(riga) {
             return sp0 && fs;
         });
     }
-    console.log(
-        "dimSp",
-        dimSp,
-        "res",
-        res,
-        "idTip",
-        idTip,
-        "soluzione",
-        soluzione
-    );
+
 
     return all
         .filter((i) => {
@@ -905,20 +896,21 @@ function colonnaListVetroPerRiga(riga) {
 }
 
 function vetriPerRiga(riga) {
-    const col = colonnaListVetroPerRiga(riga);
+    const list = Array.isArray(props.vetri) ? props.vetri : [];
 
-    if (!col) {
-        return (props.vetri ?? []).filter(
-            (v) => (v.des_vetro ?? "").trim() === "No Vetro"
+    return list
+        .filter(v => /* eventuali filtri per riga */ true)
+        .sort((a, b) =>
+            String(a.des_vetro ?? "").localeCompare(
+                String(b.des_vetro ?? ""),
+                "it",
+                {
+                    sensitivity: "base", // ignora maiuscole e accenti
+                    numeric: true        // gestisce numeri nel testo
+                }
+            )
         );
-    }
-
-    return (props.vetri ?? []).filter((v) => {
-        const val = v[col];
-        return val !== null && val !== "" && !isNaN(Number(val));
-    });
 }
-
 /* ===================== Cascata select (default primo valore) ===================== */
 function ensureSoluzioneValida(riga) {
     if (!riga.IdModello) {
@@ -2040,7 +2032,7 @@ onBeforeUnmount(() => {
                                     Tot riga:
                                     <span class="font-bold"
                                         >€
-                                        {{ totaleRigaD(riga).toFixed(2) }}</span
+                                        {{ totaleRiga(riga).toFixed(2) }}</span
                                     >
                                 </div>
                                 <!-- 📋 COPIA -->
