@@ -10,6 +10,7 @@ const savedMsg = ref(false);
 const savedErr = ref(false);
 const savedText = ref("");
 let savedT = null;
+const DEFAULT_ID_MODELLO = 299;
 
 /* ===================== Props ===================== */
 const props = defineProps({
@@ -114,7 +115,7 @@ function newRigaFromElemento(el = null) {
         PercFile: el?.PercFile ?? "",
         TxtCassMet: el?.TxtCassMet ?? "",
 
-        IdModello: el?.IdModello ?? "",
+   IdModello: el?.IdModello ?? DEFAULT_ID_MODELLO,
         IdSoluzione: el?.IdSoluzione ?? "",
         IdColAnta: el?.IdColAnta ?? "",
         IdColTelaio: el?.IdColTelaio ?? "",
@@ -143,6 +144,7 @@ const form = useForm({
 onMounted(() => {
     if (!form.Nordine && props.ordine?.Nordine)
         form.Nordine = props.ordine.Nordine;
+         form.righe.forEach(r => ensureDefaultModello(r));
 });
 
 /* Enter -> campo successivo (non textarea) */
@@ -200,6 +202,20 @@ function modelloNome(m) {
     )
         .toString()
         .trim();
+}
+function ensureDefaultModello(riga) {
+  // Non toccare righe già valorizzate o caricate dal DB
+  if (riga?.IdModello) return false;
+
+  riga.IdModello = DEFAULT_ID_MODELLO;
+
+  // allinea tutto correttamente
+  aggiornaDimLCombo(riga, true);
+  bumpImgKeyOnly(riga);
+  cascadeRiga(riga);
+  refreshPrezzo(riga);
+
+  return true;
 }
 
 function modelloNomePerRiga(riga) {
@@ -644,7 +660,16 @@ function imbottePerRiga(riga) {
             return sp0 && fs;
         });
     }
-
+    console.log(
+        "dimSp",
+        dimSp,
+        "res",
+        res,
+        "idTip",
+        idTip,
+        "soluzione",
+        soluzione
+    );
 
     return all
         .filter((i) => {
@@ -896,21 +921,20 @@ function colonnaListVetroPerRiga(riga) {
 }
 
 function vetriPerRiga(riga) {
-    const list = Array.isArray(props.vetri) ? props.vetri : [];
+    const col = colonnaListVetroPerRiga(riga);
 
-    return list
-        .filter(v => /* eventuali filtri per riga */ true)
-        .sort((a, b) =>
-            String(a.des_vetro ?? "").localeCompare(
-                String(b.des_vetro ?? ""),
-                "it",
-                {
-                    sensitivity: "base", // ignora maiuscole e accenti
-                    numeric: true        // gestisce numeri nel testo
-                }
-            )
+    if (!col) {
+        return (props.vetri ?? []).filter(
+            (v) => (v.des_vetro ?? "").trim() === "No Vetro"
         );
+    }
+
+    return (props.vetri ?? []).filter((v) => {
+        const val = v[col];
+        return val !== null && val !== "" && !isNaN(Number(val));
+    });
 }
+
 /* ===================== Cascata select (default primo valore) ===================== */
 function ensureSoluzioneValida(riga) {
     if (!riga.IdModello) {
@@ -1175,9 +1199,12 @@ function totaleRiga(r) {
 
 /* ===================== Azioni righe ===================== */
 function addRiga() {
-    form.righe.push(newRigaFromElemento());
+  const r = newRigaFromElemento();
+  form.righe.push(r);
 
-    showSavedMsg("✅ Riga inserita", 1500);
+  ensureDefaultModello(r);
+
+  showSavedMsg("✅ Riga inserita", 1500);
 }
 
 function removeRigaLocal(i) {
