@@ -14,11 +14,20 @@ import {
     Mail,
     FileText,
     Hash,
-    StickyNote
+    StickyNote,
 } from "lucide-vue-next";
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
 const confirmDelete = ref(false);
+const cstTrasportoCurrency = computed(() => {
+    const v = Number(form.CstTrasporto ?? 0);
+    return new Intl.NumberFormat("it-IT", {
+        style: "currency",
+        currency: "EUR",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(v);
+});
 
 const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
@@ -35,8 +44,18 @@ const ivaPerc = computed(() => {
     const sel = props.ivaList.find((i) => Number(i.id) === Number(form.IdIva));
     return Number(sel?.valore ?? 0);
 });
-const totaleIva = computed(() => totaleScontato.value * (ivaPerc.value / 100));
-const totaleConIva = computed(() => totaleScontato.value + totaleIva.value);
+
+const costoTrasporto = computed(() => Number(form.CstTrasporto ?? 0));
+
+const imponibile = computed(() => {
+    // ✅ imponibile = totale scontato + trasporto
+    return totaleScontato.value + costoTrasporto.value;
+});
+
+const totaleIva = computed(() => imponibile.value * (ivaPerc.value / 100));
+
+const totaleConIva = computed(() => imponibile.value + totaleIva.value);
+
 const isEdit = computed(() => props.mode === "edit");
 
 const form = useForm({
@@ -187,7 +206,6 @@ function submit() {
     const ordineId = form.ID ?? props.ordine?.ID;
 
     if (isEdit.value) {
-
         form.put(route("ordini.update", { ordini: ordineId }), opts);
         // oppure: form.put(route("ordini.update", ordineId), opts);
     } else {
@@ -267,8 +285,8 @@ onMounted(() => {
         }
     }
     if (form.IdTrasporto == null || form.IdTrasporto === "") {
-    form.IdTrasporto = 2;
-  }
+        form.IdTrasporto = 2;
+    }
 });
 watch(
     () => [
@@ -334,7 +352,6 @@ function copiaOrdine() {
         }
     );
 }
-
 </script>
 
 <template>
@@ -444,10 +461,12 @@ function copiaOrdine() {
                             <div
                                 class="cardHead bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
                             >
-                            <div class="font-extrabold flex items-center gap-2">
-    <User class="w-5 h-5" />
-    Cliente
-</div>
+                                <div
+                                    class="font-extrabold flex items-center gap-2"
+                                >
+                                    <User class="w-5 h-5" />
+                                    Cliente
+                                </div>
 
                                 <div class="text-xs opacity-90">
                                     Dati anagrafici e contatti
@@ -457,46 +476,55 @@ function copiaOrdine() {
                             <div class="p-4">
                                 <div class="grid grid-cols-12 gap-3">
                                     <div class="col-span-12">
-    <label class="label">Cognome Nome</label>
-    <div class="input-icon">
-        <User class="w-4 h-4" />
-        <input
-            v-model="form.CognomeNome"
-            class="input"
-            placeholder="Es. Rossi Mario"
-            @keydown.enter.prevent="focusNext"
-        />
-    </div>
-    <div v-if="form.errors.CognomeNome" class="err">
-        {{ form.errors.CognomeNome }}
-    </div>
-</div>
+                                        <label class="label"
+                                            >Cognome Nome</label
+                                        >
+                                        <div class="input-icon">
+                                            <User class="w-4 h-4" />
+                                            <input
+                                                v-model="form.CognomeNome"
+                                                class="input"
+                                                placeholder="Es. Rossi Mario"
+                                                @keydown.enter.prevent="
+                                                    focusNext
+                                                "
+                                            />
+                                        </div>
+                                        <div
+                                            v-if="form.errors.CognomeNome"
+                                            class="err"
+                                        >
+                                            {{ form.errors.CognomeNome }}
+                                        </div>
+                                    </div>
 
-                                   <div class="col-span-12 md:col-span-7">
-    <label class="label">Indirizzo</label>
-    <div class="input-icon">
-        <Home class="w-4 h-4" />
-        <input
-            v-model="form.Indirizzo"
-            class="input"
-            @keydown.enter.prevent="focusNext"
-        />
-    </div>
-</div>
-
+                                    <div class="col-span-12 md:col-span-7">
+                                        <label class="label">Indirizzo</label>
+                                        <div class="input-icon">
+                                            <Home class="w-4 h-4" />
+                                            <input
+                                                v-model="form.Indirizzo"
+                                                class="input"
+                                                @keydown.enter.prevent="
+                                                    focusNext
+                                                "
+                                            />
+                                        </div>
+                                    </div>
 
                                     <div class="col-span-12 md:col-span-5">
-    <label class="label">Città</label>
-    <div class="input-icon">
-        <MapPin class="w-4 h-4" />
-        <input
-            v-model="form.IdCitta"
-            class="input"
-            @keydown.enter.prevent="focusNext"
-        />
-    </div>
-</div>
-
+                                        <label class="label">Città</label>
+                                        <div class="input-icon">
+                                            <MapPin class="w-4 h-4" />
+                                            <input
+                                                v-model="form.IdCitta"
+                                                class="input"
+                                                @keydown.enter.prevent="
+                                                    focusNext
+                                                "
+                                            />
+                                        </div>
+                                    </div>
 
                                     <div class="col-span-6 md:col-span-3">
                                         <label class="label">Provincia</label>
@@ -517,60 +545,77 @@ function copiaOrdine() {
                                     </div>
 
                                     <div class="col-span-12 md:col-span-6">
-    <label class="label">Telefono</label>
-    <div class="input-icon">
-        <Phone class="w-4 h-4" />
-        <input v-model="form.Telefono" class="input" />
-    </div>
-</div>
-
-<div class="col-span-12 md:col-span-6">
-    <label class="label">Cellulare</label>
-    <div class="input-icon">
-        <Smartphone class="w-4 h-4" />
-        <input v-model="form.Cellulare" class="input" />
-    </div>
-</div>
-
+                                        <label class="label">Telefono</label>
+                                        <div class="input-icon">
+                                            <Phone class="w-4 h-4" />
+                                            <input
+                                                v-model="form.Telefono"
+                                                class="input"
+                                            />
+                                        </div>
+                                    </div>
 
                                     <div class="col-span-12 md:col-span-6">
-    <label class="label">Cod. Fiscale</label>
-    <div class="input-icon">
-        <FileText class="w-4 h-4" />
-        <input v-model="form.CodFiscale" class="input" />
-    </div>
-</div>
+                                        <label class="label">Cellulare</label>
+                                        <div class="input-icon">
+                                            <Smartphone class="w-4 h-4" />
+                                            <input
+                                                v-model="form.Cellulare"
+                                                class="input"
+                                            />
+                                        </div>
+                                    </div>
 
-<div class="col-span-12 md:col-span-6">
-    <label class="label">P. IVA</label>
-    <div class="input-icon">
-        <Hash class="w-4 h-4" />
-        <input v-model="form.PIva" class="input" />
-    </div>
-</div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="label"
+                                            >Cod. Fiscale</label
+                                        >
+                                        <div class="input-icon">
+                                            <FileText class="w-4 h-4" />
+                                            <input
+                                                v-model="form.CodFiscale"
+                                                class="input"
+                                            />
+                                        </div>
+                                    </div>
 
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="label">P. IVA</label>
+                                        <div class="input-icon">
+                                            <Hash class="w-4 h-4" />
+                                            <input
+                                                v-model="form.PIva"
+                                                class="input"
+                                            />
+                                        </div>
+                                    </div>
 
                                     <div class="col-span-12">
-    <label class="label">Email</label>
-    <div class="input-icon">
-        <Mail class="w-4 h-4" />
-        <input v-model="form.Email" class="input" />
-    </div>
-</div>
+                                        <label class="label">Email</label>
+                                        <div class="input-icon">
+                                            <Mail class="w-4 h-4" />
+                                            <input
+                                                v-model="form.Email"
+                                                class="input"
+                                            />
+                                        </div>
+                                    </div>
 
                                     <div class="col-span-12">
-    <label class="label flex items-center gap-1">
-        <StickyNote class="w-4 h-4" />
-        Note (Invio = a capo)
-    </label>
-    <div class="input-icon">
-        <textarea
-            v-model="form.Annotazioni"
-            rows="2"
-            class="input"
-        ></textarea>
-    </div>
-</div>
+                                        <label
+                                            class="label flex items-center gap-1"
+                                        >
+                                            <StickyNote class="w-4 h-4" />
+                                            Note (Invio = a capo)
+                                        </label>
+                                        <div class="input-icon">
+                                            <textarea
+                                                v-model="form.Annotazioni"
+                                                rows="2"
+                                                class="input"
+                                            ></textarea>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -687,12 +732,10 @@ function copiaOrdine() {
                                         >
 
                                         <input
-                                            v-model.number="form.CstTrasporto"
-                                            type="number"
-                                            step="0.01"
+                                            :value="cstTrasportoCurrency"
+                                            type="text"
                                             class="input bg-green-50 font-extrabold text-lg disabled:bg-gray-100 disabled:text-gray-400"
                                             disabled
-                                            @keydown.enter.prevent="focusNext"
                                         />
                                     </div>
                                 </div>
@@ -702,9 +745,8 @@ function copiaOrdine() {
                         <div class="card overflow-hidden">
                             <div
                                 class="cardHead bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
-                            >        <div  class="font-extrabold">
-                                    💸 Sconti
-                                </div>
+                            >
+                                <div class="font-extrabold">💸 Sconti</div>
                                 <div class="text-xs opacity-90">
                                     Calcolo composto
                                 </div>
@@ -787,14 +829,64 @@ function copiaOrdine() {
                                             <div
                                                 class="text-xs uppercase font-bold text-indigo-600 tracking-wide"
                                             >
-                                                Importo finale
+                                                Importo finale (prodotti +
+                                                trasporto + IVA)
                                             </div>
 
                                             <div
                                                 class="text-2xl md:text-3xl font-extrabold text-indigo-900 mt-1"
                                             >
-                                                €
-                                                {{ totaleConIva.toFixed(2) }}
+                                                € {{ totaleConIva.toFixed(2) }}
+                                            </div>
+
+                                            <div
+                                                class="mt-2 text-xs text-slate-600 space-y-1"
+                                            >
+                                                <div
+                                                    class="flex justify-between"
+                                                >
+                                                    <span
+                                                        >Imponibile
+                                                        (scontato)</span
+                                                    >
+                                                    <span class="font-bold"
+                                                        >€
+                                                        {{
+                                                            totaleScontato.toFixed(
+                                                                2
+                                                            )
+                                                        }}</span
+                                                    >
+                                                </div>
+                                                <div
+                                                    class="flex justify-between"
+                                                >
+                                                    <span>Trasporto</span>
+                                                    <span class="font-bold"
+                                                        >€
+                                                        {{
+                                                            Number(
+                                                                form.CstTrasporto ??
+                                                                    0
+                                                            ).toFixed(2)
+                                                        }}</span
+                                                    >
+                                                </div>
+                                                <div
+                                                    class="flex justify-between"
+                                                >
+                                                    <span
+                                                        >IVA ({{
+                                                            ivaPerc.toFixed(2)
+                                                        }}%)</span
+                                                    >
+                                                    <span class="font-bold"
+                                                        >€
+                                                        {{
+                                                            totaleIva.toFixed(2)
+                                                        }}</span
+                                                    >
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -848,8 +940,6 @@ function copiaOrdine() {
                                 </div>
                             </div>
                         </div>
-
-
 
                         <div
                             v-if="Object.keys(form.errors).length"

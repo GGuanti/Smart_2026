@@ -17,7 +17,12 @@ class OrdineReportController extends Controller
 
     public function conferma(Request $request,$id)
     {
-        $ordine = TabOrdine::findOrFail($id);
+        // $ordine = TabOrdine::findOrFail($id);
+        $ordine = TabOrdine::query()
+    ->leftJoin('tab_trasporto as tr', 'tr.id', '=', 'tab_ordine.IdTrasporto')
+    ->select('tab_ordine.*', 'tr.des as trasporto_des')
+    ->where('tab_ordine.ID', $id)
+    ->firstOrFail();
         abort_if($ordine->user_id !== auth()->id(), 403);
         $TipoStampa = $request->get('tipo', 'conferma');
         // ✅ RIGHE collegate via Nordine (non via ID)

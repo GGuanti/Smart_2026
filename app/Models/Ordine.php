@@ -3,13 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Trasporto;
 class Ordine extends Model
 {
     protected $table = 'tab_ordine';
     protected $primaryKey = 'ID';
     public $timestamps = false;
-
+    public function trasporto()
+    {
+        return $this->belongsTo(
+            Trasporto::class,
+            'IdTrasporto', // FK su ordini
+            'id'           // PK su tab_trasporto
+        );
+    }
     protected $fillable = [
         'Nordine',
 

@@ -411,6 +411,24 @@
             width: 55mm;
             margin: 0 auto;
         }
+        .cond-list{
+    font-size:11px;
+}
+
+.cond-row{
+    margin: 1.6mm 0;
+}
+
+.cond-row .k{
+    font-weight: bold;
+    color:#222;
+}
+
+.cond-row .v{
+    margin-left: 3mm;   /* 👈 distanza controllata */
+    color:#111;
+}
+
         @font-face {
   font-family: "DejaVu";
   src: url("{{ public_path('fonts/DejaVuSans.ttf') }}") format("truetype");
@@ -442,9 +460,7 @@
                 <td class="h-left">
                     <img src="{{ public_path('Logo.png') }}" style="height:25mm">
                 </td>
-                <td class="h-right">
-                    <div class="muted">Data Stampa: {{ $dataDoc }}</div>
-                </td>
+
             </tr>
         </table>
     </header>
@@ -492,10 +508,13 @@
         if ($s1 > 0) $imponibileScontato *= (1 - $s1 / 100);
         if ($s2 > 0) $imponibileScontato *= (1 - $s2 / 100);
 
+        $cstTrasporto = (float)($ordine->CstTrasporto ?? 0);
+        $imponibileDocumento = $imponibileScontato + $cstTrasporto;
+
         // --- IVA (fallback 22%) ---
         $ivaPerc = (float)($ordine->IvaPerc ?? 22); // se non hai IvaPerc nel model, lascialo 22 fisso
-        $iva = $imponibileScontato * ($ivaPerc / 100);
-        $totaleIvato = $imponibileScontato + $iva;
+        $iva = $imponibileDocumento * ($ivaPerc / 100);
+        $totaleIvato = $imponibileDocumento + $iva;
         @endphp
         {{-- ================== RIGHE ORDINE ================== --}}
         @foreach($righe as $r)
@@ -655,28 +674,33 @@
             <div class="cond-card">
                 <div class="cond-title">Condizioni Generali di vendita</div>
 
-                <table class="cond-kv">
-                    <tr>
-                        <td class="k">Consegna Richiesta</td>
-                        <td class="v">{{ $ordine->ConsegnaRichiesta ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="k">Trasporto</td>
-                        <td class="v">{{ $ordine->Trasporto ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="k">Validità Offerta</td>
-                        <td class="v">{{ $ordine->ValiditaOfferta ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="k">Pagamento</td>
-                        <td class="v">{{ $ordine->Pagamento ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="k">Annotazioni</td>
-                        <td class="v">{{ $ordine->Annotazioni ?? '' }}</td>
-                    </tr>
-                </table>
+                <div class="cond-list">
+                    <div class="cond-row">
+                        <span class="k">Consegna Richiesta:</span>
+                        <span class="v">{{ $ordine->ConsegnaRichiesta ?? '' }}</span>
+                    </div>
+
+                    <div class="cond-row">
+                        <span class="k">Trasporto:</span>
+                        <span class="v">{{ $ordine->trasporto_des ?? '' }}</span>
+                    </div>
+
+                    <div class="cond-row">
+                        <span class="k">Validità Offerta:</span>
+                        <span class="v">{{ $ordine->ValiditaOfferta ?? '' }}</span>
+                    </div>
+
+                    <div class="cond-row">
+                        <span class="k">Pagamento:</span>
+                        <span class="v">{{ $ordine->Pagamento ?? '' }}</span>
+                    </div>
+
+                    <div class="cond-row">
+                        <span class="k">Annotazioni:</span>
+                        <span class="v">{{ $ordine->Annotazioni ?? '' }}</span>
+                    </div>
+                </div>
+
 
                 <div class="dashed"></div>
 
@@ -699,7 +723,6 @@
                     </tr>
                 </table>
             </div>
-
         </div>
 
 
@@ -714,12 +737,14 @@
 
 
     $ordine = "{{ $nOrdinePdf }}";
+    $dataStampa = \Carbon\Carbon::now()->format('d/m/Y');
     $pdf->page_text(
-        430, 35,
-        "Pag. {PAGE_NUM} di {PAGE_COUNT} – Ordine N. {$ordine}",
+        350,
+        35,
+        "Pag. {PAGE_NUM} di {PAGE_COUNT} – Ordine N. {$ordine} – Data {$dataStampa}",
         $font,
         $size,
-        [0,0,0]
+        [0, 0, 0]
     );
 }
 </script>
