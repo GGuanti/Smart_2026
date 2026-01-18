@@ -1933,8 +1933,8 @@ function onDimSpBlur(riga) {
     } else {
         riga.DimSp = Number(riga.DimSp);
     }
-
     delete riga._dimSpPrev;
+applyImbotteOnDimSpChange(riga);
 }
 function onDimLFocus(riga) {
     // salva valore precedente
@@ -2018,6 +2018,30 @@ function showErrorMsg(text = "❌ Errore nel salvataggio", ms = 2500) {
         savedText.value = "";
     }, ms);
 }
+function applyImbotteOnDimSpChange(riga) {
+    const dimSp = Number(riga.DimSp);
+    if (!Number.isFinite(dimSp)) return;
+
+    if (dimSp > 145) {
+        const opts = imbottePerRiga(riga);
+        if (!Array.isArray(opts) || !opts.length) return;
+
+        const first = opts.find((i) => {
+            const d = String(i.des_imbotte ?? "")
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, " "); // normalizza spazi
+
+            return d.startsWith("con imbotte");
+        });
+
+        if (first) {
+            riga.IdImbotte = Number(first.id_imbotte);
+        }
+    }
+}
+
+
 function colonnaListinoPerRiga(riga) {
     return String(filtroSoluzionePerRiga(riga) ?? "").trim().toUpperCase();
 }
