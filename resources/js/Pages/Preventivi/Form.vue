@@ -115,7 +115,7 @@ function newRigaFromElemento(el = null) {
         PercFile: el?.PercFile ?? "",
         TxtCassMet: el?.TxtCassMet ?? "",
 
-   IdModello: el?.IdModello ?? DEFAULT_ID_MODELLO,
+        IdModello: el?.IdModello ?? DEFAULT_ID_MODELLO,
         IdSoluzione: el?.IdSoluzione ?? "",
         IdColAnta: el?.IdColAnta ?? "",
         IdColTelaio: el?.IdColTelaio ?? "",
@@ -144,7 +144,7 @@ const form = useForm({
 onMounted(() => {
     if (!form.Nordine && props.ordine?.Nordine)
         form.Nordine = props.ordine.Nordine;
-         form.righe.forEach(r => ensureDefaultModello(r));
+    form.righe.forEach((r) => ensureDefaultModello(r));
 });
 
 /* Enter -> campo successivo (non textarea) */
@@ -204,19 +204,19 @@ function modelloNome(m) {
         .trim();
 }
 function ensureDefaultModello(riga) {
-  // Non toccare righe già valorizzate o caricate dal DB
-  if (riga?.IdModello) return false;
+    // Non toccare righe già valorizzate o caricate dal DB
+    if (riga?.IdModello) return false;
 
-  riga.IdModello = DEFAULT_ID_MODELLO;
+    riga.IdModello = DEFAULT_ID_MODELLO;
 
-  // allinea tutto correttamente
-  applyValPredFromModel(riga);
-  aggiornaDimLCombo(riga, true);
-  bumpImgKeyOnly(riga);
-  cascadeRiga(riga);
-  refreshPrezzo(riga);
+    // allinea tutto correttamente
+    applyValPredFromModel(riga);
+    aggiornaDimLCombo(riga, true);
+    bumpImgKeyOnly(riga);
+    cascadeRiga(riga);
+    refreshPrezzo(riga);
 
-  return true;
+    return true;
 }
 
 function modelloNomePerRiga(riga) {
@@ -259,50 +259,80 @@ function fotoUrlForRiga(riga) {
     return `/Foto/${encodeURIComponent(nome)}.jpg?v=${riga._imgKey ?? 0}`;
 }
 function fotoUrlAntaRiga(riga) {
-  if (!riga?.IdModello || !riga?.IdColAnta) return "/Foto/placeholder.jpg";
+    if (!riga?.IdModello || !riga?.IdColAnta) return "/Foto/placeholder.jpg";
 
-  const opts = Array.isArray(coloriAntaPerRiga(riga)) ? coloriAntaPerRiga(riga) : [];
+    const opts = Array.isArray(coloriAntaPerRiga(riga))
+        ? coloriAntaPerRiga(riga)
+        : [];
 
-  const sel = opts.find(o => Number(o.IdFinAnta ?? o.id ?? o.ID) === Number(riga.IdColAnta));
-  if (!sel) return "/Foto/placeholder.jpg";
+    const sel = opts.find(
+        (o) => Number(o.IdFinAnta ?? o.id ?? o.ID) === Number(riga.IdColAnta)
+    );
+    if (!sel) return "/Foto/placeholder.jpg";
 
-  // 🔑 qui metti la PRIORITÀ corretta del tuo DB:
-  // se hai un campo tipo Foto/Essenza/NomeFile usa quello, altrimenti usa Colore.
-  const rawName =
-    (sel.Foto ?? sel.foto ?? sel.Essenza ?? sel.essenza ?? sel.NomeFile ?? sel.nome_file ?? sel.Path ?? sel.path ?? "")
-      .toString()
-      .trim()
-    || (sel.Colore ?? sel.colore ?? "").toString().trim();
+    // 🔑 qui metti la PRIORITÀ corretta del tuo DB:
+    // se hai un campo tipo Foto/Essenza/NomeFile usa quello, altrimenti usa Colore.
+    const rawName =
+        (
+            sel.Foto ??
+            sel.foto ??
+            sel.Essenza ??
+            sel.essenza ??
+            sel.NomeFile ??
+            sel.nome_file ??
+            sel.Path ??
+            sel.path ??
+            ""
+        )
+            .toString()
+            .trim() || (sel.Colore ?? sel.colore ?? "").toString().trim();
 
-  if (!rawName) return "/Foto/placeholder.jpg";
+    if (!rawName) return "/Foto/placeholder.jpg";
 
-  // (opzionale) normalizza un minimo, evita doppi spazi
-  const fileName = rawName.replace(/\s+/g, " ");
+    // (opzionale) normalizza un minimo, evita doppi spazi
+    const fileName = rawName.replace(/\s+/g, " ");
 
-  return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${riga._imgKey ?? 0}`;
+    return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${
+        riga._imgKey ?? 0
+    }`;
 }
 function fotoUrlTelaioRiga(riga) {
-  if (!riga?.IdModello || !riga?.IdColTelaio) return "/Foto/placeholder.jpg";
+    if (!riga?.IdModello || !riga?.IdColTelaio) return "/Foto/placeholder.jpg";
 
-  const opts = Array.isArray(finitureTelaioPerRiga(riga)) ? finitureTelaioPerRiga(riga) : [];
+    const opts = Array.isArray(finitureTelaioPerRiga(riga))
+        ? finitureTelaioPerRiga(riga)
+        : [];
 
-  const sel = opts.find(o => Number(o.IdFinTelaio ?? o.id ?? o.ID) === Number(riga.IdColTelaio));
-  if (!sel) return "/Foto/placeholder.jpg";
+    const sel = opts.find(
+        (o) =>
+            Number(o.IdFinTelaio ?? o.id ?? o.ID) === Number(riga.IdColTelaio)
+    );
+    if (!sel) return "/Foto/placeholder.jpg";
 
-  // ✅ priorità: campo file (se esiste) -> altrimenti Colore
-  const rawName =
-    (sel.Foto ?? sel.foto ?? sel.Essenza ?? sel.essenza ?? sel.NomeFile ?? sel.nome_file ?? sel.Path ?? sel.path ?? "")
-      .toString()
-      .trim()
-    || (sel.Colore ?? sel.colore ?? "").toString().trim();
+    // ✅ priorità: campo file (se esiste) -> altrimenti Colore
+    const rawName =
+        (
+            sel.Foto ??
+            sel.foto ??
+            sel.Essenza ??
+            sel.essenza ??
+            sel.NomeFile ??
+            sel.nome_file ??
+            sel.Path ??
+            sel.path ??
+            ""
+        )
+            .toString()
+            .trim() || (sel.Colore ?? sel.colore ?? "").toString().trim();
 
-  if (!rawName) return "/Foto/placeholder.jpg";
+    if (!rawName) return "/Foto/placeholder.jpg";
 
-  const fileName = rawName.replace(/\s+/g, " ");
+    const fileName = rawName.replace(/\s+/g, " ");
 
-  return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${riga._imgKey ?? 0}`;
+    return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${
+        riga._imgKey ?? 0
+    }`;
 }
-
 
 /* ===================== Filtri + opzioni per riga ===================== */
 function tipologiaSoluzioniPerRiga(riga) {
@@ -1172,13 +1202,13 @@ watch(
     }
 );
 watch(
-  () => form.righe.map(r => r.IdColAnta),
-  (newV, oldV) => {
-    form.righe.forEach((riga, i) => {
-      if (newV?.[i] === oldV?.[i]) return;
-      bumpImgKeyOnly(riga);
-    });
-  }
+    () => form.righe.map((r) => r.IdColAnta),
+    (newV, oldV) => {
+        form.righe.forEach((riga, i) => {
+            if (newV?.[i] === oldV?.[i]) return;
+            bumpImgKeyOnly(riga);
+        });
+    }
 );
 /* ===================== Totali ===================== */
 const totalePreventivo = computed(() =>
@@ -1200,12 +1230,12 @@ function totaleRiga(r) {
 
 /* ===================== Azioni righe ===================== */
 function addRiga() {
-  const r = newRigaFromElemento();
-  form.righe.push(r);
+    const r = newRigaFromElemento();
+    form.righe.push(r);
 
-  ensureDefaultModello(r);
+    ensureDefaultModello(r);
 
-  showSavedMsg("✅ Riga inserita", 1500);
+    showSavedMsg("✅ Riga inserita", 1500);
 }
 
 function removeRigaLocal(i) {
@@ -1418,9 +1448,69 @@ function MaggVetro(riga) {
     return val || 0;
 }
 
+function isDimLExtra(riga) {
+    const opts = dimLOptionsPerRiga(riga);
+    if (!Array.isArray(opts) || !opts.length) return false;
+
+    const dimL = Number(riga.DimL);
+    if (!Number.isFinite(dimL)) return false;
+
+    return !opts.some((v) => Number(v) === dimL);
+}
+
+function MaggLarghezza(riga) {
+    if (!isDimLExtra(riga)) return 0;
+
+    const m = listinoById(riga.IdModello);
+    if (!m) return 0;
+
+    return Number(m.magg_lrg ?? m.MaggLrg ?? 0) || 0;
+}
+function MaggAltezza(riga) {
+    const { dimAForced } = dimLRulesForRiga(riga);
+    if (!dimAForced) return 0;
+
+    const dimA = Number(riga.DimA);
+    if (!Number.isFinite(dimA)) return 0;
+
+    const m = listinoById(riga.IdModello);
+    if (!m) return 0;
+
+    // 🔽 ALTEZZA MINORE
+    if (dimA < dimAForced) {
+        return Number(m.magg_alt_minus ?? m.MaggAltMinus ?? 0) || 0;
+    }
+
+    // 🔼 ALTEZZA MAGGIORE
+    if (dimA > dimAForced) {
+        const plus = Number(m.magg_alt_plus ?? m.MaggAltPlus ?? 0) || 0;
+
+        // ❌ NON REALIZZABILE
+        if (plus === 0) {
+            toast.error(
+                "❌ Altezza non realizzabile per questo modello. Ripristinata altezza standard.",
+                { position: "top-left", timeout: 3000 }
+            );
+
+            // ripristino valore standard
+            riga.DimA = Number(dimAForced);
+
+            return 0;
+        }
+
+        return plus;
+    }
+
+    return 0;
+}
+
+
 function totaleRigaD(riga) {
     return (
         listinoPorta(riga) +
+        MaggLarghezza(riga) +
+        MaggTelaio(riga)+
+        MaggAltezza(riga) +
         MaggManuale(riga) +
         MaggKitScFM(riga) +
         MaggCstTelP(riga) +
@@ -1928,6 +2018,61 @@ function showErrorMsg(text = "❌ Errore nel salvataggio", ms = 2500) {
         savedText.value = "";
     }, ms);
 }
+function colonnaListinoPerRiga(riga) {
+    return String(filtroSoluzionePerRiga(riga) ?? "").trim().toUpperCase();
+}
+
+function modelloCode(riga) {
+    return String(modelloCodePerRiga(riga) ?? "").trim().toUpperCase();
+}
+function isDoppiaTel(riga) {
+    const tt = tipiTelaioById(riga.IdTipTelaio);
+    const desc = String(tt?.stipite ?? "").trim().toLowerCase();
+    return desc === "telaio r2 - mostrina int. ed est. da 70 mm telescopica".toLowerCase();
+}
+
+function MaggTelaio(riga) {
+    const dimSp = Number(riga.DimSp ?? 0);
+    if (!Number.isFinite(dimSp) || dimSp <= 0) return 0;
+
+    // VBA: If DimSp <> 110 And DimSp <= 145 ...
+    if (dimSp === 110) return 0;
+    if (dimSp > 145) return 0;
+
+    const doppia = isDoppiaTel(riga);
+    const col = colonnaListinoPerRiga(riga); // BT/BT2A/SE/...
+    const mod = modelloCode(riga);           // PVC/SVM/SVT/...
+
+    const isSvmOrSvt = mod === "SVM" || mod === "SVT";
+
+    if (doppia) {
+        // VBA: FinoA = 160 (se ti serve lo gestiamo dopo)
+        if (col === "BT" && mod !== "PVC") return 20;
+        if (col === "BT2A") return 20;
+        if (col === "BT2S") return 20;
+        if (col === "LIBA") return 20;
+        if (col === "LIBS") return 20;
+        if (col === "RT") return 20;
+
+        if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 20;
+        if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 20;
+
+        return 0;
+    } else {
+        // VBA: FinoA = 150
+        if (col === "BT") return 20;
+        if (col === "BT2A") return 20;
+        if (col === "BT2S") return 19; // ✅ differenza ramo FALSE
+        if (col === "LIBA") return 20;
+        if (col === "LIBS") return 20;
+        if (col === "RT") return 20;
+
+        if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 20;
+        if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 20;
+
+        return 0;
+    }
+}
 
 onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
@@ -2075,7 +2220,7 @@ onBeforeUnmount(() => {
                                     💾 Val. Predef.
                                 </button>
 
-                             <!--    <button
+                                <!--    <button
                                     type="button"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
                                     @click="loadValPredModelSol(riga)"
@@ -2498,29 +2643,38 @@ onBeforeUnmount(() => {
                                                 >
                                                     <!-- immagine fissa -->
                                                     <img
-                                                     :src="fotoUrlAntaRiga(riga)"
-                                                    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-                                                    @click="
-                                                        openZoom(
-                                                            fotoUrlAntaRiga(riga)
-                                                        )
-                                                    "
-                                                    @error="onImgError"
-                                                />
+                                                        :src="
+                                                            fotoUrlAntaRiga(
+                                                                riga
+                                                            )
+                                                        "
+                                                        class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
+                                                        @click="
+                                                            openZoom(
+                                                                fotoUrlAntaRiga(
+                                                                    riga
+                                                                )
+                                                            )
+                                                        "
+                                                        @error="onImgError"
+                                                    />
                                                     <img
-                                                     :src="fotoUrlTelaioRiga(riga)"
-                                                    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-                                                    @click="
-                                                        openZoom(
-                                                            fotoUrlTelaioRiga(riga)
-                                                        )
-                                                    "
-                                                    @error="onImgError"
-                                                />
-
+                                                        :src="
+                                                            fotoUrlTelaioRiga(
+                                                                riga
+                                                            )
+                                                        "
+                                                        class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
+                                                        @click="
+                                                            openZoom(
+                                                                fotoUrlTelaioRiga(
+                                                                    riga
+                                                                )
+                                                            )
+                                                        "
+                                                        @error="onImgError"
+                                                    />
                                                 </div>
-
-
                                             </div>
                                         </div>
 
@@ -2536,10 +2690,15 @@ onBeforeUnmount(() => {
 
                                                 <input
                                                     v-model="riga.DimL"
+                                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                                    :class="
+                                                        isDimLExtra(riga)
+                                                            ? 'border-orange-500 bg-orange-50'
+                                                            : ''
+                                                    "
                                                     type="text"
                                                     inputmode="numeric"
                                                     pattern="[0-9]*"
-                                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                                                     :list="`diml-list-${riga.uid}`"
                                                     @focus="onDimLFocus(riga)"
                                                     @blur="onDimLBlur(riga)"
@@ -2563,12 +2722,20 @@ onBeforeUnmount(() => {
                                                     class="text-xs font-semibold text-gray-600"
                                                     >DimA</label
                                                 >
+
                                                 <input
                                                     v-model.number="riga.DimA"
                                                     type="number"
                                                     class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                                    :class="
+                                                        MaggAltezza(riga) !== 0
+                                                            ? 'border-orange-500 bg-orange-50'
+                                                            : ''
+                                                    "
                                                     @keydown.enter="focusNext"
                                                 />
+
+
                                             </div>
                                             <div>
                                                 <label
@@ -2734,7 +2901,24 @@ onBeforeUnmount(() => {
                                             >
                                                 €
                                                 {{
-                                                    MaggColAnta(riga).toFixed(2)
+                                                    (
+                                                        MaggColAnta(riga) +
+                                                        MaggLarghezza(riga) +
+                                                        MaggAltezza(riga)
+                                                    ).toFixed(2)
+                                                }}
+                                            </div>
+                                            <div class="text-xs text-slate-600">
+                                                Magg. Telaio
+                                            </div>
+                                            <div
+                                                class="text-lg font-extrabold text-slate-900 text-right"
+                                            >
+                                                €
+                                                {{
+                                                    (
+                                                        MaggTelaio(riga)
+                                                    ).toFixed(2)
                                                 }}
                                             </div>
                                             <div class="text-xs text-slate-600">

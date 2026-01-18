@@ -68,7 +68,7 @@
         }
 
         .footline {
-            font-size: 10px;
+            font-size: 12px;
             text-align: center;
             white-space: nowrap;
             color: #222;
@@ -452,25 +452,35 @@
     @php
     $dataDoc = \Illuminate\Support\Carbon::parse($ordine->DataOrdine)->format('d/m/Y');
     $nOrd = $ordine->Nordine;
+    $userImg = public_path('Foto/Utente/' . auth()->id() . '.png');
     @endphp
 
-    <header>
+<header>
         <table class="hrow">
-            <tr>
-                <td class="h-left">
-                    <img src="{{ public_path('Logo.png') }}" style="height:25mm">
-                </td>
 
-            </tr>
+
+      <td class="h-left">
+
+@if(file_exists($userImg))
+<img src="{{ $userImg }}" style="height:30mm">
+<img src="{{ public_path('Logo.png') }}" style="height:30mm">
+@else
+<img src="{{ public_path('Logo2.png') }}" style="height:30mm">
+
+@endif
+</td>
+
+
         </table>
     </header>
 
     <footer>
         <div class="footline">
-            Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763
-        </div>
-        <div class="footline">
-            Tel. +39 0971 485220 - info@isomaxporte.com
+        @if(file_exists($userImg))
+            Edil Mea Srl by Azzone Edil Mea Showroom Via dell’Artigianato, 45 75100 Matera
+        @else
+        Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763  Tel. +39 0971 485220 - info@isomaxporte.com
+        @endif
         </div>
     </footer>
 
@@ -677,7 +687,11 @@
                 <div class="cond-list">
                     <div class="cond-row">
                         <span class="k">Consegna Richiesta:</span>
-                        <span class="v">{{ $ordine->ConsegnaRichiesta ?? '' }}</span>
+                        <span class="v">
+    @if(!empty($ordine->ConsegnaRichiesta))
+        {{ \Illuminate\Support\Carbon::parse($ordine->ConsegnaRichiesta)->format('d/m/Y') }}
+    @endif
+</span>
                     </div>
 
                     <div class="cond-row">
@@ -685,10 +699,7 @@
                         <span class="v">{{ $ordine->trasporto_des ?? '' }}</span>
                     </div>
 
-                    <div class="cond-row">
-                        <span class="k">Validità Offerta:</span>
-                        <span class="v">{{ $ordine->ValiditaOfferta ?? '' }}</span>
-                    </div>
+
 
                     <div class="cond-row">
                         <span class="k">Pagamento:</span>

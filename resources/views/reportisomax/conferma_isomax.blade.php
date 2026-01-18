@@ -591,11 +591,13 @@
 
                     @if(file_exists($userImg))
                     <img src="{{ $userImg }}" style="height:30mm">
+                    <img src="{{ public_path('Logo.png') }}" style="height:30mm">
+                    @else
+                    <img src="{{ public_path('Logo2.png') }}" style="height:30mm">
+
                     @endif
                 </td>
-                <td class="h-left">
-                <img src="{{ public_path('Logo.png') }}" style="height:30mm">
-      </tr>
+
         </table>
     </header>
 
@@ -802,17 +804,16 @@
                 <div class="cond-list">
                     <div class="cond-row">
                         <span class="k">Consegna Richiesta:</span>
-                        <span class="v">{{ $ordine->ConsegnaRichiesta ?? '' }}</span>
+                        <span class="v">
+    @if(!empty($ordine->ConsegnaRichiesta))
+        {{ \Illuminate\Support\Carbon::parse($ordine->ConsegnaRichiesta)->format('d/m/Y') }}
+    @endif
+</span>
                     </div>
 
                     <div class="cond-row">
                         <span class="k">Trasporto:</span>
                         <span class="v">{{ $ordine->trasporto_des ?? '' }}</span>
-                    </div>
-
-                    <div class="cond-row">
-                        <span class="k">Validità Offerta:</span>
-                        <span class="v">{{ $ordine->ValiditaOfferta ?? '' }}</span>
                     </div>
 
                     <div class="cond-row">

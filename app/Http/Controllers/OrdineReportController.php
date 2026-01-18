@@ -20,7 +20,8 @@ class OrdineReportController extends Controller
         // $ordine = TabOrdine::findOrFail($id);
         $ordine = TabOrdine::query()
     ->leftJoin('tab_trasporto as tr', 'tr.id', '=', 'tab_ordine.IdTrasporto')
-    ->select('tab_ordine.*', 'tr.des as trasporto_des')
+    ->select('tab_ordine.*','tab_ordine.TxtModPagamento as Pagamento', 'tab_ordine.DataCons as ConsegnaRichiesta',
+    'tr.des as trasporto_des')
     ->where('tab_ordine.ID', $id)
     ->firstOrFail();
         abort_if($ordine->user_id !== auth()->id(), 403);
@@ -52,7 +53,6 @@ class OrdineReportController extends Controller
                 'ce.des_cernira as Cerniere',
                 'ap.des as Verso',
                 'v.des_vetro as Vetro',
-
 
             ])
             ->get();

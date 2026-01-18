@@ -2,7 +2,7 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, Link, useForm, router } from "@inertiajs/vue3";
-import { computed, ref, onMounted, watch } from "vue";
+import { computed, reactive, ref, onMounted, watch } from "vue";
 import { useToast } from "vue-toastification";
 import axios from "axios";
 import {
@@ -15,6 +15,7 @@ import {
     FileText,
     Hash,
     StickyNote,
+    Euro,
 } from "lucide-vue-next";
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
@@ -96,7 +97,7 @@ const form = useForm({
 
     Sconto1: props.ordine?.Sconto1 ?? 0,
     Sconto2: props.ordine?.Sconto2 ?? 0,
-
+    TxtModPagamento: props.ordine?.TxtModPagamento ?? "",
     Annotazioni: props.ordine?.Annotazioni ?? "",
     regioneUtente: props.regioneUtente || props.ordine?.regioneUtente || "",
 });
@@ -110,40 +111,40 @@ const totaleProdotti = computed(() => {
         return sum + qta * (prezzo + prezzom);
     }, 0);
 });
-const isSendingEmail = ref(false);
 
-async function generaEInviaEmail() {
-    const id = props.ordine?.ID ?? form.ID;
-    if (!id) return toast.error("Salva l'ordine prima di inviare la email.");
-
+async function sendEmail(id) {
     const to = String(form.Email || "").trim();
-    if (!to)
-        return toast.error("Inserisci l'email del cliente prima di inviare.");
+    if (!to) {
+        toast.error("Inserisci l'email del cliente prima di inviare.");
+        return;
+    }
 
-    if (isSendingEmail.value) return; // anti doppio click
-    isSendingEmail.value = true;
+    await axios.post(route("ordini.email.conferma", id), { to });
 
-    try {
-        const res = await axios.post(route("ordini.email.conferma", id), {
-            to, // puoi anche non mandarlo e usare quello del DB, ma così prendi quello del form
-        });
+    toast.success("✅ Email inviata con PDF allegato!", {
+        position: "top-center",
+        timeout: 2500,
+    });
+}
+
+const isSendingEmail = ref(false);
+async function generaEInviaEmail() {
+    saveThen(async (id) => {
+        const to = String(form.Email || "").trim();
+        if (!to)
+            return toast.error(
+                "Inserisci l'email del cliente prima di inviare."
+            );
+
+        await axios.post(route("ordini.email.conferma", id), { to });
 
         toast.success("✅ Email inviata con PDF allegato!", {
             position: "top-center",
             timeout: 2500,
         });
-
-        // opzionale: se vuoi aprire anche il PDF dopo l'invio
-        // window.open(route("ordini.report.conferma", id), "_blank");
-    } catch (e) {
-        const msg =
-            e?.response?.data?.message ||
-            "❌ Errore invio email (controlla configurazione mail/log).";
-        toast.error(msg, { position: "top-left", timeout: 3500 });
-    } finally {
-        isSendingEmail.value = false;
-    }
+    }, "email");
 }
+
 const totaleScontato = computed(() => {
     let totale = totaleProdotti.value;
     if (form.Sconto1) totale *= 1 - form.Sconto1 / 100;
@@ -251,29 +252,120 @@ function destroy() {
         },
     });
 }
-function generaReport() {
-    const id = props.ordine?.ID ?? form.ID;
+
+const isPrinting = ref(false);
+
+function openReport(id) {
     const tipo = form.TipoStampa;
-    if (!id)
-        return toast.error("Salva l'ordine prima di generare la conferma.");
-    window.open(
-        route("ordini.report.conferma", {
-            id: id,
-            tipo: tipo,
-        }),
-        "_blank"
+    window.open(route("ordini.report.conferma", { id, tipo }), "_blank");
+}
+
+function generaReport() {
+    saveThen((id) => {
+        const tipo = form.TipoStampa;
+        window.open(route("ordini.report.conferma", { id, tipo }), "_blank");
+    }, "print");
+}
+
+function copiaOrdine() {
+    saveThen((id) => {
+        router.post(
+            route("ordini.copia", id),
+            {},
+            {
+                preserveScroll: true,
+                onStart: () => toast.info("📄 Copia ordine in corso…"),
+                onSuccess: () => toast.success("✅ Ordine copiato"),
+                onError: () => toast.error("❌ Errore copia ordine"),
+            }
+        );
+    }, "copia");
+}
+
+function apriElencoProdotti() {
+    saveThen((id) => {
+        router.visit(route("preventivi.create", id), { preserveScroll: true });
+    }, "prodotti");
+}
+
+const isOpeningProdotti = ref(false);
+
+function goProdotti(id) {
+    router.visit(route("preventivi.create", id), { preserveScroll: true });
+}
+// stato azioni (anti doppio click per chiave)
+const busy = reactive({
+    print: false,
+    email: false,
+    prodotti: false,
+    copia: false,
+});
+
+function getSavedId(page) {
+    return (
+        page?.props?.ordine?.ID ??
+        page?.props?.ordine?.id ??
+        form.ID ??
+        props.ordine?.ID ??
+        null
     );
 }
-function generaReport1() {
-    const id = props.ordine?.ID ?? form.ID;
-    const tipo = form.TipoStampa;
-    console.log("Tipo", tipo);
-    if (!id)
-        return toast.error("Salva l'ordine prima di generare la conferma.");
 
-    const url = `/report/genera?ordine=${id}&tipo=${encodeURIComponent(tipo)}`;
-    console.log("URL REPORT:", url);
-    window.open(url, "_blank");
+/**
+ * saveThen(action, key)
+ * - action: (id) => void | Promise<void>
+ * - key: string per anti doppio click ("print", "email", ...)
+ */
+function saveThen(action, key = "generic") {
+    if (form.processing) return;
+
+    // se vuoi una chiave dinamica non presente in busy, la creo al volo
+    if (!(key in busy)) busy[key] = false;
+
+    if (busy[key]) return;
+    busy[key] = true;
+
+    const currentId = props.ordine?.ID ?? form.ID;
+
+    const run = async (id) => {
+        try {
+            await action(id);
+        } finally {
+            busy[key] = false;
+        }
+    };
+
+    // ✅ già salvato e non modificato
+    if (currentId && !form.isDirty) {
+        run(currentId);
+        return;
+    }
+
+    const opts = {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            const savedId = getSavedId(page);
+            if (!savedId) {
+                toast.error("Ordine salvato ma ID non trovato.");
+                busy[key] = false;
+                return;
+            }
+            run(savedId);
+        },
+        onError: () => {
+            toast.error("❌ Correggi gli errori prima di continuare.");
+            busy[key] = false;
+        },
+    };
+
+    // ✅ create
+    if (!currentId) {
+        form.post(route("ordini.store"), opts);
+        return;
+    }
+
+    // ✅ update
+    form.put(route("ordini.update", { ordini: currentId }), opts);
 }
 
 onMounted(() => {
@@ -327,31 +419,6 @@ watch(
     },
     { immediate: true }
 );
-function copiaOrdine() {
-    const id = props.ordine?.ID ?? form.ID;
-
-    if (!id) {
-        toast.error("Salva l'ordine prima di copiarlo.");
-        return;
-    }
-
-    router.post(
-        route("ordini.copia", id),
-        {},
-        {
-            preserveScroll: true,
-            onStart: () => {
-                toast.info("📄 Copia ordine in corso…");
-            },
-            onSuccess: () => {
-                toast.success("✅ Ordine copiato");
-            },
-            onError: () => {
-                toast.error("❌ Errore copia ordine");
-            },
-        }
-    );
-}
 </script>
 
 <template>
@@ -387,24 +454,20 @@ function copiaOrdine() {
                             ⬅️ Elenco
                         </Link>
 
-                        <!-- ✅ fix: in create ordine è null, quindi uso props.ordine?.ID -->
-                        <Link
-                            v-if="isEdit && (props.ordine?.ID || form.ID)"
-                            :href="
-                                route(
-                                    'preventivi.create',
-                                    props.ordine?.ID ?? form.ID
-                                )
-                            "
-                            class="px-3 py-2 rounded-lg bg-blue-600 text-white font-bold"
+
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            :disabled="busy.prodotti || form.processing"
+                            @click="apriElencoProdotti"
                         >
-                            ➕ Apri Elenco Prodotti
-                        </Link>
+                            📄 Elenco Prodotti
+                        </button>
                         <button
                             v-if="isEdit && (props.ordine?.ID || form.ID)"
                             type="button"
                             class="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow transition font-extrabold flex items-center gap-1"
-                            :disabled="form.processing"
+                            :disabled="busy.copia || form.processing"
                             @click="copiaOrdine"
                         >
                             📄 Copia Ordine
@@ -600,7 +663,18 @@ function copiaOrdine() {
                                             />
                                         </div>
                                     </div>
-
+                                    <div class="col-span-12">
+                                        <label class="label"
+                                            >Mod. Pagamento</label
+                                        >
+                                        <div class="input-icon">
+                                            <FileText class="w-4 h-4" />
+                                            <input
+                                                v-model="form.TxtModPagamento"
+                                                class="input"
+                                            />
+                                        </div>
+                                    </div>
                                     <div class="col-span-12">
                                         <label
                                             class="label flex items-center gap-1"
@@ -912,29 +986,21 @@ function copiaOrdine() {
                                                 </option>
                                             </select>
                                         </div>
-
-                                        <!-- Genera Report -->
                                         <button
-                                            type="button"
-                                            @click="generaReport"
-                                            class="h-[42px] bg-green-600 hover:bg-green-700 text-white px-4 rounded flex items-center gap-1"
-                                        >
-                                            🖨️ Genera Report
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            @click="generaEInviaEmail"
-                                            class="h-[42px] bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                                             :disabled="
-                                                isSendingEmail ||
-                                                form.processing
+                                                busy.print || form.processing
                                             "
+                                            @click="generaReport"
                                         >
-                                            <span v-if="!isSendingEmail"
-                                                >✉️ Invia Email</span
-                                            >
-                                            <span v-else>📨 Invio...</span>
+                                            🖨️
+                                        </button>
+                                        <button
+                                            :disabled="
+                                                busy.email || form.processing
+                                            "
+                                            @click="generaEInviaEmail"
+                                        >
+                                            ✉️
                                         </button>
                                     </div>
                                 </div>
