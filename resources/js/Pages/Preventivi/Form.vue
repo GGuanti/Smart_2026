@@ -210,6 +210,7 @@ function ensureDefaultModello(riga) {
   riga.IdModello = DEFAULT_ID_MODELLO;
 
   // allinea tutto correttamente
+  applyValPredFromModel(riga);
   aggiornaDimLCombo(riga, true);
   bumpImgKeyOnly(riga);
   cascadeRiga(riga);
