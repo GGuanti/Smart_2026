@@ -68,7 +68,7 @@
         }
 
         .footline {
-            font-size: 10px;
+            font-size: 12px;
             text-align: center;
             white-space: nowrap;
             color: #222;
@@ -490,23 +490,25 @@
             font-weight: 900;
             font-size: 13px;
         }
-        .cond-list{
-    font-size:11px;
-}
 
-.cond-row{
-    margin: 1.6mm 0;
-}
+        .cond-list {
+            font-size: 11px;
+        }
 
-.cond-row .k{
-    font-weight: bold;
-    color:#222;
-}
+        .cond-row {
+            margin: 1.6mm 0;
+        }
 
-.cond-row .v{
-    margin-left: 3mm;   /* 👈 distanza controllata */
-    color:#111;
-}
+        .cond-row .k {
+            font-weight: bold;
+            color: #222;
+        }
+
+        .cond-row .v {
+            margin-left: 3mm;
+            /* 👈 distanza controllata */
+            color: #111;
+        }
 
         @font-face {
             font-family: "DejaVu";
@@ -578,6 +580,7 @@
 
     // --- Totale complessivo ivato ---
     $totaleIvato = $imponibileDocumento + $iva;
+    $userImg = public_path('Foto/Utente/' . auth()->id() . '.png');
 
     @endphp
 
@@ -585,18 +588,24 @@
         <table class="hrow">
             <tr>
                 <td class="h-left">
-                    <img src="{{ public_path('Logo.png') }}" style="height:25mm">
+
+                    @if(file_exists($userImg))
+                    <img src="{{ $userImg }}" style="height:30mm">
+                    @endif
                 </td>
-            </tr>
+                <td class="h-left">
+                <img src="{{ public_path('Logo.png') }}" style="height:30mm">
+      </tr>
         </table>
     </header>
 
     <footer>
         <div class="footline">
-            Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763
-        </div>
-        <div class="footline">
-            Tel. +39 0971 485220 - info@isomaxporte.com
+        @if(file_exists($userImg))
+            Edil Mea Srl by Azzone Edil Mea Showroom Via dell’Artigianato, 45 75100 Matera
+        @else
+        Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763  Tel. +39 0971 485220 - info@isomaxporte.com
+        @endif
         </div>
     </footer>
 
