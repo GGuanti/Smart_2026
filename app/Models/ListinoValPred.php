@@ -11,6 +11,7 @@ class ListinoValPred extends Model
     protected $fillable = [
         'id_listino',
         'id_tab_soluzioni',
+        'id_col_telaio', // ✅
         'valpred',
     ];
 

@@ -11,6 +11,8 @@ const savedErr = ref(false);
 const savedText = ref("");
 let savedT = null;
 const DEFAULT_ID_MODELLO = 99;
+const isHydrating = ref(true);
+onMounted(() => queueMicrotask(() => (isHydrating.value = false)));
 
 /* ===================== Props ===================== */
 const props = defineProps({
@@ -1124,28 +1126,37 @@ async function refreshPrezzo(riga) {
 /* ===================== Watchers ===================== */
 // 1) cambio modello -> FOTO + cascata + prezzo
 watch(
-    () => form.righe.map((r) => r.IdModello),
-    (newV, oldV) => {
-        form.righe.forEach((riga, i) => {
-            if (newV?.[i] === oldV?.[i]) return;
-            bumpImgKeyOnly(riga);
-            aggiornaDimLCombo(riga, true); // ✅ Aggiorna=True
-            cascadeRiga(riga);
-            refreshPrezzo(riga);
-        });
-    },
-    { immediate: true }
+  () => form.righe.map((r) => r.IdModello),
+  (newV, oldV) => {
+    form.righe.forEach((riga, i) => {
+      if (newV?.[i] === oldV?.[i]) return;
+      bumpImgKeyOnly(riga);
+
+      // ✅ NON forzare all'avvio / durante load
+      aggiornaDimLCombo(riga, !isHydrating.value);
+
+      cascadeRiga(riga);
+      refreshPrezzo(riga);
+    });
+  },
+  { immediate: true }
 );
+
 watch(
-    () => form.righe.map((r) => r.IdSoluzione),
-    (newV, oldV) => {
-        form.righe.forEach((riga, i) => {
-            if (newV?.[i] === oldV?.[i]) return;
-            applyDimLRules(riga, true);
-            refreshPrezzo(riga);
-        });
-    }
+  () => form.righe.map((r) => r.IdSoluzione),
+  (newV, oldV) => {
+    form.righe.forEach((riga, i) => {
+      if (newV?.[i] === oldV?.[i]) return;
+
+      // ✅ idem
+      applyDimLRules(riga, !isHydrating.value);
+      aggiornaDimLCombo(riga, !isHydrating.value);
+
+      refreshPrezzo(riga);
+    });
+  }
 );
+
 
 // 2) campi che influenzano filtri/prezzo -> cascata + prezzo (NO foto)
 watch(
@@ -1188,19 +1199,25 @@ watch(
     }
 );
 watch(
-    () => form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}`),
-    (newV, oldV) => {
-        if (!oldV) return; // evita F5/mount
-        form.righe.forEach(async (riga, i) => {
-            if (newV[i] === oldV[i]) return;
+  () => form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColTelaio}`),
+  (newV, oldV) => {
+    if (!oldV) return;
+    form.righe.forEach(async (riga, i) => {
+      if (newV[i] === oldV[i]) return;
 
-            // Se cambia modello/soluzione: prova a caricare ValPred specifico
-            await loadValPredModelSol(riga);
+      // stabilizza le select base
+      cascadeRiga(riga);
 
-            // Se non esiste ValPred, la cascata normale già mette i primi validi (nel tuo watcher “campi”)
-        });
-    }
+      // carica default specifico
+      await loadValPredModelSol(riga);
+
+      // riallinea (se qualcosa è incompatibile)
+      cascadeRiga(riga);
+      refreshPrezzo(riga);
+    });
+  }
 );
+
 watch(
     () => form.righe.map((r) => r.IdColAnta),
     (newV, oldV) => {
@@ -1504,12 +1521,11 @@ function MaggAltezza(riga) {
     return 0;
 }
 
-
 function totaleRigaD(riga) {
     return (
         listinoPorta(riga) +
         MaggLarghezza(riga) +
-        MaggTelaio(riga)+
+        MaggTelaio(riga) +
         MaggAltezza(riga) +
         MaggManuale(riga) +
         MaggKitScFM(riga) +
@@ -1574,7 +1590,7 @@ function valPredPayloadFromRiga(riga) {
     };
 }
 async function saveValPredModelSol(riga) {
-    if (!riga.IdModello || !riga.IdSoluzione) return;
+    if (!riga.IdModello || !riga.IdSoluzione|| !riga.IdColTelaio) return;
 
     const valpred = valPredPayloadFromRiga(riga);
 
@@ -1582,6 +1598,7 @@ async function saveValPredModelSol(riga) {
         route("listini.valpred.store", riga.IdModello),
         {
             id_tab_soluzioni: riga.IdSoluzione,
+            id_col_telaio: riga.IdColTelaio,
             valpred,
         },
         { preserveScroll: true }
@@ -1589,11 +1606,16 @@ async function saveValPredModelSol(riga) {
 }
 
 async function loadValPredModelSol(riga) {
-    if (!riga.IdModello || !riga.IdSoluzione) return;
+    if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColTelaio) return;
 
     const { data } = await axios.get(
         route("listini.valpred.show", riga.IdModello),
-        { params: { id_tab_soluzioni: riga.IdSoluzione } }
+        {
+            params: {
+                id_tab_soluzioni: riga.IdSoluzione,
+                id_col_telaio: riga.IdColTelaio, // ✅
+            },
+        }
     );
 
     const vp = data?.valpred;
@@ -1907,15 +1929,17 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
     if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
 
     // come VBA: DimL default solo quando Aggiorna=True
-if (aggiorna && riga._dimLOptions.length) {
-  const cur = Number(riga.DimL);
-  const curOk = Number.isFinite(cur) && riga._dimLOptions.some(v => Number(v) === cur);
+    if (aggiorna && riga._dimLOptions.length) {
+        const cur = Number(riga.DimL);
+        const curOk =
+            Number.isFinite(cur) &&
+            riga._dimLOptions.some((v) => Number(v) === cur);
 
-  // ✅ imposta default SOLO se vuoto o non valido
-  if (!curOk) {
-    riga.DimL = Number(dimLDefault);
-  }
-}
+        // ✅ imposta default SOLO se vuoto o non valido
+        if (!curOk) {
+            riga.DimL = Number(dimLDefault);
+        }
+    }
 
     if (showWarn && aggiorna) {
         toast.info("Attenzione misura luce di passaggio", {
@@ -1940,7 +1964,7 @@ function onDimSpBlur(riga) {
         riga.DimSp = Number(riga.DimSp);
     }
     delete riga._dimSpPrev;
-applyImbotteOnDimSpChange(riga);
+    applyImbotteOnDimSpChange(riga);
 }
 function onDimLFocus(riga) {
     // salva valore precedente
@@ -2033,7 +2057,7 @@ function applyImbotteOnDimSpChange(riga) {
         if (!Array.isArray(opts) || !opts.length) return;
 
         // 🔑 prende IL PRIMO che inizia con "imbotte"
-        const first = opts.find(i => {
+        const first = opts.find((i) => {
             const d = String(i.des_imbotte ?? "")
                 .trim()
                 .toLowerCase();
@@ -2047,16 +2071,25 @@ function applyImbotteOnDimSpChange(riga) {
 }
 
 function colonnaListinoPerRiga(riga) {
-    return String(filtroSoluzionePerRiga(riga) ?? "").trim().toUpperCase();
+    return String(filtroSoluzionePerRiga(riga) ?? "")
+        .trim()
+        .toUpperCase();
 }
 
 function modelloCode(riga) {
-    return String(modelloCodePerRiga(riga) ?? "").trim().toUpperCase();
+    return String(modelloCodePerRiga(riga) ?? "")
+        .trim()
+        .toUpperCase();
 }
 function isDoppiaTel(riga) {
     const tt = tipiTelaioById(riga.IdTipTelaio);
-    const desc = String(tt?.stipite ?? "").trim().toLowerCase();
-    return desc === "telaio r2 - mostrina int. ed est. da 70 mm telescopica".toLowerCase();
+    const desc = String(tt?.stipite ?? "")
+        .trim()
+        .toLowerCase();
+    return (
+        desc ===
+        "telaio r2 - mostrina int. ed est. da 70 mm telescopica".toLowerCase()
+    );
 }
 
 function MaggTelaio(riga) {
@@ -2069,7 +2102,7 @@ function MaggTelaio(riga) {
 
     const doppia = isDoppiaTel(riga);
     const col = colonnaListinoPerRiga(riga); // BT/BT2A/SE/...
-    const mod = modelloCode(riga);           // PVC/SVM/SVT/...
+    const mod = modelloCode(riga); // PVC/SVM/SVT/...
 
     const isSvmOrSvt = mod === "SVM" || mod === "SVT";
 
@@ -2441,7 +2474,7 @@ onBeforeUnmount(() => {
                                                 >Tipo Mostrine</label
                                             >
                                             <select
-                                                v-model="riga.IdTipTelaio"
+                                                v-model.number="riga.IdTipTelaio"
                                                 translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                             >
@@ -2762,8 +2795,6 @@ onBeforeUnmount(() => {
                                                     "
                                                     @keydown.enter="focusNext"
                                                 />
-
-
                                             </div>
                                             <div>
                                                 <label
@@ -2944,9 +2975,7 @@ onBeforeUnmount(() => {
                                             >
                                                 €
                                                 {{
-                                                    (
-                                                        MaggTelaio(riga)
-                                                    ).toFixed(2)
+                                                    MaggTelaio(riga).toFixed(2)
                                                 }}
                                             </div>
                                             <div class="text-xs text-slate-600">
