@@ -10,7 +10,7 @@ const savedMsg = ref(false);
 const savedErr = ref(false);
 const savedText = ref("");
 let savedT = null;
-const DEFAULT_ID_MODELLO = 222299;
+const DEFAULT_ID_MODELLO = 99;
 
 /* ===================== Props ===================== */
 const props = defineProps({
@@ -1907,9 +1907,15 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
     if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
 
     // come VBA: DimL default solo quando Aggiorna=True
-    if (aggiorna && riga._dimLOptions.length) {
-        riga.DimL = Number(dimLDefault);
-    }
+if (aggiorna && riga._dimLOptions.length) {
+  const cur = Number(riga.DimL);
+  const curOk = Number.isFinite(cur) && riga._dimLOptions.some(v => Number(v) === cur);
+
+  // ✅ imposta default SOLO se vuoto o non valido
+  if (!curOk) {
+    riga.DimL = Number(dimLDefault);
+  }
+}
 
     if (showWarn && aggiorna) {
         toast.info("Attenzione misura luce di passaggio", {
