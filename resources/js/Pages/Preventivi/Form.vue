@@ -10,7 +10,7 @@ const savedMsg = ref(false);
 const savedErr = ref(false);
 const savedText = ref("");
 let savedT = null;
-const DEFAULT_ID_MODELLO = 299;
+const DEFAULT_ID_MODELLO = 222299;
 
 /* ===================== Props ===================== */
 const props = defineProps({
@@ -203,7 +203,7 @@ function modelloNome(m) {
         .toString()
         .trim();
 }
-function ensureDefaultModello1(riga) {
+function ensureDefaultModello(riga) {
     // Non toccare righe già valorizzate o caricate dal DB
     if (riga?.IdModello) return false;
 
@@ -217,34 +217,6 @@ function ensureDefaultModello1(riga) {
     refreshPrezzo(riga);
 
     return true;
-}
-
-
-async function ensureDefaultModello(riga) {
-  // Non toccare righe già valorizzate o caricate dal DB
-  if (riga?.IdModello) return false;
-
-  riga.IdModello = DEFAULT_ID_MODELLO;
-
-  // 1) applica ValPred "nel modello" (se presente)
-  applyValPredFromModel(riga);
-
-  // 2) cascata: garantisce IdSoluzione + altri Id validi
-  cascadeRiga(riga);
-
-  // 3) ora che ho IdSoluzione valido, provo ValPred modello+soluzione (DB)
-  try {
-    await loadValPredModelSol(riga);
-  } catch (e) {
-    console.warn("loadValPredModelSol failed", e);
-  }
-
-  // 4) riallineo UI
-  aggiornaDimLCombo(riga, true);
-  bumpImgKeyOnly(riga);
-  refreshPrezzo(riga);
-
-  return true;
 }
 
 function modelloNomePerRiga(riga) {
