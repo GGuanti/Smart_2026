@@ -14,6 +14,8 @@ class ListinoValPred extends Model
         'valpred',
     ];
 
+
+
     protected $casts = [
         'valpred' => 'array',
     ];

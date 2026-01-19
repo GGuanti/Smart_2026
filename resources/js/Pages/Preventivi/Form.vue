@@ -203,7 +203,7 @@ function modelloNome(m) {
         .toString()
         .trim();
 }
-function ensureDefaultModello(riga) {
+function ensureDefaultModello1(riga) {
     // Non toccare righe già valorizzate o caricate dal DB
     if (riga?.IdModello) return false;
 
@@ -217,6 +217,34 @@ function ensureDefaultModello(riga) {
     refreshPrezzo(riga);
 
     return true;
+}
+
+
+async function ensureDefaultModello(riga) {
+  // Non toccare righe già valorizzate o caricate dal DB
+  if (riga?.IdModello) return false;
+
+  riga.IdModello = DEFAULT_ID_MODELLO;
+
+  // 1) applica ValPred "nel modello" (se presente)
+  applyValPredFromModel(riga);
+
+  // 2) cascata: garantisce IdSoluzione + altri Id validi
+  cascadeRiga(riga);
+
+  // 3) ora che ho IdSoluzione valido, provo ValPred modello+soluzione (DB)
+  try {
+    await loadValPredModelSol(riga);
+  } catch (e) {
+    console.warn("loadValPredModelSol failed", e);
+  }
+
+  // 4) riallineo UI
+  aggiornaDimLCombo(riga, true);
+  bumpImgKeyOnly(riga);
+  refreshPrezzo(riga);
+
+  return true;
 }
 
 function modelloNomePerRiga(riga) {
@@ -2026,12 +2054,11 @@ function applyImbotteOnDimSpChange(riga) {
         const opts = imbottePerRiga(riga);
         if (!Array.isArray(opts) || !opts.length) return;
 
-        const first = opts.find((i) => {
+        // 🔑 prende IL PRIMO che inizia con "imbotte"
+        const first = opts.find(i => {
             const d = String(i.des_imbotte ?? "")
                 .trim()
-                .toLowerCase()
-                .replace(/\s+/g, " "); // normalizza spazi
-
+                .toLowerCase();
             return d.startsWith("con imbotte");
         });
 
@@ -2040,7 +2067,6 @@ function applyImbotteOnDimSpChange(riga) {
         }
     }
 }
-
 
 function colonnaListinoPerRiga(riga) {
     return String(filtroSoluzionePerRiga(riga) ?? "").trim().toUpperCase();

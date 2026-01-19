@@ -40,4 +40,6 @@ class ListinoValPredController extends Controller
 
         return back()->with('success', 'Valori predefiniti salvati');
     }
+
+
 }
