@@ -76,7 +76,7 @@
 
         /* Top content */
         .intro {
-            margin-top: 2mm;
+            margin-top: 14mm;
             padding: 2.5mm 3mm;
             border: 1px solid #d9d9d9;
             border-radius: 6px;
@@ -463,11 +463,14 @@
 
 @if(file_exists($userImg))
 <img src="{{ $userImg }}" style="height:30mm">
-<img src="{{ public_path('Logo.png') }}" style="height:30mm">
+<td class="h-right">
+                    <img src="{{ public_path('Logo.png') }}" style="height:30mm">
+</td>
 @else
 <img src="{{ public_path('Logo2.png') }}" style="height:30mm">
 
 @endif
+
 </td>
 
 
@@ -750,8 +753,8 @@
     $ordine = "{{ $nOrdinePdf }}";
     $dataStampa = \Carbon\Carbon::now()->format('d/m/Y');
     $pdf->page_text(
-        350,
-        35,
+        40,
+        85,
         "Pag. {PAGE_NUM} di {PAGE_COUNT} – Ordine N. {$ordine} – Data {$dataStampa}",
         $font,
         $size,
