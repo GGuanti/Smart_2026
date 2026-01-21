@@ -3,6 +3,8 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { ref, onMounted, watch, computed } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
+
+/* -------------------- Logo upload -------------------- */
 const logoFile = ref(null);
 const logoPreview = ref(null);
 const removeLogo = ref(false);
@@ -19,13 +21,19 @@ function onPickLogo(e) {
     logoPreview.value = URL.createObjectURL(file);
 }
 
+function removeLogoNow() {
+    logoFile.value = null;
+    logoPreview.value = null;
+    removeLogo.value = true;
+}
+
+/* -------------------- Props -------------------- */
 const props = defineProps({
     users: { type: Array, default: () => [] },
     regioniTrasporto: { type: Array, default: () => [] },
 });
 
 /* -------------------- UI state -------------------- */
-const showAdvanced = ref(false);
 const showFilters = ref(false);
 const quickSearch = ref("");
 
@@ -73,7 +81,7 @@ function resetForm() {
         trasporto: props.regioniTrasporto?.[0] ?? "",
     });
     form.reset();
-    showAdvanced.value = false;
+
     logoFile.value = null;
     logoPreview.value = null;
     removeLogo.value = false;
@@ -91,12 +99,15 @@ function editRow(row) {
     form.azienda = row.azienda ?? "Isomax";
     form.trasporto = row.trasporto ?? props.regioniTrasporto?.[0] ?? "";
     form.datiazienda = row.datiazienda ?? "";
-    showAdvanced.value = Boolean(form.datiazienda);
+
     window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // preview logo esistente
     logoFile.value = null;
     const p = row.logo_path
         ? String(row.logo_path).trim().replaceAll("\\", "/")
         : "";
+
     logoPreview.value = !p
         ? null
         : p.startsWith("/storage/") || /^https?:\/\//i.test(p)
@@ -209,11 +220,15 @@ function resetColumnLayout() {
 function applyQuickSearch() {
     if (!tableInstance) return;
     const q = String(quickSearch.value ?? "").trim();
+
     tableInstance.setFilter((data) => {
         if (!q) return true;
         const hay = `${data.name ?? ""} ${data.email ?? ""} ${
             data.profilo ?? ""
-        } ${data.azienda ?? ""} ${data.trasporto ?? ""}`.toLowerCase();
+        } ${data.azienda ?? ""} ${data.trasporto ?? ""} ${
+            data.listino ?? ""
+        }`.toLowerCase();
+
         return hay.includes(q.toLowerCase());
     });
 }
@@ -235,7 +250,6 @@ onMounted(() => {
 
         columns: [
             { title: "ID", field: "id", width: 70, hozAlign: "center" },
-
             {
                 title: "Logo",
                 field: "logo_path",
@@ -245,48 +259,21 @@ onMounted(() => {
                 formatter: (cell) => {
                     let p = cell.getValue();
                     if (!p) return "";
-
-                    p = String(p).trim().replaceAll("\\", "/"); // ✅ Windows backslash -> slash
-                    p = p.replace(/^public\//, ""); // ✅ se per caso salva "public/user-logos/.."
+                    p = String(p).trim().replaceAll("\\", "/");
 
                     let src = p;
-
-                    // ✅ se NON è già URL assoluto e non è già /storage/...
-                    if (
-                        !/^https?:\/\//i.test(src) &&
-                        !src.startsWith("/storage/")
-                    ) {
-                        src = `/storage/${src}`;
+                    if (!/^https?:\/\//i.test(src)) {
+                        src = src.startsWith("/") ? src : `/${src}`;
                     }
 
-                    // mini placeholder se 404
                     return `
-      <img src="${src}"
-           style="width:34px;height:34px;border-radius:10px;object-fit:cover;border:1px solid #e2e8f0"
-           onerror="this.onerror=null; this.src='/Foto/placeholder.jpg';"
-      />
-
-    `;
+                        <img src="${src}"
+                            style="width:34px;height:34px;border-radius:10px;object-fit:cover;border:1px solid #e2e8f0"
+                            onerror="this.onerror=null; this.src='/Foto/placeholder.jpg';"
+                        />
+                    `;
                 },
             },
-            {
-                title: "Logo",
-                field: "logo_url",
-                width: 80,
-                headerSort: false,
-                hozAlign: "center",
-                formatter: (cell) => {
-                    const src = cell.getValue();
-                    if (!src) return "";
-                    return `
-      <img src="${src}"
-           style="width:34px;height:34px;border-radius:10px;object-fit:cover;border:1px solid #e2e8f0"
-           onerror="this.style.display='none'"
-      />
-    `;
-                },
-            },
-
             { title: "Nome", field: "name", minWidth: 180, sorter: "string" },
             { title: "Email", field: "email", minWidth: 220, sorter: "string" },
             {
@@ -313,7 +300,6 @@ onMounted(() => {
                 width: 150,
                 sorter: "string",
             },
-
             {
                 title: "Azioni",
                 field: "azioni",
@@ -321,11 +307,11 @@ onMounted(() => {
                 headerSort: false,
                 hozAlign: "center",
                 formatter: () => `
-      <div class="flex justify-center gap-2">
-        <button type="button" data-action="edit" class="tb-btn tb-edit" title="Modifica">✏️</button>
-        <button type="button" data-action="del" class="tb-btn tb-del" title="Elimina">🗑️</button>
-      </div>
-    `,
+                    <div class="flex justify-center gap-2">
+                        <button type="button" data-action="edit" class="tb-btn tb-edit" title="Modifica">✏️</button>
+                        <button type="button" data-action="del" class="tb-btn tb-del" title="Elimina">🗑️</button>
+                    </div>
+                `,
                 cellClick: (e, cell) => {
                     const action = e.target?.getAttribute?.("data-action");
                     const row = cell.getRow().getData();
@@ -553,253 +539,207 @@ watch(quickSearch, () => applyQuickSearch());
 
             <!-- Form -->
             <form
-                @submit.prevent="submit"
-                class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
-            >
-                <div
-                    class="flex flex-wrap items-center justify-between gap-3 mb-4"
-                >
-                    <div>
-                        <div class="text-lg font-semibold text-slate-900">
-                            {{ form.id ? "Modifica utente" : "Nuovo utente" }}
-                        </div>
-                        <div class="text-sm text-slate-500">
-                            {{
-                                form.id
-                                    ? `ID #${form.id}`
-                                    : "Compila i campi e salva"
-                            }}
-                        </div>
-                    </div>
+  @submit.prevent="submit"
+  class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
+>
+  <!-- GRIGLIA MASTER: sinistra (titolo+campi) | destra (azioni+logo) -->
+  <div class="grid grid-cols-12 gap-4 items-start">
+    <!-- SINISTRA: titolo + campi (partono subito in alto) -->
+    <div class="col-span-12 lg:col-span-9">
+      <!-- Header sinistro (compatto) -->
+      <div class="mb-4">
+        <div class="text-lg font-semibold text-slate-900">
+          {{ form.id ? "Modifica utente" : "Nuovo utente" }}
+        </div>
+        <div class="text-sm text-slate-500">
+          {{ form.id ? `ID #${form.id}` : "Compila i campi e salva" }}
+        </div>
+      </div>
 
-                    <div class="flex items-center gap-2">
-                        <button
-                            type="button"
-                            class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                            @click="showAdvanced = !showAdvanced"
-                        >
-                            {{
-                                showAdvanced ? "Nascondi avanzati" : "Avanzati"
-                            }}
-                        </button>
+      <!-- Campi -->
+      <div class="grid grid-cols-12 gap-4">
+        <!-- Riga 1 -->
+        <div class="col-span-12 md:col-span-4">
+          <label class="text-sm font-semibold text-slate-800">Nome</label>
+          <input
+            v-model="form.name"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+          />
+          <div v-if="form.errors.name" class="mt-1 text-xs text-red-600">
+            {{ form.errors.name }}
+          </div>
+        </div>
 
-                        <button
-                            v-if="form.id"
-                            type="button"
-                            class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                            @click="resetForm"
-                        >
-                            Annulla
-                        </button>
+        <div class="col-span-12 md:col-span-4">
+          <label class="text-sm font-semibold text-slate-800">Email</label>
+          <input
+            type="email"
+            v-model="form.email"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+          />
+          <div v-if="form.errors.email" class="mt-1 text-xs text-red-600">
+            {{ form.errors.email }}
+          </div>
+        </div>
 
-                        <button
-                            type="submit"
-                            class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold shadow"
-                        >
-                            {{ form.id ? "Salva" : "Aggiungi" }}
-                        </button>
-                    </div>
-                </div>
+        <div class="col-span-12 md:col-span-4">
+          <label class="text-sm font-semibold text-slate-800">Password</label>
+          <input
+            type="password"
+            v-model="form.password"
+            autocomplete="new-password"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+          />
+          <div class="mt-1 text-xs text-slate-500">
+            {{
+              form.id
+                ? "Lascia vuoto per non cambiarla"
+                : "Obbligatoria in creazione"
+            }}
+          </div>
+          <div v-if="form.errors.password" class="mt-1 text-xs text-red-600">
+            {{ form.errors.password }}
+          </div>
+        </div>
 
-                <!-- 2 righe pulite -->
-                <div class="grid grid-cols-12 gap-4">
-                    <!-- Riga 1 -->
-                    <div class="col-span-12 md:col-span-4">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Nome</label
-                        >
-                        <input
-                            v-model="form.name"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                        />
-                        <div
-                            v-if="form.errors.name"
-                            class="mt-1 text-xs text-red-600"
-                        >
-                            {{ form.errors.name }}
-                        </div>
-                    </div>
+        <!-- Riga 2 -->
+        <div class="col-span-12 md:col-span-4">
+          <label class="text-sm font-semibold text-slate-800">Azienda</label>
+          <input
+            v-model="form.azienda"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+          />
+        </div>
 
-                    <div class="col-span-12 md:col-span-4">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Email</label
-                        >
-                        <input
-                            type="email"
-                            v-model="form.email"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                        />
-                        <div
-                            v-if="form.errors.email"
-                            class="mt-1 text-xs text-red-600"
-                        >
-                            {{ form.errors.email }}
-                        </div>
-                    </div>
+        <div class="col-span-12 md:col-span-2">
+          <label class="text-sm font-semibold text-slate-800">Listino</label>
+          <input
+            v-model="form.listino"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm text-center"
+            inputmode="numeric"
+          />
+        </div>
 
-                    <div class="col-span-12 md:col-span-4">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Password</label
-                        >
-                        <input
-                            type="password"
-                            v-model="form.password"
-                            autocomplete="new-password"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                        />
-                        <div class="mt-1 text-xs text-slate-500">
-                            {{
-                                form.id
-                                    ? "Lascia vuoto per non cambiarla"
-                                    : "Obbligatoria in creazione"
-                            }}
-                        </div>
-                        <div
-                            v-if="form.errors.password"
-                            class="mt-1 text-xs text-red-600"
-                        >
-                            {{ form.errors.password }}
-                        </div>
-                    </div>
+        <div class="col-span-12 md:col-span-4">
+          <label class="text-sm font-semibold text-slate-800">Regione trasporto</label>
+          <select
+            v-model="form.trasporto"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+          >
+            <option value="">— Seleziona —</option>
+            <option v-for="r in regioniTrasporto" :key="r" :value="r">
+              {{ r }}
+            </option>
+          </select>
+        </div>
 
-                    <!-- Riga 2 -->
-                    <div class="col-span-12 md:col-span-2">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Azienda</label
-                        >
-                        <input
-                            v-model="form.azienda"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                        />
-                    </div>
+        <div class="col-span-12 md:col-span-2">
+          <label class="text-sm font-semibold text-slate-800">Profilo</label>
+          <select
+            v-model="form.profilo"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+          >
+            <option value="admin">Admin</option>
+            <option value="Isomax">Isomax</option>
+            <option value="Nurith">Nurith</option>
+            <option value="user">User</option>
+          </select>
+          <div v-if="form.errors.profilo" class="mt-1 text-xs text-red-600">
+            {{ form.errors.profilo }}
+          </div>
+        </div>
 
-                    <div class="col-span-12 md:col-span-1">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Listino</label
-                        >
-                        <input
-                            v-model="form.listino"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm text-center"
-                        />
-                    </div>
+        <!-- Dati azienda -->
+        <div class="col-span-12">
+          <label class="text-sm font-semibold text-slate-800">Dati azienda</label>
+          <textarea
+            v-model="form.datiazienda"
+            rows="4"
+            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+            placeholder="Note, intestazione, riferimenti..."
+          ></textarea>
+        </div>
 
-                    <div class="col-span-12 md:col-span-4">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Regione trasporto</label
-                        >
-                        <select
-                            v-model="form.trasporto"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                        >
-                            <option value="">— Seleziona —</option>
-                            <option
-                                v-for="r in regioniTrasporto"
-                                :key="r"
-                                :value="r"
-                            >
-                                {{ r }}
-                            </option>
-                        </select>
-                    </div>
+        <div class="col-span-12">
+          <div class="text-xs text-slate-500">
+            Tip: puoi trascinare le colonne, ridimensionarle e la vista si salva.
+          </div>
+        </div>
+      </div>
+    </div>
 
-                    <div class="col-span-12 md:col-span-2">
-                        <label class="text-sm font-semibold text-slate-800"
-                            >Profilo</label
-                        >
-                        <select
-                            v-model="form.profilo"
-                            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                        >
-                            <option value="admin">Admin</option>
-                            <option value="Isomax">Isomax</option>
-                            <option value="Nurith">Nurith</option>
-                            <option value="user">User</option>
-                        </select>
-                        <div
-                            v-if="form.errors.profilo"
-                            class="mt-1 text-xs text-red-600"
-                        >
-                            {{ form.errors.profilo }}
-                        </div>
-                    </div>
+    <!-- DESTRA: bottoni + logo (in alto a destra) -->
+    <div class="col-span-12 lg:col-span-3 flex flex-col items-end gap-3">
+      <!-- bottoni -->
+      <div class="flex items-center gap-2">
+        <button
+          v-if="form.id"
+          type="button"
+          class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+          @click="resetForm"
+        >
+          Annulla
+        </button>
 
-                    <div class="col-span-12 md:col-span-3 flex items-end">
-                        <div class="text-xs text-slate-500">
-                            Tip: puoi trascinare le colonne, ridimensionarle e
-                            la vista si salva.
-                        </div>
-                    </div>
+        <button
+          type="submit"
+          class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold shadow"
+        >
+          {{ form.id ? "Salva" : "Aggiungi" }}
+        </button>
+      </div>
 
-                    <!-- Avanzati -->
-                    <div v-if="showAdvanced" class="col-span-12">
-                        <div class="grid grid-cols-12 gap-4">
-                            <div class="col-span-12 md:col-span-8">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Dati azienda</label
-                                >
-                                <textarea
-                                    v-model="form.datiazienda"
-                                    rows="3"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                ></textarea>
-                            </div>
+      <!-- logo -->
+      <div class="w-full">
+        <label class="text-sm font-semibold text-slate-800">Logo utente</label>
 
-                            <div class="col-span-12 md:col-span-4">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Logo utente</label
-                                >
+        <div class="mt-1 rounded-2xl border bg-white shadow-sm p-3 w-full">
+          <div
+            class="logoBox rounded-2xl border bg-slate-50 overflow-hidden flex items-center justify-center"
+          >
+            <img
+              v-if="logoPreview"
+              :src="logoPreview"
+              class="h-full w-full object-contain"
+              alt="logo"
+              @error="logoPreview = null"
+            />
+            <div v-else class="text-xs text-slate-400 px-3 text-center">
+              Nessun logo
+            </div>
+          </div>
 
-                                <div class="mt-1 flex items-center gap-3">
-                                    <div
-                                        class="h-12 w-12 rounded-xl border bg-white overflow-hidden flex items-center justify-center"
-                                    >
-                                        <img
-                                            v-if="logoPreview"
-                                            :src="logoPreview"
-                                            class="h-full w-full object-cover"
-                                            alt="logo"
-                                        />
-                                        <span
-                                            v-else
-                                            class="text-xs text-slate-400"
-                                            >—</span
-                                        >
-                                    </div>
+          <div class="mt-3 space-y-2">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              @change="onPickLogo"
+              class="block w-full text-sm
+                     file:mr-3 file:rounded-lg file:border-0
+                     file:bg-slate-900 file:px-3 file:py-1.5
+                     file:text-white hover:file:bg-slate-800"
+            />
 
-                                    <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp"
-                                        @change="onPickLogo"
-                                        class="block w-full text-sm"
-                                    />
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-xs text-slate-500">PNG/JPG/WEBP • max 2MB</div>
 
-                                    <button
-                                        v-if="logoPreview"
-                                        type="button"
-                                        class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                                        @click="
-                                            () => {
-                                                logoFile.value = null;
-                                                logoPreview.value = null;
-                                                removeLogo.value = true;
-                                            }
-                                        "
-                                        title="Rimuovi logo"
-                                    >
-                                        Rimuovi
-                                    </button>
-                                </div>
+              <button
+                v-if="logoPreview"
+                type="button"
+                class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+                @click="removeLogoNow"
+              >
+                Rimuovi
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /logo -->
+    </div>
+  </div>
+</form>
 
-                                <div class="mt-1 text-xs text-slate-500">
-                                    PNG/JPG/WEBP, max 2MB
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </form>
 
             <!-- Tabella -->
             <div class="rounded-2xl border bg-white shadow-sm">
@@ -824,6 +764,12 @@ watch(quickSearch, () => applyQuickSearch());
 
 <style>
 @import "tabulator-tables/dist/css/tabulator.min.css";
+
+/* Preview logo coerente */
+.logoBox {
+    width: 100%;
+    height: 220px;
+}
 
 /* Tabulator “più moderno” senza stravolgere */
 .tabulator {
@@ -853,9 +799,5 @@ watch(quickSearch, () => applyQuickSearch());
 }
 .tb-btn:hover {
     background: #f8fafc;
-}
-.tb-edit {
-}
-.tb-del {
 }
 </style>
