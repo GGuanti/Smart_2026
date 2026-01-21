@@ -26,6 +26,7 @@ class User extends Authenticatable
         'azienda',
         'listino',
         'trasporto',
+        'datiazienda',
         // opzionale: se vuoi poter fare fill() anche dei token
         // 'dropbox_refresh_token',
         // 'dropbox_access_token',
