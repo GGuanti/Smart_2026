@@ -331,7 +331,7 @@ function fotoUrlTelaioRiga(riga) {
 
     const fileName = rawName.replace(/\s+/g, " ");
 
-    return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${
+    return `/Foto/Essenze/Telaio/${encodeURIComponent(fileName)}.png?v=${
         riga._imgKey ?? 0
     }`;
 }
