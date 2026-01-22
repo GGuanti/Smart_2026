@@ -294,7 +294,7 @@ function fotoUrlAntaRiga(riga) {
     // (opzionale) normalizza un minimo, evita doppi spazi
     const fileName = rawName.replace(/\s+/g, " ");
 
-    return `/Foto/Essenze/${encodeURIComponent(fileName)}.jpg?v=${
+    return `/Foto/Essenze/Anta/${encodeURIComponent(fileName)}.png?v=${
         riga._imgKey ?? 0
     }`;
 }
