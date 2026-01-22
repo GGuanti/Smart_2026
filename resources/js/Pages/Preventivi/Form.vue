@@ -254,6 +254,49 @@ function filtroCollezionePerRiga(riga) {
 }
 
 /* ===================== Foto ===================== */
+function versoFromAperturaDes(des) {
+    const s = String(des ?? "").toUpperCase().trim();
+
+    // casi comuni
+    if (s.includes("SX") || s.includes("SIN")) return "SX";
+    if (s.includes("DX") || s.includes("DES")) return "DX";
+
+    return null; // sconosciuto
+}
+function filtroAperturaPerRiga(riga) {
+    const list = Array.isArray(aperturePerRiga(riga))
+        ? aperturePerRiga(riga)
+        : [];
+
+    const a = list.find(
+        (x) => Number(x.IdApertura) === Number(riga?.IdApertura)
+    );
+
+    return String(a?.Des ?? "").trim();
+}
+
+function fotoUrlVersoAperturaRiga(riga) {
+    const soluzione = filtroSoluzionePerRiga(riga);
+    const apertura = filtroAperturaPerRiga(riga).toUpperCase();
+
+    if (!soluzione || !apertura) {
+        return "/Foto/Verso/placeholder.jpg";
+    }
+
+    // normalizzazione apertura
+    let verso = "";
+    if (apertura.includes("SX") || apertura.includes("SIN")) verso = "SX";
+    else if (apertura.includes("DX") || apertura.includes("DES")) verso = "DX";
+
+    if (!verso) {
+        return "/Foto/Verso/placeholder.jpg";
+    }
+
+    // 🔑 REGOLA: Soluzione + Apertura + .jpg
+    return `/Foto/Verso/${soluzione}${verso}.jpg`;
+}
+
+
 function fotoUrlForRiga(riga) {
     const m = modelloById(riga.IdModello);
     const nome = modelloNome(m);
@@ -1126,37 +1169,36 @@ async function refreshPrezzo(riga) {
 /* ===================== Watchers ===================== */
 // 1) cambio modello -> FOTO + cascata + prezzo
 watch(
-  () => form.righe.map((r) => r.IdModello),
-  (newV, oldV) => {
-    form.righe.forEach((riga, i) => {
-      if (newV?.[i] === oldV?.[i]) return;
-      bumpImgKeyOnly(riga);
+    () => form.righe.map((r) => r.IdModello),
+    (newV, oldV) => {
+        form.righe.forEach((riga, i) => {
+            if (newV?.[i] === oldV?.[i]) return;
+            bumpImgKeyOnly(riga);
 
-      // ✅ NON forzare all'avvio / durante load
-      aggiornaDimLCombo(riga, !isHydrating.value);
+            // ✅ NON forzare all'avvio / durante load
+            aggiornaDimLCombo(riga, !isHydrating.value);
 
-      cascadeRiga(riga);
-      refreshPrezzo(riga);
-    });
-  },
-  { immediate: true }
+            cascadeRiga(riga);
+            refreshPrezzo(riga);
+        });
+    },
+    { immediate: true }
 );
 
 watch(
-  () => form.righe.map((r) => r.IdSoluzione),
-  (newV, oldV) => {
-    form.righe.forEach((riga, i) => {
-      if (newV?.[i] === oldV?.[i]) return;
+    () => form.righe.map((r) => r.IdSoluzione),
+    (newV, oldV) => {
+        form.righe.forEach((riga, i) => {
+            if (newV?.[i] === oldV?.[i]) return;
 
-      // ✅ idem
-      applyDimLRules(riga, !isHydrating.value);
-      aggiornaDimLCombo(riga, !isHydrating.value);
+            // ✅ idem
+            applyDimLRules(riga, !isHydrating.value);
+            aggiornaDimLCombo(riga, !isHydrating.value);
 
-      refreshPrezzo(riga);
-    });
-  }
+            refreshPrezzo(riga);
+        });
+    }
 );
-
 
 // 2) campi che influenzano filtri/prezzo -> cascata + prezzo (NO foto)
 watch(
@@ -1199,23 +1241,26 @@ watch(
     }
 );
 watch(
-  () => form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColTelaio}`),
-  (newV, oldV) => {
-    if (!oldV) return;
-    form.righe.forEach(async (riga, i) => {
-      if (newV[i] === oldV[i]) return;
+    () =>
+        form.righe.map(
+            (r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColTelaio}`
+        ),
+    (newV, oldV) => {
+        if (!oldV) return;
+        form.righe.forEach(async (riga, i) => {
+            if (newV[i] === oldV[i]) return;
 
-      // stabilizza le select base
-      cascadeRiga(riga);
+            // stabilizza le select base
+            cascadeRiga(riga);
 
-      // carica default specifico
-      await loadValPredModelSol(riga);
+            // carica default specifico
+            await loadValPredModelSol(riga);
 
-      // riallinea (se qualcosa è incompatibile)
-      cascadeRiga(riga);
-      refreshPrezzo(riga);
-    });
-  }
+            // riallinea (se qualcosa è incompatibile)
+            cascadeRiga(riga);
+            refreshPrezzo(riga);
+        });
+    }
 );
 
 watch(
@@ -1590,7 +1635,7 @@ function valPredPayloadFromRiga(riga) {
     };
 }
 async function saveValPredModelSol(riga) {
-    if (!riga.IdModello || !riga.IdSoluzione|| !riga.IdColTelaio) return;
+    if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColTelaio) return;
 
     const valpred = valPredPayloadFromRiga(riga);
 
@@ -2474,7 +2519,9 @@ onBeforeUnmount(() => {
                                                 >Tipo Mostrine</label
                                             >
                                             <select
-                                                v-model.number="riga.IdTipTelaio"
+                                                v-model.number="
+                                                    riga.IdTipTelaio
+                                                "
                                                 translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                             >
@@ -2680,7 +2727,7 @@ onBeforeUnmount(() => {
                                         <div
                                             class="rounded-lg border bg-white p-3 flex items-start gap-3 w-76 mx-auto shadow-sm"
                                         >
-                                            <!-- IMMAGINE GRANDE -->
+                                            <!-- IMMAGINE GRANDE (INTOCCABILE) -->
                                             <div class="flex-shrink-0">
                                                 <img
                                                     :key="`main-${riga.IdModello}-${riga._imgKey}`"
@@ -2697,12 +2744,12 @@ onBeforeUnmount(() => {
 
                                             <!-- THUMBNAILS A DESTRA -->
                                             <div
-                                                class="flex gap-3 items-center"
+                                                class="flex flex-col gap-3 items-center"
                                             >
+                                                <!-- riga sopra: Anta + Telaio -->
                                                 <div
                                                     class="flex gap-3 items-center"
                                                 >
-                                                    <!-- immagine fissa -->
                                                     <img
                                                         :src="
                                                             fotoUrlAntaRiga(
@@ -2719,6 +2766,7 @@ onBeforeUnmount(() => {
                                                         "
                                                         @error="onImgError"
                                                     />
+
                                                     <img
                                                         :src="
                                                             fotoUrlTelaioRiga(
@@ -2736,6 +2784,15 @@ onBeforeUnmount(() => {
                                                         @error="onImgError"
                                                     />
                                                 </div>
+
+                                                <!-- sotto: VERSO APERTURA -->
+                                                <img
+    :src="fotoUrlVersoAperturaRiga(riga)"
+    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
+    @click="openZoom(fotoUrlVersoAperturaRiga(riga))"
+    @error="onImgError"
+/>
+
                                             </div>
                                         </div>
 
