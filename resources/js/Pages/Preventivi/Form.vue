@@ -217,7 +217,7 @@ function ensureDefaultModello(riga) {
     bumpImgKeyOnly(riga);
     cascadeRiga(riga);
     refreshPrezzo(riga);
-
+    delete riga._copied;
     return true;
 }
 
@@ -255,7 +255,9 @@ function filtroCollezionePerRiga(riga) {
 
 /* ===================== Foto ===================== */
 function versoFromAperturaDes(des) {
-    const s = String(des ?? "").toUpperCase().trim();
+    const s = String(des ?? "")
+        .toUpperCase()
+        .trim();
 
     // casi comuni
     if (s.includes("SX") || s.includes("SIN")) return "SX";
@@ -291,23 +293,18 @@ function fotoUrlVersoAperturaRiga(riga) {
     if (!verso) {
         return "/Foto/Verso/placeholder.jpg";
     }
-     const listino = listinoById(riga.IdModello);
+    const listino = listinoById(riga.IdModello);
     const dis = String(listino?.dis_libro_simm ?? "").trim();
 
     // 🔴 REGOLA SPECIALE
     // listino.dis_libro_simm = 'Contr' AND soluzione = 'LIBS'
-    if (
-        dis === "Contr" &&
-        soluzione === "LIBS"
-    ) {
+    if (dis === "Contr" && soluzione === "LIBS") {
         return `/Foto/Verso/LIBSC${verso}.jpg`;
     }
 
     // ✅ REGOLA STANDARD
     return `/Foto/Verso/${soluzione}${verso}.jpg`;
 }
-
-
 
 function fotoUrlForRiga(riga) {
     const m = modelloById(riga.IdModello);
@@ -1145,6 +1142,7 @@ function cascadeRiga(riga) {
     ensureFerramentaValida(riga);
     ensureSerraturaValida(riga);
     syncPrezzoCad(riga);
+
 }
 
 /* ===================== Prezzo ===================== */
@@ -1170,13 +1168,7 @@ async function aggiornaPrezzoCad(riga) {
     };
 }
 
-async function refreshPrezzo(riga) {
-    //  try {
-    //      // await aggiornaPrezzoCad(riga);
-    //  } catch (e) {
-    //      console.log("refreshPrezzo error", e);
-    //  }
-}
+async function refreshPrezzo(riga) {}
 
 /* ===================== Watchers ===================== */
 // 1) cambio modello -> FOTO + cascata + prezzo
@@ -1192,6 +1184,7 @@ watch(
 
             cascadeRiga(riga);
             refreshPrezzo(riga);
+
         });
     },
     { immediate: true }
@@ -1318,21 +1311,55 @@ function removeRigaLocal(i) {
     showSavedMsg("🗑️ Riga rimossa", 1500);
 }
 
-function copyRiga(riga, index) {
-    const copia = {
-        ...JSON.parse(JSON.stringify(riga)),
-        uid: crypto?.randomUUID
-            ? crypto.randomUUID()
-            : String(Date.now() + Math.random()),
-        Id: null,
-        confirmDelete: false,
-        _isDeleting: false,
+function normalizeRowTypes(r) {
+    // forza tutti gli Id* a number (evita mismatch nei find / rules)
+    for (const k of Object.keys(r)) {
+        if (!k.startsWith("Id")) continue;
+        if (r[k] === "" || r[k] === null || r[k] === undefined) continue;
 
-        _imgKey: (riga._imgKey ?? 0) + 1,
-    };
+        const n = Number(r[k]);
+        if (Number.isFinite(n)) r[k] = n;
+    }
 
-    form.righe.splice(index + 1, 0, copia);
-    toast.success("📋 Riga copiata", { position: "top-left", timeout: 1200 });
+    // misure
+    if (r.DimL !== "" && r.DimL != null) r.DimL = Number(r.DimL);
+    if (r.DimA !== "" && r.DimA != null) r.DimA = Number(r.DimA);
+    if (r.DimSp !== "" && r.DimSp != null) r.DimSp = Number(r.DimSp);
+}
+
+function copyRiga(riga) {
+    const copia = JSON.parse(JSON.stringify(riga));
+
+    copia.uid = crypto?.randomUUID
+        ? crypto.randomUUID()
+        : String(Date.now() + Math.random());
+
+    copia.Id = null;
+    copia._imgKey = (riga._imgKey ?? 0) + 1;
+    copia._copied = true;
+
+    normalizeRowTypes(copia);
+
+    // ✅ IN FONDO
+    form.righe.push(copia);
+
+queueMicrotask(async () => {
+    cascadeRiga(copia);
+    await loadValPredModelSol(copia);
+    aggiornaDimLCombo(copia, true);
+    refreshPrezzo(copia);
+
+    delete copia._copied; // ✅ qui ha senso
+});
+
+
+    toast.success("📋 Riga copiata (in fondo)", {
+        position: "top-left",
+        timeout: 1200,
+    });
+
+    delete riga._copied;
+
 }
 
 function destroyRiga(riga, index) {
@@ -1558,24 +1585,36 @@ function MaggAltezza(riga) {
     // 🔼 ALTEZZA MAGGIORE
     if (dimA > dimAForced) {
         const plus = Number(m.magg_alt_plus ?? m.MaggAltPlus ?? 0) || 0;
-
-        // ❌ NON REALIZZABILE
-        if (plus === 0) {
-            toast.error(
-                "❌ Altezza non realizzabile per questo modello. Ripristinata altezza standard.",
-                { position: "top-left", timeout: 3000 }
-            );
-
-            // ripristino valore standard
-            riga.DimA = Number(dimAForced);
-
-            return 0;
-        }
-
+        // se plus=0 => non realizzabile (lo gestiamo fuori)
         return plus;
     }
 
     return 0;
+}
+
+function validateDimAOnBlur(riga) {
+    const { dimAForced } = dimLRulesForRiga(riga);
+    if (!dimAForced) return;
+
+    const dimA = Number(riga.DimA);
+    if (!Number.isFinite(dimA)) return;
+
+    if (dimA <= Number(dimAForced)) return;
+
+    const m = listinoById(riga.IdModello);
+    const plus = Number(m?.magg_alt_plus ?? m?.MaggAltPlus ?? 0) || 0;
+
+    if (plus === 0) {
+        toast.error("❌ Altezza non realizzabile per questo modello.", {
+            position: "top-left",
+            timeout: 3000,
+        });
+
+        // ✅ se vuoi mantenere DimA copiata: NON resettare su righe copiate
+        if (!riga._copied) {
+            riga.DimA = Number(dimAForced);
+        }
+    }
 }
 
 function totaleRigaD(riga) {
@@ -1666,16 +1705,29 @@ async function loadValPredModelSol(riga) {
 
     const { data } = await axios.get(
         route("listini.valpred.show", riga.IdModello),
-        { params: { id_tab_soluzioni: riga.IdSoluzione, id_col_telaio: riga.IdColTelaio } }
+        {
+            params: {
+                id_tab_soluzioni: riga.IdSoluzione,
+                id_col_telaio: riga.IdColTelaio,
+            },
+        }
     );
 
     const vp = data?.valpred;
     if (!vp) return;
 
-    const SKIP = new Set(["IdModello", "IdSoluzione", "IdColTelaio"]); // ✅ chiavi
+    // ✅ chiavi sempre escluse (per evitare loop)
+    const SKIP = new Set(["IdModello", "IdSoluzione", "IdColTelaio"]);
+
+    // ✅ se è una riga copiata: NON sovrascrivere le misure copiate
+    if (riga._copied) {
+        SKIP.add("DimL");
+        SKIP.add("DimA");
+        SKIP.add("DimSp");
+    }
 
     for (const [k, v] of Object.entries(vp)) {
-        if (SKIP.has(k)) continue; // ✅ evita loop
+        if (SKIP.has(k)) continue;
 
         if (k.startsWith("Id") && v != null) riga[k] = Number(v);
         else riga[k] = v;
@@ -1683,8 +1735,8 @@ async function loadValPredModelSol(riga) {
 
     cascadeRiga(riga);
     refreshPrezzo(riga);
+    // 🧹 usa il flag una sola volta
 }
-
 
 function valPredPayloadFromRigaOld(riga) {
     // qui metti ESATTAMENTE i campi che vuoi salvare come default per il modello
@@ -1919,11 +1971,18 @@ function applyDimLRules(riga, aggiorna = false) {
             { position: "top-left", timeout: 2500 }
         );
     }
-
-    if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
+    if (!riga._copied) {
+        if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
+    }
 
     if (aggiorna && dimLOptions?.length) {
-        riga.DimL = Number(dimLDefault);
+        const cur = Number(riga.DimL);
+        const ok =
+            Number.isFinite(cur) && dimLOptions.some((v) => Number(v) === cur);
+
+        if (!ok) {
+            riga.DimL = Number(dimLDefault);
+        }
     }
 
     if (showWarn && aggiorna) {
@@ -1981,20 +2040,20 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
         });
     }
 
-    // come VBA: DimA forzata solo quando Aggiorna=True
-    if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
-
-    // come VBA: DimL default solo quando Aggiorna=True
-    if (aggiorna && riga._dimLOptions.length) {
+    // ❌ NON forzare DimL se la riga è stata copiata
+    if (aggiorna && !riga._copied && riga._dimLOptions.length) {
         const cur = Number(riga.DimL);
         const curOk =
             Number.isFinite(cur) &&
             riga._dimLOptions.some((v) => Number(v) === cur);
 
-        // ✅ imposta default SOLO se vuoto o non valido
         if (!curOk) {
             riga.DimL = Number(dimLDefault);
         }
+    }
+
+    if (aggiorna && dimAForced && !riga._copied) {
+        riga.DimA = Number(dimAForced);
     }
 
     if (showWarn && aggiorna) {
@@ -2004,6 +2063,7 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
         });
     }
 }
+
 function onDimSpFocus(riga) {
     // salva valore precedente
     riga._dimSpPrev = riga.DimSp;
@@ -2798,12 +2858,21 @@ onBeforeUnmount(() => {
 
                                                 <!-- sotto: VERSO APERTURA -->
                                                 <img
-    :src="fotoUrlVersoAperturaRiga(riga)"
-    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
-    @click="openZoom(fotoUrlVersoAperturaRiga(riga))"
-    @error="onImgError"
-/>
-
+                                                    :src="
+                                                        fotoUrlVersoAperturaRiga(
+                                                            riga
+                                                        )
+                                                    "
+                                                    class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
+                                                    @click="
+                                                        openZoom(
+                                                            fotoUrlVersoAperturaRiga(
+                                                                riga
+                                                            )
+                                                        )
+                                                    "
+                                                    @error="onImgError"
+                                                />
                                             </div>
                                         </div>
 
@@ -2851,7 +2920,6 @@ onBeforeUnmount(() => {
                                                     class="text-xs font-semibold text-gray-600"
                                                     >DimA</label
                                                 >
-
                                                 <input
                                                     v-model.number="riga.DimA"
                                                     type="number"
@@ -2860,6 +2928,9 @@ onBeforeUnmount(() => {
                                                         MaggAltezza(riga) !== 0
                                                             ? 'border-orange-500 bg-orange-50'
                                                             : ''
+                                                    "
+                                                    @blur="
+                                                        validateDimAOnBlur(riga)
                                                     "
                                                     @keydown.enter="focusNext"
                                                 />
