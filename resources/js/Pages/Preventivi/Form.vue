@@ -276,14 +276,14 @@ function filtroAperturaPerRiga(riga) {
 }
 
 function fotoUrlVersoAperturaRiga(riga) {
-    const soluzione = filtroSoluzionePerRiga(riga);
+    const soluzione = filtroSoluzionePerRiga(riga); // es. LIBS, BAT1
     const apertura = filtroAperturaPerRiga(riga).toUpperCase();
 
     if (!soluzione || !apertura) {
         return "/Foto/Verso/placeholder.jpg";
     }
 
-    // normalizzazione apertura
+    // normalizza verso
     let verso = "";
     if (apertura.includes("SX") || apertura.includes("SIN")) verso = "SX";
     else if (apertura.includes("DX") || apertura.includes("DES")) verso = "DX";
@@ -291,10 +291,22 @@ function fotoUrlVersoAperturaRiga(riga) {
     if (!verso) {
         return "/Foto/Verso/placeholder.jpg";
     }
+     const listino = listinoById(riga.IdModello);
+    const dis = String(listino?.dis_libro_simm ?? "").trim();
 
-    // 🔑 REGOLA: Soluzione + Apertura + .jpg
+    // 🔴 REGOLA SPECIALE
+    // listino.dis_libro_simm = 'Contr' AND soluzione = 'LIBS'
+    if (
+        dis === "Contr" &&
+        soluzione === "LIBS"
+    ) {
+        return `/Foto/Verso/LIBSC${verso}.jpg`;
+    }
+
+    // ✅ REGOLA STANDARD
     return `/Foto/Verso/${soluzione}${verso}.jpg`;
 }
+
 
 
 function fotoUrlForRiga(riga) {
@@ -1616,7 +1628,6 @@ function submitAll() {
 }
 function valPredPayloadFromRiga(riga) {
     return {
-        IdSoluzione: riga.IdSoluzione ?? null,
         IdColAnta: riga.IdColAnta ?? null,
         IdColTelaio: riga.IdColTelaio ?? null,
         IdManiglia: riga.IdManiglia ?? null,
@@ -1655,18 +1666,17 @@ async function loadValPredModelSol(riga) {
 
     const { data } = await axios.get(
         route("listini.valpred.show", riga.IdModello),
-        {
-            params: {
-                id_tab_soluzioni: riga.IdSoluzione,
-                id_col_telaio: riga.IdColTelaio, // ✅
-            },
-        }
+        { params: { id_tab_soluzioni: riga.IdSoluzione, id_col_telaio: riga.IdColTelaio } }
     );
 
     const vp = data?.valpred;
     if (!vp) return;
 
+    const SKIP = new Set(["IdModello", "IdSoluzione", "IdColTelaio"]); // ✅ chiavi
+
     for (const [k, v] of Object.entries(vp)) {
+        if (SKIP.has(k)) continue; // ✅ evita loop
+
         if (k.startsWith("Id") && v != null) riga[k] = Number(v);
         else riga[k] = v;
     }
@@ -1674,6 +1684,7 @@ async function loadValPredModelSol(riga) {
     cascadeRiga(riga);
     refreshPrezzo(riga);
 }
+
 
 function valPredPayloadFromRigaOld(riga) {
     // qui metti ESATTAMENTE i campi che vuoi salvare come default per il modello
