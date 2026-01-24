@@ -413,9 +413,9 @@ watch(
         }
 
         const costo = Number(t.costo) || 0;
-        const minTass = Number.isFinite(+t.min_tass) ? +t.min_tass + 15 : 0;
+        const minTass = Number.isFinite(+t.min_tass) ? +t.min_tass + 16 : 0;
 
-        form.CstTrasporto = Math.max(qta * costo, minTass);
+        form.CstTrasporto = Math.max(qta * costo, minTass)+16;
     },
     { immediate: true }
 );
