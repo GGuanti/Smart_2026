@@ -43,11 +43,12 @@ class OrdineReportController extends Controller
 
                 // modello per immagine
                 'l.nome_modello as nome_modello',
-
+                'l.dis_libro_simm as dis_libro_simm',
                 // colore anta
                 'fa.Colore as ColoreAnta',
                 'ft.Colore as ColoreTelaio',
                 's.soluzione as TipoSoluzione',
+                's.ass_collistino as ass_collistino',
                 'tt.stipite as TipoTelaio',
                 'se.des_serratura as Serratura',
                 'ce.des_cernira as Cerniere',
@@ -108,11 +109,12 @@ class OrdineReportController extends Controller
 
                 // modello per immagine
                 'l.nome_modello as nome_modello',
-
+                'l.dis_libro_simm as dis_libro_simm',
                 // colore anta
                 'fa.Colore as ColoreAnta',
                 'ft.Colore as ColoreTelaio',
                 's.soluzione as TipoSoluzione',
+                's.ass_collistino as ass_collistino',
                 'tt.stipite as TipoTelaio',
                 'se.des_serratura as Serratura',
                 'ce.des_cernira as Cerniere',
