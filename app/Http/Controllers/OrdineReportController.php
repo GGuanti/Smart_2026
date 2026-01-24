@@ -65,9 +65,12 @@ class OrdineReportController extends Controller
         } else {
             $NomeReport = 'reportisomax.conferma_isomax';
         }
+        $userDoc = \App\Models\User::select('id','name','datiazienda','logo_path')
+    ->find($ordine->user_id);
         return Pdf::loadView($NomeReport, [
             'ordine' => $ordine,
             'righe' => $righe,
+            'userDoc' => $userDoc,
             'utente' => optional(auth()->user())->name,
             'totaleImponibile' => $totaleImponibile,
             'totaleIva' => $totaleIva,
@@ -86,6 +89,9 @@ class OrdineReportController extends Controller
                 'message' => 'Email destinatario mancante (campo Email).'
             ], 422);
         }
+        $userDoc = \App\Models\User::select('id','name','datiazienda','logo_path')
+    ->find($ordine->user_id);
+
         $righe = DB::table('tab_elementi_ordine as e')
             ->leftJoin('listini as l', 'l.id_listino', '=', 'e.IdModello')
             ->leftJoin('finitura_anta as fa', 'fa.IdFinAnta', '=', 'e.IdColAnta')
@@ -125,6 +131,7 @@ class OrdineReportController extends Controller
             $pdf = Pdf::loadView('reportisomax.conferma_isomax', [
                 'ordine' => $ordine,
                 'righe' => $righe,
+                'userDoc' => $userDoc,
                 'utente' => optional(auth()->user())->name,
                 'totaleImponibile' => $totaleImponibile,
                 'totaleIva' => $totaleIva,

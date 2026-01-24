@@ -8,7 +8,7 @@
 
     <style>
         @page {
-            margin: 22mm 12mm 18mm 12mm;
+            margin: 35mm 12mm 18mm 12mm;
         }
 
         /* Base */
@@ -26,7 +26,7 @@
         /* Header / footer (Dompdf fixed) */
         header {
             position: fixed;
-            top: -14mm;
+            top: -30mm;
             left: 0;
             right: 0;
             height: 12mm;
@@ -76,7 +76,7 @@
 
         /* Top content */
         .intro {
-            margin-top: 12mm;
+            margin-top: 0;
             padding: 2.5mm 3mm;
             border: 1px solid #d9d9d9;
             border-radius: 6px;
@@ -580,37 +580,41 @@
 
     // --- Totale complessivo ivato ---
     $totaleIvato = $imponibileDocumento + $iva;
-    $userImg = public_path('Foto/user-logos/' . auth()->id() . '.png');
+    $userImg = public_path('Foto/Utente/' . auth()->id() . '.png');
 
     @endphp
 
     <header>
         <table class="hrow">
             <tr>
+                {{-- COLONNA SINISTRA: logo utente (se esiste) --}}
                 <td class="h-left">
                     @if(file_exists($userImg))
                     <img src="{{ $userImg }}" style="height:30mm">
-                    <td class="h-right">
-                    <img src="{{ public_path('Logo.png') }}" style="height:30mm">
-                </td>
-                    @else
-                    <img src="{{ public_path('Logo2.png') }}" style="height:30mm">
-
                     @endif
                 </td>
 
+                {{-- COLONNA DESTRA: logo ISOMAX SEMPRE --}}
+                <td class="h-right">
+                    <img src="{{ public_path('Logo.png') }}" style="height:30mm">
+                </td>
+            </tr>
         </table>
     </header>
 
     <footer>
-        <div class="footline">
-        @if(file_exists($userImg))
-            Edil Mea Srl by Azzone Edil Mea Showroom Via dell’Artigianato, 45 75100 Matera
+    <div class="footline">
+        @php
+            $valoreFooter = $userDoc?->datiazienda;  // ✅ nome colonna reale
+        @endphp
+
+        @if(!empty($valoreFooter))
+            {!! nl2br(e($valoreFooter)) !!}
         @else
-        Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763  Tel. +39 0971 485220 - info@isomaxporte.com
+            Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763 Tel. +39 0971 485220 - info@isomaxporte.com
         @endif
-        </div>
-    </footer>
+    </div>
+</footer>
 
     <main>
 
@@ -806,10 +810,10 @@
                     <div class="cond-row">
                         <span class="k">Consegna Richiesta:</span>
                         <span class="v">
-    @if(!empty($ordine->ConsegnaRichiesta))
-        {{ \Illuminate\Support\Carbon::parse($ordine->ConsegnaRichiesta)->format('d/m/Y') }}
-    @endif
-</span>
+                            @if(!empty($ordine->ConsegnaRichiesta))
+                            {{ \Illuminate\Support\Carbon::parse($ordine->ConsegnaRichiesta)->format('d/m/Y') }}
+                            @endif
+                        </span>
                     </div>
 
                     <div class="cond-row">

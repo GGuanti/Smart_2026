@@ -66,7 +66,7 @@ class UserController extends Controller
         $ext = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
 
         $fileName = $user->id . '.' . $ext;
-        $destination = public_path('Foto/user-logos');
+        $destination = public_path('Foto/Utente');
 
         if (!is_dir($destination)) {
             mkdir($destination, 0755, true);
@@ -74,7 +74,7 @@ class UserController extends Controller
 
         $file->move($destination, $fileName);
 
-        $user->logo_path = 'Foto/user-logos/' . $fileName;
+        $user->logo_path = 'Foto/Utente/' . $fileName;
         $user->save();
     }
 
@@ -114,7 +114,7 @@ public function update(Request $request, User $user)
     }
 
     // ------------------ gestione logo (SOLO public/) ------------------
-    $destination = public_path('Foto/user-logos');
+    $destination = public_path('Foto/Utente');
     if (!is_dir($destination)) {
         mkdir($destination, 0755, true);
     }
@@ -145,7 +145,7 @@ public function update(Request $request, User $user)
 
         $file->move($destination, $fileName);
 
-        $user->logo_path = 'Foto/user-logos/' . $fileName;
+        $user->logo_path = 'Foto/Utente/' . $fileName;
     }
 
     $user->save();
