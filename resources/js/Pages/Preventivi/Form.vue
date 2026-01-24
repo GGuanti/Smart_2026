@@ -1263,7 +1263,7 @@ watch(
 watch(
     () =>
         form.righe.map(
-            (r) => `${r.IdModello}|${r.IdSoluzione}`
+            (r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColTelaio}`
         ),
     (newV, oldV) => {
         if (!oldV) return;
