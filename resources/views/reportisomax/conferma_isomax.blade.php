@@ -580,7 +580,7 @@
 
     // --- Totale complessivo ivato ---
     $totaleIvato = $imponibileDocumento + $iva;
-    $userImg = public_path('Foto/Utente/' . auth()->id() . '.png');
+    $userImg = public_path('Foto/user-logos/' . auth()->id() . '.png');
 
     @endphp
 

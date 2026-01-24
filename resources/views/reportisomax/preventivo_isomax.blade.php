@@ -452,7 +452,7 @@
     @php
     $dataDoc = \Illuminate\Support\Carbon::parse($ordine->DataOrdine)->format('d/m/Y');
     $nOrd = $ordine->Nordine;
-    $userImg = public_path('Foto/Utente/' . auth()->id() . '.png');
+    $userImg = public_path('Foto/user-logos/' . auth()->id() . '.png');
     @endphp
 
 <header>
@@ -463,6 +463,7 @@
 
 @if(file_exists($userImg))
 <img src="{{ $userImg }}" style="height:30mm">
+
 <td class="h-right">
                     <img src="{{ public_path('Logo.png') }}" style="height:30mm">
 </td>

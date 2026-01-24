@@ -986,22 +986,27 @@ watch(
                                                 </option>
                                             </select>
                                         </div>
-                                        <button
-                                            :disabled="
-                                                busy.print || form.processing
-                                            "
-                                            @click="generaReport"
-                                        >
-                                            🖨️
-                                        </button>
-                                        <button
-                                            :disabled="
-                                                busy.email || form.processing
-                                            "
-                                            @click="generaEInviaEmail"
-                                        >
-                                            ✉️
-                                        </button>
+
+                                                                <button
+                            type="button"
+                            class="btn btn-primary"
+                            :disabled="busy.print || form.processing"
+                            @click="generaReport"
+                        >
+                            🖨️ Stampa
+                        </button>
+
+                        <button
+                            v-if="isEdit && (props.ordine?.ID || form.ID)"
+                            type="button"
+                            class="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow transition font-extrabold flex items-center gap-1"
+                            :disabled="busy.email || form.processing"
+                            @click="generaEInviaEmail"
+                        >
+                            ✉️ Invia Email
+                        </button>
+
+
                                     </div>
                                 </div>
                             </div>
