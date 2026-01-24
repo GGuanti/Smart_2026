@@ -36,11 +36,13 @@ const props = defineProps({
 const toast = useToast();
 const confirmDeleteUid = ref(null);
 
-const showZoom = ref(false);
 const zoomSrc = ref("");
+const zoomLabel = ref("");
+const showZoom = ref(false);
 
-function openZoom(src) {
+function openZoom(src, label = "") {
     zoomSrc.value = src;
+    zoomLabel.value = label;
     showZoom.value = true;
     document.body.style.overflow = "hidden";
 }
@@ -312,6 +314,21 @@ function fotoUrlForRiga(riga) {
     if (!nome) return "/Foto/placeholder.jpg";
     return `/Foto/${encodeURIComponent(nome)}.jpg?v=${riga._imgKey ?? 0}`;
 }
+function labelColorePannello(riga) {
+    const col = coloriAntaPerRiga(riga).find(
+        (x) => Number(x.IdFinAnta) === Number(riga.IdColAnta)
+    );
+   return col?.Colore ? `Anta ${col.Colore}` : "";
+}
+function labelColoreTelaio(riga) {
+    const col = finitureTelaioPerRiga(riga).find(
+        x => Number(x.IdFinTelaio) === Number(riga.IdColTelaio)
+    );
+
+   return col?.Colore ? `Telaio ${col.Colore}` : "";
+}
+
+
 function fotoUrlAntaRiga(riga) {
     if (!riga?.IdModello || !riga?.IdColAnta) return "/Foto/placeholder.jpg";
 
@@ -1142,7 +1159,6 @@ function cascadeRiga(riga) {
     ensureFerramentaValida(riga);
     ensureSerraturaValida(riga);
     syncPrezzoCad(riga);
-
 }
 
 /* ===================== Prezzo ===================== */
@@ -1184,7 +1200,6 @@ watch(
 
             cascadeRiga(riga);
             refreshPrezzo(riga);
-
         });
     },
     { immediate: true }
@@ -1343,15 +1358,14 @@ function copyRiga(riga) {
     // ✅ IN FONDO
     form.righe.push(copia);
 
-queueMicrotask(async () => {
-    cascadeRiga(copia);
-    await loadValPredModelSol(copia);
-    aggiornaDimLCombo(copia, true);
-    refreshPrezzo(copia);
+    queueMicrotask(async () => {
+        cascadeRiga(copia);
+        await loadValPredModelSol(copia);
+        aggiornaDimLCombo(copia, true);
+        refreshPrezzo(copia);
 
-    delete copia._copied; // ✅ qui ha senso
-});
-
+        delete copia._copied; // ✅ qui ha senso
+    });
 
     toast.success("📋 Riga copiata (in fondo)", {
         position: "top-left",
@@ -1359,7 +1373,6 @@ queueMicrotask(async () => {
     });
 
     delete riga._copied;
-
 }
 
 function destroyRiga(riga, index) {
@@ -2832,10 +2845,12 @@ onBeforeUnmount(() => {
                                                             openZoom(
                                                                 fotoUrlAntaRiga(
                                                                     riga
+                                                                ),
+                                                                labelColorePannello(
+                                                                    riga
                                                                 )
                                                             )
                                                         "
-                                                        @error="onImgError"
                                                     />
 
                                                     <img
@@ -2849,7 +2864,7 @@ onBeforeUnmount(() => {
                                                             openZoom(
                                                                 fotoUrlTelaioRiga(
                                                                     riga
-                                                                )
+                                                                ),labelColoreTelaio(riga)
                                                             )
                                                         "
                                                         @error="onImgError"
@@ -3223,12 +3238,20 @@ onBeforeUnmount(() => {
             class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
             @click.self="closeZoom"
         >
-            <img
-                :src="zoomSrc"
-                class="max-h-[90vh] max-w-[90vw] object-contain shadow-2xl"
-            />
+            <div class="flex flex-col items-center gap-3">
+                <img
+                    :src="zoomSrc"
+                    class="max-h-[90vh] max-w-[90vw] object-contain shadow-2xl"
+                />
 
-            <!-- pulsante chiudi -->
+                <div
+                    v-if="zoomLabel"
+                    class="text-lg sm:text-xl md:text-2xl font-bold text-white"
+                >
+                    {{ zoomLabel }}
+                </div>
+            </div>
+
             <button
                 class="absolute top-5 right-5 text-white text-3xl font-bold hover:opacity-80"
                 @click="closeZoom"
