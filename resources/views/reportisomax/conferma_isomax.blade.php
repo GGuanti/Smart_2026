@@ -527,6 +527,20 @@
         * {
             font-family: "DejaVu", sans-serif !important;
         }
+
+        .versobox {
+            margin-top: 2mm;
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            padding: 1.5mm;
+            text-align: center;
+            background: #fff;
+        }
+
+        .versobox img {
+            width: 14mm;
+            height: auto;
+        }
     </style>
 </head>
 
@@ -603,18 +617,18 @@
     </header>
 
     <footer>
-    <div class="footline">
-        @php
-            $valoreFooter = $userDoc?->datiazienda;  // ✅ nome colonna reale
-        @endphp
+        <div class="footline">
+            @php
+            $valoreFooter = $userDoc?->datiazienda; // ✅ nome colonna reale
+            @endphp
 
-        @if(!empty($valoreFooter))
+            @if(!empty($valoreFooter))
             {!! nl2br(e($valoreFooter)) !!}
-        @else
+            @else
             Isomax s.r.l. - Zona Industriale - 85050 TITO (PZ) - P.IVA 01111840763 Tel. +39 0971 485220 - info@isomaxporte.com
-        @endif
-    </div>
-</footer>
+            @endif
+        </div>
+    </footer>
 
     <main>
 
@@ -639,15 +653,68 @@
         @foreach($righe as $r)
         @php
         // Path reali per file_exists + Dompdf (Windows safe)
+        //$imgAbs = 'Foto/' . $r->nome_modello . '.jpg';
+        //$fallbackAbs = 'Foto/default.jpg';
+
+        //$imgSrc = str_replace('\\','/',$imgAbs);
+        //$fallbackSrc = str_replace('\\','/',$fallbackAbs);
+        // Verso (non hai ancora tabella aperture agganciata: metto placeholder)
         $imgAbs = 'Foto/' . $r->nome_modello . '.jpg';
         $fallbackAbs = 'Foto/default.jpg';
 
         $imgSrc = str_replace('\\','/',$imgAbs);
         $fallbackSrc = str_replace('\\','/',$fallbackAbs);
 
+        /* ===========================
+        VERSO (come fotoUrlVersoAperturaRiga)
+        =========================== */
+
+        // 1) Soluzione (codice tipo LIBS, BAT1, ecc.)
+        // Prova questi campi in ordine di priorità (adatta se nel tuo DB il nome è diverso)
+        $soluzione = strtoupper(trim((string)($r->CodSoluzione ?? $r->Soluzione ?? $r->TipoSoluzioneCod ?? $r->TipoSoluzione ?? '')));
+
+        // 2) Apertura / verso (stringa tipo "SX", "DX", "SIN", "DES", ecc.)
+        $aperturaRaw = strtoupper(trim((string)($r->Apertura ?? $r->Verso ?? '')));
+
+        // 3) Normalizza verso -> SX / DX
+        $versoDir = '';
+        if ($aperturaRaw !== '') {
+        if (str_contains($aperturaRaw, 'SX') || str_contains($aperturaRaw, 'SIN')) $versoDir = 'SX';
+        elseif (str_contains($aperturaRaw, 'DX') || str_contains($aperturaRaw, 'DES')) $versoDir = 'DX';
+        }
+
+        // 4) dis_libro_simm (dal listino del modello)
+        // Qui stai usando JS: listinoById(riga.IdModello).dis_libro_simm
+        // In Blade: prova a leggerlo da un campo già joinato, altrimenti resta vuoto.
+        $dis = trim((string)($r->dis_libro_simm ?? $r->DisLibroSimm ?? ''));
+
+        // 5) Componi nome file
+        $versoFile = 'placeholder.jpg';
+        if ($soluzione && $versoDir) {
+        // REGOLA SPECIALE: dis='Contr' AND soluzione='LIBS'
+        if ($dis === 'Contr' && $soluzione === 'LIBS') {
+        $versoFile = "LIBSC{$versoDir}.jpg";
+        } else {
+        $versoFile = "{$soluzione}{$versoDir}.jpg";
+        }
+        }
+
+        // 6) Percorsi (per file_exists usa public_path)
+        $versoRel = "Foto/Verso/{$versoFile}";
+        $versoAbs = public_path($versoRel);
+
+        // Se non esiste, fallback a placeholder
+        if (!file_exists($versoAbs)) {
+        $versoRel = "Foto/Verso/placeholder.jpg";
+        $versoAbs = public_path($versoRel);
+        }
+
+        // Dompdf spesso digerisce bene public_path(...) come src (come fai già coi loghi)
+        $versoSrc = $versoAbs;
 
 
-        // Verso (non hai ancora tabella aperture agganciata: metto placeholder)
+
+
 
         @endphp
 
@@ -680,6 +747,18 @@
                         </div>
 
                         <div class="badge">Verso: {{ $r->Verso }}</div>
+                        <div style="margin-top:2mm; text-align:center;">
+                            @if(file_exists($versoAbs))
+                            <img src="{{ $versoSrc }}" alt="Verso apertura" style="width:14mm; height:auto;">
+                            @else
+                            <img src="{{ public_path('Foto/Verso/placeholder.jpg') }}" alt="Verso apertura" style="width:14mm; height:auto;">
+                            @endif
+                        </div>
+                        <div class="versobox">
+    <img src="{{ $versoSrc }}" alt="Verso apertura">
+</div>
+
+
                     </td>
 
                     <td class="card-right">
