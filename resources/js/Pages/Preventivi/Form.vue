@@ -1261,27 +1261,21 @@ watch(
     }
 );
 watch(
-    () =>
-        form.righe.map(
-            (r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColTelaio}`
-        ),
-    (newV, oldV) => {
-        if (!oldV) return;
-        form.righe.forEach(async (riga, i) => {
-            if (newV[i] === oldV[i]) return;
+  () => form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColAnta}`),
+  (newV, oldV) => {
+    if (!oldV) return;
 
-            // stabilizza le select base
-            cascadeRiga(riga);
+    form.righe.forEach(async (riga, i) => {
+      if (newV[i] === oldV[i]) return;
 
-            // carica default specifico
-            await loadValPredModelSol(riga);
-
-            // riallinea (se qualcosa è incompatibile)
-            cascadeRiga(riga);
-            refreshPrezzo(riga);
-        });
-    }
+      cascadeRiga(riga);
+      await loadValPredModelSol(riga);
+      cascadeRiga(riga);
+      refreshPrezzo(riga);
+    });
+  }
 );
+
 
 watch(
     () => form.righe.map((r) => r.IdColAnta),
@@ -1698,39 +1692,38 @@ function valPredPayloadFromRiga(riga) {
     };
 }
 async function saveValPredModelSol(riga) {
-    if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColTelaio) return;
+  if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta) return;
 
-    const valpred = valPredPayloadFromRiga(riga);
+  const valpred = valPredPayloadFromRiga(riga);
 
-    await router.put(
-        route("listini.valpred.store", riga.IdModello),
-        {
-            id_tab_soluzioni: riga.IdSoluzione,
-            id_col_telaio: riga.IdColTelaio,
-            valpred,
-        },
-        { preserveScroll: true }
-    );
+  await router.put(
+    route("listini.valpred.store", riga.IdModello),
+    {
+      id_tab_soluzioni: riga.IdSoluzione,
+      IdColAnta: riga.IdColAnta,
+      valpred, // <-- ora ESISTE
+    },
+    { preserveScroll: true }
+  );
 }
 
-async function loadValPredModelSol(riga) {
-    if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColTelaio) return;
 
-    const { data } = await axios.get(
-        route("listini.valpred.show", riga.IdModello),
-        {
-            params: {
-                id_tab_soluzioni: riga.IdSoluzione,
-                id_col_telaio: riga.IdColTelaio,
-            },
-        }
-    );
+async function loadValPredModelSol(riga) {
+    if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta) return;
+
+const { data } = await axios.get(route("listini.valpred.show", riga.IdModello), {
+  params: {
+    id_tab_soluzioni: riga.IdSoluzione,
+    IdColAnta: riga.IdColAnta,
+  },
+});
+
 
     const vp = data?.valpred;
     if (!vp) return;
 
     // ✅ chiavi sempre escluse (per evitare loop)
-    const SKIP = new Set(["IdModello", "IdSoluzione", "IdColTelaio"]);
+    const SKIP = new Set(["IdModello", "IdSoluzione", "IdColAnta"]);
 
     // ✅ se è una riga copiata: NON sovrascrivere le misure copiate
     if (riga._copied) {
@@ -2414,9 +2407,7 @@ onBeforeUnmount(() => {
                                     type="button"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
                                     @click="loadValPredModelSol(riga)"
-                                    :disabled="
-                                        !riga.IdModello || !riga.IdSoluzione
-                                    "
+                                    :disabled="!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta"
                                 >
                                     📥 Val. Predef.
                                 </button>

@@ -10,11 +10,12 @@ class ListinoValPredController extends Controller
     public function show(Request $request, $listino)
     {
         $idSoluzione = (int) $request->query('id_tab_soluzioni');
-        $idColTelaio = (int) $request->query('id_col_telaio');
+        $IdColAnta = (int)   $request->query('IdColAnta');
+
         $row = ListinoValPred::query()
             ->where('id_listino', (int) $listino)
             ->where('id_tab_soluzioni', $idSoluzione)
-            ->where('id_col_telaio', $idColTelaio)
+            ->where('IdColAnta', $IdColAnta)
             ->first();
 
         return response()->json([
@@ -26,7 +27,7 @@ class ListinoValPredController extends Controller
     {
         $data = $request->validate([
             'id_tab_soluzioni' => ['required', 'integer'],
-            'id_col_telaio'    => ['required', 'integer'],
+            'IdColAnta'    => ['required', 'integer'],
             'valpred' => ['required', 'array'],
         ]);
 
@@ -34,7 +35,7 @@ class ListinoValPredController extends Controller
             [
                 'id_listino' => (int) $listino,
                 'id_tab_soluzioni' => (int) $data['id_tab_soluzioni'],
-                'id_col_telaio'    => (int) $data['id_col_telaio'],
+                'IdColAnta'    => (int) $data['IdColAnta'],
             ],
             [
                 'valpred' => $data['valpred'],
