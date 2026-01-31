@@ -1133,7 +1133,7 @@ function ensureSerraturaValida(riga) {
         riga,
         "IdSerratura",
         serraturePerRiga(riga),
-        (s) => s.IdSerratura ?? s.id_serratura
+        (s) => s.IdSerratura ?? s._serratura
     );
 }
 
@@ -2382,10 +2382,13 @@ onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
     clearTimeout(savedT);
 });
+
 </script>
 
 <template>
+
     <AuthenticatedLayout>
+
         <Head title="Preventivo" />
 
         <div class="py-10">
