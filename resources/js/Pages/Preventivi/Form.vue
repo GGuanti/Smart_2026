@@ -888,6 +888,7 @@ const SET_TELP = new Set([
     "RT",
     "LIBA",
     "LIBS",
+
     "SE",
     "SES",
     "SE2M",
@@ -935,6 +936,15 @@ function cernierePerRiga(riga) {
                 String(cernDes(a)).localeCompare(String(cernDes(b)))
             );
     }
+
+    if (filtroSoluzione ==="LIBRB") {
+        return all
+            .filter((c) => cernFiltroSistema(c) === "LIBRB")
+            .sort((a, b) =>
+                String(cernDes(a)).localeCompare(String(cernDes(b)))
+            );
+    }
+
 
     return all
         .filter((c) => {
@@ -1566,14 +1576,123 @@ function isDimLExtra(riga) {
     return !opts.some((v) => Number(v) === dimL);
 }
 
+function MaggLarghezza90(riga) {
+    const colonnaListino = soluzioneCodePerRiga(riga);
+    const dimL = Number(riga.DimL) || 0;
+
+    const soluzione = props.soluzioni.find(
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+    );
+    const nAnte = Number(soluzione?.nante) || 0;
+
+    // === V2 da listino modello ===
+    const m = listinoById(riga.IdModello);
+    const v2 = Number(m?.magg_lrg90 ?? 0) || 0;
+
+    // gruppi
+    const BT = new Set(["LIBRB", "RT", "LIBS", "LIBA", "BT", "BT2A", "BT2S"]);
+    const SE = new Set(["ESLIDEM2", "ESLIDEM1", "SE", "SES", "SE2M", "SE2S"]);
+    const SI = new Set(["SI", "SIS", "SI2M", "SI2S"]);
+
+    // ================= BT / LIB* / RT =================
+    if (BT.has(colonnaListino)) {
+        if (dimL <= 680 && nAnte === 1) {
+            return v2;
+        } else if (dimL >= 881 && dimL <= 980 && nAnte === 1) {
+            return v2;
+        } else if (
+            dimL >= 981 &&
+            dimL <= 1420 &&
+            nAnte === 2 &&
+            colonnaListino === "BT2A"
+        ) {
+            return v2 * 2;
+        } else if (
+            dimL >= 1721 &&
+            dimL <= 1920 &&
+            nAnte === 2 &&
+            colonnaListino === "BT2S"
+        ) {
+            return v2 * 2;
+        } else if (
+            dimL <= 1290 &&
+            nAnte === 2 &&
+            colonnaListino === "BT2S"
+        ) {
+            return v2 * 2;
+        } else {
+            return 0;
+        }
+    }
+
+    // ================= SE =================
+    if (SE.has(colonnaListino)) {
+        if (dimL <= 680 && nAnte === 1) {
+            return v2;
+        } else if (dimL >= 881 && dimL <= 980 && nAnte === 1) {
+            return v2;
+        } else if (dimL <= 1280 && nAnte === 2) {
+            return v2 * 2;
+        } else if (dimL >= 1681 && dimL <= 1880 && nAnte === 2) {
+            return v2 * 2;
+        } else {
+            return 0;
+        }
+    }
+
+    // ================= SI =================
+    if (SI.has(colonnaListino)) {
+        if (dimL <= 640 && nAnte === 1) {
+            return v2;
+        } else if (dimL >= 841 && dimL <= 940 && nAnte === 1) {
+            return v2;
+        } else if (dimL <= 1240 && nAnte === 2) {
+            return v2 * 2;
+        } else if (dimL >= 1641 && dimL <= 1840 && nAnte === 2) {
+            return v2 * 2;
+        } else {
+            return 0;
+        }
+    }
+
+    return 0;
+}
+function MaggLarghezza100(riga) {
+    const dimL = Number(riga.DimL) || 0;
+
+    // NANTE da tab_soluzioni
+    const soluzione = props.soluzioni.find(
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+    );
+    const nAnte = Number(soluzione?.nante) || 0;
+
+    // V3 dal listino modello
+    const m = listinoById(riga.IdModello);
+    const v3 = Number(m?.magg_lrg100 ?? 0) || 0;
+
+    if (dimL >= 981 && nAnte === 1) {
+        if (v3 === 0) {
+            toast.error("Porta da 1080 non realizzabile", {
+                position: "top-left",
+                timeout: 2500,
+            });
+            riga.DimL =880
+            return 0;
+        }
+        return v3;
+    }
+
+    return 0;
+}
+
+
 function MaggLarghezza(riga) {
     if (!isDimLExtra(riga)) return 0;
-
     const m = listinoById(riga.IdModello);
     if (!m) return 0;
-
     return Number(m.magg_lrg ?? m.MaggLrg ?? 0) || 0;
 }
+
 function MaggAltezza(riga) {
     const { dimAForced } = dimLRulesForRiga(riga);
     if (!dimAForced) return 0;
@@ -1628,6 +1747,8 @@ function totaleRigaD(riga) {
     return (
         listinoPorta(riga) +
         MaggLarghezza(riga) +
+        MaggLarghezza90(riga) +
+        MaggLarghezza100(riga) +
         MaggTelaio(riga) +
         MaggAltezza(riga) +
         MaggManuale(riga) +
@@ -2855,7 +2976,10 @@ onBeforeUnmount(() => {
                                                             openZoom(
                                                                 fotoUrlTelaioRiga(
                                                                     riga
-                                                                ),labelColoreTelaio(riga)
+                                                                ),
+                                                                labelColoreTelaio(
+                                                                    riga
+                                                                )
                                                             )
                                                         "
                                                         @error="onImgError"
@@ -3108,6 +3232,8 @@ onBeforeUnmount(() => {
                                                     (
                                                         MaggColAnta(riga) +
                                                         MaggLarghezza(riga) +
+                                                        MaggLarghezza90(riga) +
+                                                        MaggLarghezza100(riga) +
                                                         MaggAltezza(riga)
                                                     ).toFixed(2)
                                                 }}

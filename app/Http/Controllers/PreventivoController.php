@@ -26,7 +26,10 @@ class PreventivoController extends Controller
             ->get();
 
         $modelli = DB::table('listini')->get();
-        $soluzioni = DB::table('tab_soluzioni')->get();
+        $soluzioni = DB::table('tab_soluzioni')
+        ->orderBy('soluzione')
+        ->get();
+
         $colAnta = DB::table('finitura_anta')->get();
         $colTelaio = DB::table('finitura_telaio')->get();
         $maniglie = DB::table('tab_maniglie')->get();
