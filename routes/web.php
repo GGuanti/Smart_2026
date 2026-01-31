@@ -51,6 +51,28 @@ use App\Http\Controllers\{
 };
 use App\Http\Controllers\ListinoValPredController;
 use App\Http\Controllers\UserPreferenceControllerN;
+use App\Http\Controllers\DoorConfigController;
+
+
+use App\Http\Controllers\TextureController;
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get('/door', [DoorConfigController::class, 'index'])->name('door.configurator');
+    Route::post('/door', [DoorConfigController::class, 'store'])->name('door.store');
+    Route::delete('/door/{doorConfig}', [DoorConfigController::class, 'destroy'])->name('door.destroy');
+
+    Route::get('/textures', [TextureController::class, 'index'])->name('textures.index');
+    Route::post('/textures', [TextureController::class, 'store'])->name('textures.store');
+    Route::delete('/textures/{texture}', [TextureController::class, 'destroy'])->name('textures.destroy');
+    Route::get('private-storage/{path}', function ($path) {
+        abort(404);
+    })->where('path', '.*')->name('storage.local');
+});
+
+
+
+
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/stampa/settimana/{year}/{week}', [PrintController::class, 'Settimana'])
