@@ -1007,6 +1007,7 @@ function serraturePerRiga(riga) {
                 String(b.DesSerratura ?? b.des_serratura ?? "")
             )
         );
+
 }
 
 /* ===================== Vetri ===================== */
@@ -1128,13 +1129,13 @@ function ensureFerramentaValida(riga) {
         cernId(c)
     );
 }
+function serrId(s) {
+  return Number(s?.IdSerratura) || null;
+}
+
 function ensureSerraturaValida(riga) {
-    ensureFirstValid(
-        riga,
-        "IdSerratura",
-        serraturePerRiga(riga),
-        (s) => s.IdSerratura ?? s._serratura
-    );
+
+  ensureFirstValid(riga, "IdSerratura", serraturePerRiga(riga), serrId);
 }
 
 function cascadeRiga(riga) {
@@ -1156,18 +1157,12 @@ function cascadeRiga(riga) {
     ensureSoluzioneValida(riga);
     ensureAntaValida(riga);
     ensureTelaioValido(riga);
-
     ensureTipoTelaioValido(riga);
-
     ensureImbotteValida(riga);
-
     ensureManigliaValida(riga);
     ensureAperturaValida(riga);
-
     ensureVetroValido(riga);
-
     ensureFerramentaValida(riga);
-    ensureSerraturaValida(riga);
     syncPrezzoCad(riga);
 }
 
