@@ -1,11 +1,19 @@
 <script setup>
 /* ===================== Imports ===================== */
-import { Head, Link, useForm, router } from "@inertiajs/vue3";
+import { usePage, Head, Link, useForm, router } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useToast } from "vue-toastification";
 import { Save, Trash2, ArrowLeft, Plus } from "lucide-vue-next";
 import axios from "axios";
+
+const page = usePage();
+
+const canSeeValPred = computed(() => {
+  const u = page.props.auth?.user;
+  return !!u && u.email?.toLowerCase() === "info@isomaxporte.com"; // <-- metti email reale
+});
+
 const savedMsg = ref(false);
 const savedErr = ref(false);
 const savedText = ref("");
@@ -1165,6 +1173,12 @@ function cascadeRiga(riga) {
     ensureFerramentaValida(riga);
     syncPrezzoCad(riga);
 }
+function nAntePerRiga(riga) {
+  const soluzione = props.soluzioni.find(
+    (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+  );
+  return Number(soluzione?.nante) || 0; // oppure 1 come fallback se ti serve
+}
 
 /* ===================== Prezzo ===================== */
 async function aggiornaPrezzoCad(riga) {
@@ -1184,7 +1198,7 @@ async function aggiornaPrezzoCad(riga) {
         IdSerratura: riga.IdSerratura,
         CkTaglioObl: riga.CkTaglioObl,
         IdImbotte: riga.IdImbotte,
-        NANTE: 1,
+        NANTE: nAntePerRiga,
         PrezzoCad: riga.PrezzoCad,
     };
 }
@@ -1507,7 +1521,10 @@ function ColAntaById(IdColAnta) {
 function MaggColAnta(riga) {
     const fa = ColAntaById(riga.IdColAnta);
     if (!fa) return 0;
-    return Number(fa?.MaggAnta ?? 0) || 0;
+
+    const nAnte = nAntePerRiga(riga);
+
+    return Number(fa.MaggAnta) * nAnte || 0;
 }
 function MaggMan(riga) {
     const ma =
@@ -1684,8 +1701,9 @@ function MaggLarghezza100(riga) {
 function MaggLarghezza(riga) {
     if (!isDimLExtra(riga)) return 0;
     const m = listinoById(riga.IdModello);
+      const nAnte = nAntePerRiga(riga);
     if (!m) return 0;
-    return Number(m.magg_lrg ?? m.MaggLrg ?? 0) || 0;
+    return Number(m.magg_lrg) * nAnte || 0;
 }
 
 function MaggAltezza(riga) {
@@ -2511,16 +2529,17 @@ onBeforeUnmount(() => {
                                     >
                                 </div>
                                 <!-- 📋 COPIA -->
-                                <button
-                                    type="button"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
-                                    @click="saveValPredModelSol(riga)"
-                                    :disabled="
-                                        !riga.IdModello || !riga.IdSoluzione
-                                    "
-                                >
-                                    💾 Val. Predef.
-                                </button>
+
+  <button
+    v-if="canSeeValPred"
+    type="button"
+    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+    @click="saveValPredModelSol(riga)"
+    :disabled="!riga.IdModello || !riga.IdSoluzione"
+  >
+    💾 Val. Predef.
+  </button>
+
 
                                 <!--    <button
                                     type="button"
