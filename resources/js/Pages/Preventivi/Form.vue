@@ -10,8 +10,8 @@ import axios from "axios";
 const page = usePage();
 
 const canSeeValPred = computed(() => {
-  const u = page.props.auth?.user;
-  return !!u && u.email?.toLowerCase() === "info@isomaxporte.com"; // <-- metti email reale
+    const u = page.props.auth?.user;
+    return !!u && u.email?.toLowerCase() === "info@isomaxporte.com"; // <-- metti email reale
 });
 
 const savedMsg = ref(false);
@@ -326,16 +326,15 @@ function labelColorePannello(riga) {
     const col = coloriAntaPerRiga(riga).find(
         (x) => Number(x.IdFinAnta) === Number(riga.IdColAnta)
     );
-   return col?.Colore ? `Anta ${col.Colore}` : "";
+    return col?.Colore ? `Anta ${col.Colore}` : "";
 }
 function labelColoreTelaio(riga) {
     const col = finitureTelaioPerRiga(riga).find(
-        x => Number(x.IdFinTelaio) === Number(riga.IdColTelaio)
+        (x) => Number(x.IdFinTelaio) === Number(riga.IdColTelaio)
     );
 
-   return col?.Colore ? `Telaio ${col.Colore}` : "";
+    return col?.Colore ? `Telaio ${col.Colore}` : "";
 }
-
 
 function fotoUrlAntaRiga(riga) {
     if (!riga?.IdModello || !riga?.IdColAnta) return "/Foto/placeholder.jpg";
@@ -945,14 +944,13 @@ function cernierePerRiga(riga) {
             );
     }
 
-    if (filtroSoluzione ==="LIBRB") {
+    if (filtroSoluzione === "LIBRB") {
         return all
             .filter((c) => cernFiltroSistema(c) === "LIBRB")
             .sort((a, b) =>
                 String(cernDes(a)).localeCompare(String(cernDes(b)))
             );
     }
-
 
     return all
         .filter((c) => {
@@ -1015,7 +1013,6 @@ function serraturePerRiga(riga) {
                 String(b.DesSerratura ?? b.des_serratura ?? "")
             )
         );
-
 }
 
 /* ===================== Vetri ===================== */
@@ -1138,12 +1135,11 @@ function ensureFerramentaValida(riga) {
     );
 }
 function serrId(s) {
-  return Number(s?.IdSerratura) || null;
+    return Number(s?.id_serratura) || null;
 }
 
 function ensureSerraturaValida(riga) {
-
-  ensureFirstValid(riga, "IdSerratura", serraturePerRiga(riga), serrId);
+    ensureFirstValid(riga, "IdSerratura", serraturePerRiga(riga), serrId);
 }
 
 function cascadeRiga(riga) {
@@ -1171,13 +1167,14 @@ function cascadeRiga(riga) {
     ensureAperturaValida(riga);
     ensureVetroValido(riga);
     ensureFerramentaValida(riga);
+    ensureSerraturaValida(riga);
     syncPrezzoCad(riga);
 }
 function nAntePerRiga(riga) {
-  const soluzione = props.soluzioni.find(
-    (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
-  );
-  return Number(soluzione?.nante) || 0; // oppure 1 come fallback se ti serve
+    const soluzione = props.soluzioni.find(
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+    );
+    return Number(soluzione?.nante) || 0; // oppure 1 come fallback se ti serve
 }
 
 /* ===================== Prezzo ===================== */
@@ -1287,6 +1284,12 @@ watch(
     form.righe.forEach(async (riga, i) => {
       if (newV[i] === oldV[i]) return;
 
+      // ✅ se è una riga appena copiata, NON caricare ValPred (solo una volta)
+      if (riga._skipNextValPredLoad) {
+        delete riga._skipNextValPredLoad; // one-shot
+        return;
+      }
+
       cascadeRiga(riga);
       await loadValPredModelSol(riga);
       cascadeRiga(riga);
@@ -1294,7 +1297,6 @@ watch(
     });
   }
 );
-
 
 watch(
     () => form.righe.map((r) => r.IdColAnta),
@@ -1364,29 +1366,35 @@ function copyRiga(riga) {
 
     copia.Id = null;
     copia._imgKey = (riga._imgKey ?? 0) + 1;
+
+    // ✅ flag: la prossima volta che cambia il trio modello/soluzione/colore,
+    // NON caricare i ValPred da API (serve per evitare override della copia)
+    copia._skipNextValPredLoad = true;
+
+    // (se ti serve per altre logiche)
     copia._copied = true;
 
     normalizeRowTypes(copia);
 
-    // ✅ IN FONDO
     form.righe.push(copia);
 
-    queueMicrotask(async () => {
+    queueMicrotask(() => {
+        // allinea select e prezzo, ma SENZA chiamare loadValPredModelSol
         cascadeRiga(copia);
-        await loadValPredModelSol(copia);
         aggiornaDimLCombo(copia, true);
         refreshPrezzo(copia);
 
-        delete copia._copied; // ✅ qui ha senso
+        // se vuoi: il flag _copied puoi anche lasciarlo,
+        // ma se lo usi solo "one-shot", puoi toglierlo
+        delete copia._copied;
     });
 
     toast.success("📋 Riga copiata (in fondo)", {
         position: "top-left",
         timeout: 1200,
     });
-
-    delete riga._copied;
 }
+
 
 function destroyRiga(riga, index) {
     if (riga._isDeleting) return;
@@ -1397,33 +1405,9 @@ function destroyRiga(riga, index) {
         return;
     }
 
-    // PRIMO CLICK: entra in conferma per 4 secondi
-    if (!riga._confirmDelete) {
-        riga._confirmDelete = true;
-
-        toast.warning(
-            "⚠️ Confermi eliminazione riga? Premi di nuovo Elimina.",
-            {
-                position: "top-left",
-                timeout: 2000,
-            }
-        );
-
-        // dopo 4s torna normale
-        setTimeout(() => {
-            riga._confirmDelete = false;
-        }, 4000);
-
-        return;
-    }
-
-    // SECONDO CLICK: esegui e disabilita
+    // elimina subito
     riga._isDeleting = true;
-    if (!riga.Id) {
-        removeRigaLocal(index);
-        riga._confirmDelete = false;
-        return;
-    }
+
     router.delete(route("preventivi.destroy", [props.ordine.ID, riga.Id]), {
         preserveScroll: true,
 
@@ -1432,6 +1416,7 @@ function destroyRiga(riga, index) {
                 position: "top-left",
                 timeout: 1500,
             });
+
             const idx = form.righe.findIndex((x) => x.uid === riga.uid);
             if (idx !== -1) form.righe.splice(idx, 1);
         },
@@ -1447,8 +1432,6 @@ function destroyRiga(riga, index) {
             // se non è stata rimossa, riabilita
             const exists = form.righe.some((x) => x.uid === riga.uid);
             if (exists) riga._isDeleting = false;
-
-            riga._confirmDelete = false;
         },
     });
 }
@@ -1626,11 +1609,7 @@ function MaggLarghezza90(riga) {
             colonnaListino === "BT2S"
         ) {
             return v2 * 2;
-        } else if (
-            dimL <= 1290 &&
-            nAnte === 2 &&
-            colonnaListino === "BT2S"
-        ) {
+        } else if (dimL <= 1290 && nAnte === 2 && colonnaListino === "BT2S") {
             return v2 * 2;
         } else {
             return 0;
@@ -1688,7 +1667,7 @@ function MaggLarghezza100(riga) {
                 position: "top-left",
                 timeout: 2500,
             });
-            riga.DimL =880
+            riga.DimL = 880;
             return 0;
         }
         return v3;
@@ -1697,11 +1676,10 @@ function MaggLarghezza100(riga) {
     return 0;
 }
 
-
 function MaggLarghezza(riga) {
     if (!isDimLExtra(riga)) return 0;
     const m = listinoById(riga.IdModello);
-      const nAnte = nAntePerRiga(riga);
+    const nAnte = nAntePerRiga(riga);
     if (!m) return 0;
     return Number(m.magg_lrg) * nAnte || 0;
 }
@@ -1826,32 +1804,34 @@ function valPredPayloadFromRiga(riga) {
     };
 }
 async function saveValPredModelSol(riga) {
-  if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta) return;
-
-  const valpred = valPredPayloadFromRiga(riga);
-
-  await router.put(
-    route("listini.valpred.store", riga.IdModello),
-    {
-      id_tab_soluzioni: riga.IdSoluzione,
-      IdColAnta: riga.IdColAnta,
-      valpred, // <-- ora ESISTE
-    },
-    { preserveScroll: true }
-  );
-}
-
-
-async function loadValPredModelSol(riga) {
     if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta) return;
 
-const { data } = await axios.get(route("listini.valpred.show", riga.IdModello), {
-  params: {
-    id_tab_soluzioni: riga.IdSoluzione,
-    IdColAnta: riga.IdColAnta,
-  },
-});
+    const valpred = valPredPayloadFromRiga(riga);
 
+    await router.put(
+        route("listini.valpred.store", riga.IdModello),
+        {
+            id_tab_soluzioni: riga.IdSoluzione,
+            IdColAnta: riga.IdColAnta,
+            valpred, // <-- ora ESISTE
+        },
+        { preserveScroll: true }
+    );
+}
+
+async function loadValPredModelSol(riga) {
+ if (riga?._skipNextValPredLoad) return;
+    if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta) return;
+
+    const { data } = await axios.get(
+        route("listini.valpred.show", riga.IdModello),
+        {
+            params: {
+                id_tab_soluzioni: riga.IdSoluzione,
+                IdColAnta: riga.IdColAnta,
+            },
+        }
+    );
 
     const vp = data?.valpred;
     if (!vp) return;
@@ -2395,13 +2375,10 @@ onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
     clearTimeout(savedT);
 });
-
 </script>
 
 <template>
-
     <AuthenticatedLayout>
-
         <Head title="Preventivo" />
 
         <div class="py-10">
@@ -2530,16 +2507,17 @@ onBeforeUnmount(() => {
                                 </div>
                                 <!-- 📋 COPIA -->
 
-  <button
-    v-if="canSeeValPred"
-    type="button"
-    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
-    @click="saveValPredModelSol(riga)"
-    :disabled="!riga.IdModello || !riga.IdSoluzione"
-  >
-    💾 Val. Predef.
-  </button>
-
+                                <button
+                                    v-if="canSeeValPred"
+                                    type="button"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                                    @click="saveValPredModelSol(riga)"
+                                    :disabled="
+                                        !riga.IdModello || !riga.IdSoluzione
+                                    "
+                                >
+                                    💾 Val. Predef.
+                                </button>
 
                                 <!--    <button
                                     type="button"
