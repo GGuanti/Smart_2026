@@ -136,7 +136,7 @@ const caretSvg =
                                         </template>
                                         <template #content>
                                             <DropdownLink :href="route('ordini.index')">📄 Ordini</DropdownLink>
-                                            <DropdownLink :href="route('users.index')">👥 Utenti</DropdownLink>
+                                            <DropdownLink v-if="$page.props.auth.user.profilo === 'admin'" :href="route('users.index')">👥 Utenti</DropdownLink>
                                         </template>
                                     </Dropdown>
                                 </template>

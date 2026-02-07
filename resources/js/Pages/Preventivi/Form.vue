@@ -1277,25 +1277,26 @@ watch(
     }
 );
 watch(
-  () => form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColAnta}`),
-  (newV, oldV) => {
-    if (!oldV) return;
+    () =>
+        form.righe.map((r) => `${r.IdModello}|${r.IdSoluzione}|${r.IdColAnta}`),
+    (newV, oldV) => {
+        if (!oldV) return;
 
-    form.righe.forEach(async (riga, i) => {
-      if (newV[i] === oldV[i]) return;
+        form.righe.forEach(async (riga, i) => {
+            if (newV[i] === oldV[i]) return;
 
-      // ✅ se è una riga appena copiata, NON caricare ValPred (solo una volta)
-      if (riga._skipNextValPredLoad) {
-        delete riga._skipNextValPredLoad; // one-shot
-        return;
-      }
+            // ✅ se è una riga appena copiata, NON caricare ValPred (solo una volta)
+            if (riga._skipNextValPredLoad) {
+                delete riga._skipNextValPredLoad; // one-shot
+                return;
+            }
 
-      cascadeRiga(riga);
-      await loadValPredModelSol(riga);
-      cascadeRiga(riga);
-      refreshPrezzo(riga);
-    });
-  }
+            cascadeRiga(riga);
+            await loadValPredModelSol(riga);
+            cascadeRiga(riga);
+            refreshPrezzo(riga);
+        });
+    }
 );
 
 watch(
@@ -1394,7 +1395,6 @@ function copyRiga(riga) {
         timeout: 1200,
     });
 }
-
 
 function destroyRiga(riga, index) {
     if (riga._isDeleting) return;
@@ -1820,7 +1820,7 @@ async function saveValPredModelSol(riga) {
 }
 
 async function loadValPredModelSol(riga) {
- if (riga?._skipNextValPredLoad) return;
+    if (riga?._skipNextValPredLoad) return;
     if (!riga.IdModello || !riga.IdSoluzione || !riga.IdColAnta) return;
 
     const { data } = await axios.get(
@@ -2494,17 +2494,17 @@ onBeforeUnmount(() => {
                     >
                         <!-- Riga header -->
                         <div
-                            class="px-5 py-3 bg-gradient-to-r from-slate-900 to-slate-700 text-white flex items-center justify-between"
+                            class="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between shadow-md"
                         >
                             <div class="font-semibold">Riga #{{ i + 1 }}</div>
                             <div class="flex items-center gap-2">
-                                <div class="text-xs opacity-90">
-                                    Tot riga:
-                                    <span class="font-bold"
-                                        >€
-                                        {{ totaleRiga(riga).toFixed(2) }}</span
-                                    >
-                                </div>
+<div class="text-sm md:text-base opacity-90">
+    Tot riga:
+    <span class="ml-1 font-bold text-lg opacity-90">
+        € {{ totaleRiga(riga).toFixed(2) }}
+    </span>
+</div>
+
                                 <!-- 📋 COPIA -->
 
                                 <button
@@ -2549,27 +2549,19 @@ onBeforeUnmount(() => {
                                 </button> -->
                                 <button
                                     type="button"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white text-sm"
+                                    class="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow transition font-extrabold flex items-center gap-1"
                                     @click="copyRiga(riga, i)"
                                     title="Copia riga"
                                 >
                                     📋 Copia
                                 </button>
-                                <!-- Elimina -->
+
                                 <button
                                     type="button"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm"
-                                    :class="[
-                                        riga._isDeleting
-                                            ? 'bg-red-400 cursor-not-allowed'
-                                            : riga._confirmDelete
-                                            ? 'bg-red-700 hover:bg-red-800'
-                                            : 'bg-red-600 hover:bg-red-700',
-                                    ]"
+                                    class="btn btn-danger"
                                     :disabled="riga._isDeleting"
                                     @click="destroyRiga(riga, i)"
                                 >
-                                    <Trash2 class="w-4 h-4" />
                                     {{
                                         riga._isDeleting
                                             ? "Eliminazione..."
@@ -2578,6 +2570,7 @@ onBeforeUnmount(() => {
                                             : "🗑️ Elimina"
                                     }}
                                 </button>
+
                             </div>
                         </div>
 
@@ -2904,7 +2897,7 @@ onBeforeUnmount(() => {
                                     class="rounded-2xl border bg-white overflow-hidden"
                                 >
                                     <div
-                                        class="px-4 py-2 bg-slate-50 border-b text-slate-900 font-semibold flex justify-between"
+                                    class="px-4 py-2 bg-blue-50 border-b text-blue-900 font-semibold flex justify-between"
                                     >
                                         <span>📐 Misure & Prezzi</span>
                                         <span class="text-xs text-slate-500"
@@ -3373,3 +3366,72 @@ onBeforeUnmount(() => {
         </div>
     </AuthenticatedLayout>
 </template>
+<style scoped>
+.btn {
+    @apply px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 transition;
+}
+.btn-ghost {
+    @apply px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 transition;
+}
+.btn-primary {
+    @apply px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+.badge {
+    @apply text-xs font-extrabold px-2.5 py-1 rounded-full border;
+}
+.badge-blue {
+    @apply bg-blue-50 text-blue-700 border-blue-100;
+}
+.badge-slate {
+    @apply bg-slate-50 text-slate-700 border-slate-200;
+}
+
+.card {
+    @apply rounded-2xl border bg-white shadow-sm;
+}
+.cardHead {
+    @apply px-4 py-3 border-b flex items-center justify-between;
+}
+
+.cardKpi {
+    @apply flex flex-col items-center justify-center text-center min-h-[72px] px-4 py-3;
+}
+.kpiLabel {
+    @apply text-xs text-slate-500 font-semibold leading-none;
+}
+.kpiValue {
+    @apply text-2xl font-extrabold text-slate-900 leading-none;
+}
+
+.label {
+    @apply text-xs font-bold text-slate-600;
+}
+.input {
+    @apply mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
+  text-slate-900 outline-none shadow-sm
+  focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition;
+}
+.err {
+    @apply text-xs text-red-600 mt-1 font-semibold;
+}
+.toast-confirm {
+    @apply border-l-4 border-red-500 bg-red-50 text-red-900;
+}
+.btn-danger {
+    @apply px-4 py-2 rounded-xl bg-red-600 text-white font-semibold
+  shadow hover:bg-red-700 transition disabled:opacity-60 disabled:cursor-not-allowed;
+}
+.input-icon {
+    @apply relative;
+}
+
+.input-icon svg {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-slate-400;
+}
+
+.input-icon input,
+.input-icon textarea {
+    @apply pl-10;
+}
+</style>
