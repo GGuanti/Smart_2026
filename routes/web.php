@@ -52,7 +52,7 @@ use App\Http\Controllers\{
 use App\Http\Controllers\ListinoValPredController;
 use App\Http\Controllers\UserPreferenceControllerN;
 use App\Http\Controllers\DoorConfigController;
-
+use Illuminate\Support\Facades\Auth;
 
 use App\Http\Controllers\TextureController;
 
@@ -88,14 +88,14 @@ Route::middleware(['auth'])->group(function () {
 */
 
 Route::get('/', function () {
-    if (auth()->check()) {
+    if (Auth::check()) {
 
         $map = [
             'Isomax' => '/ordini',
             'Nurith' => '/calendar',
         ];
 
-        return redirect($map[auth()->user()->profilo] ?? '/dashboard');
+        return redirect($map[Auth::user()->profilo] ?? '/dashboard');
     }
 
     return redirect()->route('login');

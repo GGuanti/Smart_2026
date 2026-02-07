@@ -11,14 +11,14 @@ use App\Models\FinituraAnta;
 use App\Models\FinituraTelaio;
 use App\Models\TabSoluzione;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Auth;
 
 class PreventivoController extends Controller
 {
 
     public function create(TabOrdine $ordine)
     {
-        abort_if($ordine->user_id !== auth()->id(), 403);
+        abort_if($ordine->user_id !== Auth::id(), 403);
 
         $elementi = TabElementiOrdine::query()
             ->where('Nordine', $ordine->Nordine)
@@ -126,7 +126,7 @@ class PreventivoController extends Controller
     }
     public function store1(Request $request, TabOrdine $ordine)
     {
-        abort_if($ordine->user_id !== auth()->id(), 403);
+abort_if($ordine->user_id !== Auth::id(), 403);
 
         // ✅ se arriva il nuovo form: righe[]
         if ($request->has('righe') && is_array($request->input('righe'))) {
@@ -214,7 +214,8 @@ class PreventivoController extends Controller
 
     public function edit(TabOrdine $ordine, TabElementiOrdine $elemento)
     {
-        abort_if($ordine->user_id !== auth()->id(), 403);
+        abort_if($ordine->user_id !== Auth::id(), 403);
+
         abort_if($elemento->Nordine !== $ordine->Nordine, 404);
 
         $elementi = TabElementiOrdine::query()
@@ -232,7 +233,8 @@ class PreventivoController extends Controller
 
     public function update(Request $request, TabOrdine $ordine, TabElementiOrdine $elemento)
     {
-        abort_if($ordine->user_id !== auth()->id(), 403);
+        abort_if($ordine->user_id !== Auth::id(), 403);
+
         abort_if($elemento->Nordine !== $ordine->Nordine, 404);
 
         $data = $request->validate([
@@ -271,7 +273,7 @@ class PreventivoController extends Controller
 
     public function destroy(TabOrdine $ordine, TabElementiOrdine $elemento)
     {
-        abort_if($ordine->user_id !== auth()->id(), 403);
+abort_if($ordine->user_id !== Auth::id(), 403);
         abort_if($elemento->Nordine !== $ordine->Nordine, 404);
 
         // 🔒 Sicurezza: l'elemento deve appartenere all'ordine

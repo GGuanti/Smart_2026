@@ -665,6 +665,7 @@ function updateTotalsSoon(api) {
     nextTick(() => {
         api?.rerenderDates?.();
         updateTotals();
+         refreshDayBadges(api);
     });
 }
 
@@ -888,7 +889,8 @@ const calendarOptions = ref({
                 giornoSelezionato.value = dateKeyLocal(oldStart);
                 updateTotalsSoon(api);
             },
-            onSuccess: () => window.location.reload(),
+          //  onSuccess: () => window.location.reload(),
+           onSuccess: () =>updateTotalsSoon(api),
             onFinish: () => updateTotalsSoon(api),
         });
     },
@@ -1008,6 +1010,30 @@ function ymdToTime(ymd) {
     if (!ymd) return null;
     const d = parseAnyDate(ymd); // usa la tua
     return d ? d.getTime() : null;
+}
+function refreshDayBadges(api) {
+    if (!api || api.view?.type !== "dayGridMonth") return;
+
+    // rimuovi tutti i badge esistenti
+    document.querySelectorAll(".pezzi-day").forEach((el) => el.remove());
+
+    // per ogni giorno che ha pezzi, aggiungi badge nella cella corretta
+    const map = pezziByDay.value || {};
+    for (const [key, tot] of Object.entries(map)) {
+        if (!tot || tot <= 0) continue;
+
+        // trova la cella del giorno (FullCalendar mette data-date="YYYY-MM-DD")
+        const cell = document.querySelector(
+            `.fc-daygrid-day[data-date="${key}"]`
+        );
+        if (!cell) continue;
+
+        const top = cell.querySelector(".fc-daygrid-day-top") || cell;
+        const badge = document.createElement("div");
+        badge.className = "pezzi-day";
+        badge.textContent = `Pezzi: ${tot}`;
+        top.appendChild(badge);
+    }
 }
 
 // ✅ Tabulator headerFilterFunc: range date (DA / A) su rowValue

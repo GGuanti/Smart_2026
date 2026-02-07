@@ -5,7 +5,7 @@ import flatPickr from "vue-flatpickr-component";
 import "flatpickr/dist/flatpickr.css";
 import { Italian } from "flatpickr/dist/l10n/it.js";
 import { Trash2, Save, X } from "lucide-vue-next";
-import { computed, ref, onBeforeUnmount } from "vue";
+import { watch, computed, ref, onBeforeUnmount } from "vue";
 import { useToast } from "vue-toastification";
 const toast = useToast();
 
@@ -30,6 +30,7 @@ const focusNext = (event) => {
         focusable[index + 1].focus();
     }
 };
+
 function newItem() {
     return {
         uid: crypto?.randomUUID
@@ -230,6 +231,45 @@ const deleteAppointment = () => {
 onBeforeUnmount(() => {
     if (confirmTimer) clearTimeout(confirmTimer);
 });
+function todayYmd() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+}
+
+function setAllItemChecks(value = true) {
+    (form.items || []).forEach((it) => {
+        it.taglio = value;
+        it.assemblaggio = value;
+        it.comandi = value;
+
+        it.taglio_zoccolo = value;
+        it.taglio_lamelle = value;
+        it.montaggio_lamelle = value;
+
+        it.Ferramenta = value;
+        it.Vetratura = value;
+        it.Accessori = value;
+        it.Coprifili = value;
+        it.Fermavetri = value;
+        it.OrdineVetri = value;
+    });
+}
+
+watch(
+    () => form.status,
+    (newVal, oldVal) => {
+
+        // 🔥 SOLO cambio manuale
+        if (newVal === "Completato" && oldVal !== "Completato") {
+
+            // Data Fine Produzione = oggi
+            form.DataFine = todayYmd();
+
+            // tutti i check = true
+            setAllItemChecks(true);
+        }
+    }
+);
 </script>
 
 <template>
@@ -710,7 +750,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioZoccolo"
+                                            v-model="it.taglio_zoccolo"
                                         />
                                         Taglio Zoccolo
                                     </label>
@@ -720,7 +760,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioLamelle"
+                                            v-model="it.taglio_lamelle"
                                         />
                                         Taglio Lamelle
                                     </label>
@@ -740,7 +780,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.Comandi"
+                                            v-model="it.comandi"
                                         />
                                         Montaggio Comandi
                                     </label>
@@ -749,7 +789,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.MontaggioLamelle"
+                                            v-model="it.montaggio_lamelle"
                                         />
                                         Montaggio Lamelle
                                     </label>
@@ -769,7 +809,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioZoccolo"
+                                            v-model="it.taglio_zoccolo"
                                         />
                                         Taglio Zoccolo
                                     </label>
@@ -779,7 +819,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioLamelle"
+                                            v-model="it.taglio_lamelle"
                                         />
                                         Taglio Lamelle
                                     </label>
@@ -799,7 +839,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.Comandi"
+                                            v-model="it.comandi"
                                         />
                                         Montaggio Comandi
                                     </label>
@@ -808,7 +848,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.MontaggioLamelle"
+                                            v-model="it.montaggio_lamelle"
                                         />
                                         Montaggio Lamelle
                                     </label>
@@ -829,7 +869,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioZoccolo"
+                                            v-model="it.taglio_zoccolo"
                                         />
                                         Taglio Zoccolo
                                     </label>
@@ -839,7 +879,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioLamelle"
+                                            v-model="it.taglio_lamelle"
                                         />
                                         Taglio Lamelle
                                     </label>
@@ -859,7 +899,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.Comandi"
+                                            v-model="it.comandi"
                                         />
                                         Montaggio Comandi
                                     </label>
@@ -868,7 +908,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.MontaggioLamelle"
+                                            v-model="it.montaggio_lamelle"
                                         />
                                         Montaggio Lamelle
                                     </label>
@@ -889,7 +929,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioZoccolo"
+                                            v-model="it.taglio_zoccolo"
                                         />
                                         Taglio Zoccolo
                                     </label>
@@ -899,7 +939,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.TaglioLamelle"
+                                            v-model="it.taglio_lamelle"
                                         />
                                         Taglio Lamelle
                                     </label>
@@ -919,7 +959,7 @@ onBeforeUnmount(() => {
                                     >
                                         <input
                                             type="checkbox"
-                                            v-model="it.MontaggioLamelle"
+                                            v-model="it.montaggio_lamelle"
                                         />
                                         Montaggio Lamelle
                                     </label>

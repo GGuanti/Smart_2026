@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Illuminate\Support\Str;
-
+use Illuminate\Support\Facades\Auth;
 
 
 class AppointmentController extends Controller
@@ -172,7 +172,7 @@ class AppointmentController extends Controller
                 Log::info('CSV user_id debug', [
                     'raw_user_id' => $r['user_id'] ?? null,
                     'parsed' => $this->int0($r['user_id'] ?? 0),
-                    'auth' => auth()->id(),
+                    'auth' => Auth::id(),
                 ]);
                 $r = [];
                 foreach ($header as $i => $col) $r[$col] = $row[$i] ?? null;
@@ -185,8 +185,8 @@ class AppointmentController extends Controller
                 $Nordine = (int)$NordineRaw;
 
                 // campi
-                // $csvUserId       = (int)($this->int0($r['user_id'] ?? 0) ?: auth()->id());
-                $csvUserId = auth()->id();
+                // $csvUserId       = (int)($this->int0($r['user_id'] ?? 0) ?: Auth::id());
+                $csvUserId = Auth::id();
                 $csvTitle        = $this->nullIfEmpty($r['title'] ?? null);
                 $csvDescription  = $this->nullIfEmpty($r['description'] ?? null);
                 $csvStatus       = $this->nullIfEmpty($r['status'] ?? null);
@@ -345,7 +345,7 @@ class AppointmentController extends Controller
                     'Taglio'      => $this->bit($data['Taglio'] ?? 0),
                     'Assemblaggio' => $this->bit($data['Assemblaggio'] ?? 0),
                     'Comandi'     => $this->bit($data['Comandi'] ?? 0),
-                    'TaglioZoccolo' => $this->bit($data['TaglioZoccolo'] ?? 0),
+                    'TaglioZoccolo' => $this->bit($data['taglio_zoccolo'] ?? 0),
                     'TaglioLamelle' => $this->bit($data['TaglioLamelle'] ?? 0),
                     'MontaggioLamelle' => $this->bit($data['MontaggioLamelle'] ?? 0),
                     'Ferramenta'  => $this->bit($data['Ferramenta'] ?? 0),
@@ -396,48 +396,71 @@ class AppointmentController extends Controller
      * - "20/12/2025"
      * Ritorna "Y-m-d" o null.
      */
-    private function parseCsvDate($v): ?string
-    {
-        $s = trim((string)($v ?? ''));
-        if ($s === '') return null;
+private function parseCsvDate($v): ?string
+{
+    $s = trim((string)($v ?? ''));
 
-        try {
-            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $s)) {
-                return \Carbon\Carbon::createFromFormat('d/m/Y', $s)->format('Y-m-d');
-            }
-            // fallback: Carbon parse (ISO ecc.)
-            return \Carbon\Carbon::parse($s)->format('Y-m-d');
-        } catch (\Throwable $e) {
-            // se vuoi contare l’errore, fallo nel loop. Qui ritorno null “silenzioso”.
-            return null;
-        }
+    if ($s === '') {
+        return null;
     }
+
+    try {
+        // formato italiano dd/mm/yyyy
+        if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $s)) {
+            return Carbon::createFromFormat('d/m/Y', $s)->format('Y-m-d');
+        }
+
+        // fallback generico (ISO, datetime ecc.)
+        return Carbon::parse($s)->format('Y-m-d');
+
+    } catch (\Throwable $e) {
+        return null;
+    }
+}
+
 
     private function parseDateIt(?string $value): ?string
-    {
-        $v = trim((string) $value);
-        if ($v === '') return null;
+{
+    $v = trim((string)$value);
 
-        // accetta: dd/mm/yyyy oppure dd/mm/yyyy HH:ii
+    if ($v === '') {
+        return null;
+    }
+
+    try {
+
+        // dd/mm/yyyy oppure dd/mm/yyyy HH:mm
         if (preg_match('/^\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?$/', $v)) {
-            $fmt = str_contains($v, ' ') ? 'd/m/Y H:i' : 'd/m/Y';
-            return \Carbon\Carbon::createFromFormat($fmt, $v, 'Europe/Rome')
+
+            $format = str_contains($v, ' ')
+                ? 'd/m/Y H:i'
+                : 'd/m/Y';
+
+            return Carbon::createFromFormat($format, $v, 'Europe/Rome')
                 ->format('Y-m-d H:i:s');
         }
 
-        // accetta: yyyy-mm-dd oppure yyyy-mm-dd HH:ii(:ss)
+        // yyyy-mm-dd oppure yyyy-mm-dd HH:mm(:ss)
         if (preg_match('/^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}(:\d{2})?)?$/', $v)) {
-            $fmt = str_contains($v, ':')
-                ? (substr_count($v, ':') === 1 ? 'Y-m-d H:i' : 'Y-m-d H:i:s')
+
+            $format = str_contains($v, ':')
+                ? (substr_count($v, ':') === 1
+                    ? 'Y-m-d H:i'
+                    : 'Y-m-d H:i:s')
                 : 'Y-m-d';
 
-            return \Carbon\Carbon::createFromFormat($fmt, $v, 'Europe/Rome')
+            return Carbon::createFromFormat($format, $v, 'Europe/Rome')
                 ->format('Y-m-d H:i:s');
         }
 
-        // fallback ultimo tentativo
-        return \Carbon\Carbon::parse($v, 'Europe/Rome')->format('Y-m-d H:i:s');
+        // fallback universale
+        return Carbon::parse($v, 'Europe/Rome')->format('Y-m-d H:i:s');
+
+    } catch (\Throwable $e) {
+        return null;
     }
+}
+
     // ---------------- helpers ----------------
 
     private function pushDetail(array &$details, int $limit, array $item): void
@@ -510,7 +533,7 @@ class AppointmentController extends Controller
     public function index()
     {
         $appointments = Appointment::with('user')
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::id())
             ->get();
 
         return Inertia::render('Appointments/Calendar', [
@@ -521,7 +544,7 @@ class AppointmentController extends Controller
     // Mostra il calendario completo (admin)
     public function calendar()
     {
-        $appointments = Appointment::where('user_id', auth()->id())
+        $appointments = Appointment::where('user_id', Auth::id())
             ->get()
             ->map(function ($appointment) {
                 return [
@@ -592,7 +615,6 @@ class AppointmentController extends Controller
             'items.*.taglio_lamelle' => ['nullable', 'boolean'],
             'items.*.montaggio_lamelle' => ['nullable', 'boolean'],
             'items.*.Ferramenta' => ['nullable', 'boolean'],
-            'items.*.Fermavetri' => ['nullable', 'boolean'],
             'items.*.Vetratura' => ['nullable', 'boolean'],
             'items.*.OrdineVetri' => ['nullable', 'boolean'],
         ]);
@@ -616,7 +638,7 @@ class AppointmentController extends Controller
             // ✅ separo righe
             $items = $validated['items'] ?? [];
             unset($validated['items']);
-            $validated['user_id'] = auth()->id();
+            $validated['user_id'] = Auth::id();
             // ✅ crea testata
             $appointment = Appointment::create($validated);
 
@@ -805,7 +827,7 @@ class AppointmentController extends Controller
         $appointment = Appointment::findOrFail($id);
 
         // sicurezza: solo proprietario (o metti policy)
-        abort_if($appointment->user_id !== auth()->id(), 403);
+        abort_if($appointment->user_id !== Auth::id(), 403);
 
         DB::transaction(function () use ($appointment) {
             $nordine = (int) $appointment->Nordine;
