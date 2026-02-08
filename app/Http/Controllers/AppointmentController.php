@@ -33,7 +33,7 @@ class AppointmentController extends Controller
 
         try {
             // 1) RUN EXE (solo export CSV)
-            $report['exe'] = $this->EstraiDatiDaAccess($request);
+          //  $report['exe'] = $this->EstraiDatiDaAccess($request);
 
             // 2) IMPORT ORDINI (testate)
             $report['ordini'] = $this->ImportOrdini($request);
@@ -617,6 +617,7 @@ private function parseCsvDate($v): ?string
             'items.*.Ferramenta' => ['nullable', 'boolean'],
             'items.*.Vetratura' => ['nullable', 'boolean'],
             'items.*.OrdineVetri' => ['nullable', 'boolean'],
+            'items.*.operatore_assemblaggio' => ['nullable', 'string', 'max:50'],
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -749,6 +750,8 @@ private function parseCsvDate($v): ?string
             'items.*.Coprifili' => ['nullable', 'boolean'],
             'items.*.Accessori' => ['nullable', 'boolean'],
             'items.*.OrdineVetri' => ['nullable', 'boolean'],
+            'items.*.operatore_assemblaggio' => ['nullable', 'string', 'max:50'],
+
 
         ]);
         $prodotti = collect($validated['items'] ?? [])
@@ -798,6 +801,7 @@ private function parseCsvDate($v): ?string
                 'Coprifili' => (bool)($it['Coprifili'] ?? false),
                 'Accessori' => (bool)($it['Accessori'] ?? false),
                 'OrdineVetri' => (bool)($it['OrdineVetri'] ?? false),
+                'operatore_assemblaggio' => $it['operatore_assemblaggio'] ?? null,
             ];
         })->all();
 

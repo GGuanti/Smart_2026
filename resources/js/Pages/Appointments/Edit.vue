@@ -21,8 +21,8 @@ const focusNext = (event) => {
 
     const focusable = Array.from(
         form.querySelectorAll(
-            'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
-        )
+            'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+        ),
     ).filter((el) => el.offsetParent !== null);
 
     const index = focusable.indexOf(event.target);
@@ -43,6 +43,8 @@ function newItem() {
         pezzi: 0,
         taglio: false,
         assemblaggio: false,
+        operatore_assemblaggio: "",
+
         comandi: false,
         taglio_zoccolo: false,
         taglio_lamelle: false,
@@ -164,6 +166,7 @@ const form = useForm({
                   pezzi: Number(x.Pezzi ?? 0),
                   taglio: !!x.Taglio,
                   assemblaggio: !!x.Assemblaggio,
+                  operatore_assemblaggio: x.operatore_assemblaggio ?? "",
                   comandi: !!x.Comandi,
                   taglio_zoccolo: !!x.TaglioZoccolo,
                   taglio_lamelle: !!x.TaglioLamelle,
@@ -258,17 +261,15 @@ function setAllItemChecks(value = true) {
 watch(
     () => form.status,
     (newVal, oldVal) => {
-
         // 🔥 SOLO cambio manuale
         if (newVal === "Completato" && oldVal !== "Completato") {
-
             // Data Fine Produzione = oggi
             form.DataFine = todayYmd();
 
             // tutti i check = true
             setAllItemChecks(true);
         }
-    }
+    },
 );
 </script>
 
@@ -334,8 +335,8 @@ watch(
                                             isDeleting
                                                 ? 'bg-red-400 cursor-not-allowed'
                                                 : confirmDelete
-                                                ? 'bg-red-700 hover:bg-red-800'
-                                                : 'bg-red-600 hover:bg-red-700',
+                                                  ? 'bg-red-700 hover:bg-red-800'
+                                                  : 'bg-red-600 hover:bg-red-700',
                                         ]"
                                     >
                                         <Trash2 class="w-4 h-4" />
@@ -343,8 +344,8 @@ watch(
                                             isDeleting
                                                 ? "Eliminazione..."
                                                 : confirmDelete
-                                                ? "⚠️ Conferma"
-                                                : "Elimina"
+                                                  ? "⚠️ Conferma"
+                                                  : "Elimina"
                                         }}
                                     </button>
                                 </div>
@@ -594,7 +595,7 @@ watch(
                                         <option value="CA">
                                             Cover Alluminio
                                         </option>
-                                        <option value="IA">
+                                        <option value="FA">
                                             Infissi Alluminio
                                         </option>
                                         <option value="PAF">
@@ -653,16 +654,16 @@ watch(
                                             it._isDeleting
                                                 ? 'bg-red-400 cursor-not-allowed'
                                                 : it._confirmDelete
-                                                ? 'bg-red-700 hover:bg-red-800'
-                                                : 'bg-red-600 hover:bg-red-700',
+                                                  ? 'bg-red-700 hover:bg-red-800'
+                                                  : 'bg-red-600 hover:bg-red-700',
                                         ]"
                                     >
                                         {{
                                             it._isDeleting
                                                 ? "Eliminazione..."
                                                 : it._confirmDelete
-                                                ? "⚠️ Conferma"
-                                                : "Elimina"
+                                                  ? "⚠️ Conferma"
+                                                  : "Elimina"
                                         }}
                                     </button>
                                 </div>
@@ -670,7 +671,7 @@ watch(
 
                             <!-- Opzioni riga -->
                             <div
-                                class="mt-3 grid grid-cols-2 md:grid-cols-6 gap-3 text-sm"
+                                class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm"
                             >
                                 <!-- PA: solo Taglio -->
                                 <template v-if="it.prodotto === 'CP'">
@@ -705,15 +706,33 @@ watch(
                                         />
                                         Taglio
                                     </label>
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-2">
+                                        <label
+                                            class="inline-flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[160px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
                                 </template>
                                 <template v-if="it.prodotto === 'CA'">
                                     <label
@@ -725,15 +744,33 @@ watch(
                                         />
                                         Taglio
                                     </label>
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-2">
+                                        <label
+                                            class="inline-flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[160px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
                                 </template>
                                 <template v-if="it.prodotto === 'PA'">
                                     <label
@@ -765,15 +802,33 @@ watch(
                                         Taglio Lamelle
                                     </label>
 
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-2">
+                                        <label
+                                            class="inline-flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[160px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
 
                                     <label
                                         class="inline-flex items-center gap-2"
@@ -824,15 +879,33 @@ watch(
                                         Taglio Lamelle
                                     </label>
 
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-2">
+                                        <label
+                                            class="inline-flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[160px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
 
                                     <label
                                         class="inline-flex items-center gap-2"
@@ -884,15 +957,33 @@ watch(
                                         Taglio Lamelle
                                     </label>
 
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-2">
+                                        <label
+                                            class="inline-flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[160px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
 
                                     <label
                                         class="inline-flex items-center gap-2"
@@ -944,15 +1035,33 @@ watch(
                                         Taglio Lamelle
                                     </label>
 
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-2">
+                                        <label
+                                            class="inline-flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[160px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
 
                                     <label
                                         class="inline-flex items-center gap-2"
@@ -965,8 +1074,8 @@ watch(
                                     </label>
                                 </template>
 
-                                <!-- IA: Taglio + Assemblaggio + Ferramenta + Vetratura -->
-                                <template v-else-if="it.prodotto === 'IA'">
+                                <!-- FA: Taglio + Assemblaggio + Ferramenta + Vetratura -->
+                                <template v-else-if="it.prodotto === 'FA'">
                                     <label
                                         class="inline-flex items-center gap-2"
                                     >
@@ -977,15 +1086,33 @@ watch(
                                         Taglio
                                     </label>
 
-                                    <label
-                                        class="inline-flex items-center gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            v-model="it.assemblaggio"
-                                        />
-                                        Assemblaggio
-                                    </label>
+                                    <div class="inline-flex items-center gap-1">
+                                        <label
+                                            class="inline-flex items-center gap-1"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="it.assemblaggio"
+                                            />
+                                            Assemblaggio
+                                        </label>
+
+                                        <select
+                                            v-model="it.operatore_assemblaggio"
+                                            class="min-w-[140px] rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="">Operatore…</option>
+                                            <option value="Operatore 1">
+                                                Operatore 1
+                                            </option>
+                                            <option value="Operatore 2">
+                                                Operatore 2
+                                            </option>
+                                            <option value="Operatore 3">
+                                                Operatore 3
+                                            </option>
+                                        </select>
+                                    </div>
 
                                     <label
                                         class="inline-flex items-center gap-2"

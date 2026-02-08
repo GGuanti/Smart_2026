@@ -89,7 +89,7 @@ const visibleCols = ref(
     columnDefs.reduce((acc, c) => {
         acc[c.field] = true;
         return acc;
-    }, {})
+    }, {}),
 );
 function applyColumnVisibility() {
     if (!tab || !tabBuilt) return;
@@ -181,7 +181,7 @@ const ImportaDati = () => {
         {
             preserveScroll: true,
             onFinish: () => (EtImportaDati.value = false),
-        }
+        },
     );
 };
 
@@ -195,7 +195,7 @@ const c = () => {
         {
             preserveScroll: true,
             onFinish: () => (EtEseguiAccess.value = false),
-        }
+        },
     );
 };
 
@@ -212,7 +212,7 @@ const aggiornaDati = () => {
             onSuccess: () => {
                 router.reload({ only: ["appointments"], preserveState: true });
             },
-        }
+        },
     );
 };
 
@@ -570,7 +570,7 @@ watch(
             updateTotals();
         });
     },
-    { immediate: true }
+    { immediate: true },
 );
 
 // -----------------------------
@@ -621,7 +621,7 @@ const elencoOrdinato = computed(() => {
 const totalePezziElenco = computed(() => {
     return (filteredAppointments.value || []).reduce(
         (sum, a) => sum + (Number(a.Pezzi ?? 0) || 0),
-        0
+        0,
     );
 });
 
@@ -665,7 +665,7 @@ function updateTotalsSoon(api) {
     nextTick(() => {
         api?.rerenderDates?.();
         updateTotals();
-         refreshDayBadges(api);
+        refreshDayBadges(api);
     });
 }
 
@@ -693,10 +693,10 @@ const getFilteredEvents = () =>
             appointment.status === "Da Pianificare"
                 ? "#FAFAFA"
                 : appointment.status === "Pianificato"
-                ? "#FFF3B0"
-                : appointment.status === "Completato"
-                ? "#10B981"
-                : "#EF4444",
+                  ? "#FFF3B0"
+                  : appointment.status === "Completato"
+                    ? "#10B981"
+                    : "#EF4444",
         extendedProps: {
             client: appointment.client?.name,
             description: appointment.description,
@@ -723,7 +723,7 @@ const calendarOptions = ref({
     expandRows: true,
     contentHeight: "auto",
 
-    dayMaxEventRows: 13,
+    dayMaxEventRows: 40,
     moreLinkClick: "popover",
 
     eventContent: (arg) => {
@@ -804,7 +804,7 @@ const calendarOptions = ref({
 
         const StatoMagazzino = p.StatoMagazzino
             ? `<div><b>Magazzino:</b> ${badgeStatoMagazzinoHtml(
-                  p.StatoMagazzino
+                  p.StatoMagazzino,
               )}</div>`
             : "";
 
@@ -843,10 +843,16 @@ const calendarOptions = ref({
         if (arg.el?._tippy) arg.el._tippy.destroy();
     },
 
+    //  eventClick: (info) => {
+    //      window.location.href = route("appointments.edit", info.event.id);
+    //  },
     eventClick: (info) => {
-        window.location.href = route("appointments.edit", info.event.id);
+        window.open(
+            route("appointments.edit", info.event.id),
+            "_blank",
+            "noopener,noreferrer",
+        );
     },
-
     eventDrop: (info) => {
         const ev = info.event;
 
@@ -857,7 +863,7 @@ const calendarOptions = ref({
         const api = calendarRef.value?.getApi();
 
         const idx = appointmentsLocal.value.findIndex(
-            (a) => String(a.id) === String(ev.id)
+            (a) => String(a.id) === String(ev.id),
         );
         const oldStart =
             idx !== -1 ? appointmentsLocal.value[idx].DataInizio : null;
@@ -889,8 +895,8 @@ const calendarOptions = ref({
                 giornoSelezionato.value = dateKeyLocal(oldStart);
                 updateTotalsSoon(api);
             },
-          //  onSuccess: () => window.location.reload(),
-           onSuccess: () =>updateTotalsSoon(api),
+            //  onSuccess: () => window.location.reload(),
+            onSuccess: () => updateTotalsSoon(api),
             onFinish: () => updateTotalsSoon(api),
         });
     },
@@ -899,10 +905,14 @@ const calendarOptions = ref({
         giornoSelezionato.value = info.dateStr;
         updateTotalsSoon(calendarRef.value?.getApi());
 
-        router.visit(route("appointments.create"), {
-            data: { DataInizio: info.dateStr, DataConsegna: info.dateStr },
-            method: "get",
-        });
+        window.open(
+            route("appointments.create", {
+                DataInizio: info.dateStr,
+                DataConsegna: info.dateStr,
+            }),
+            "_blank",
+            "noopener,noreferrer",
+        );
     },
 });
 
@@ -934,9 +944,12 @@ let tabBuilt = false;
 let tabBuildPromise = null;
 
 function goEdit(id) {
-    window.location.href = route("appointments.edit", id);
+    window.open(
+        route("appointments.edit", id),
+        "_blank",
+        "noopener,noreferrer",
+    );
 }
-
 function buildRows() {
     return (elencoOrdinato.value || []).map((a) => ({
         id: a.id,
@@ -1024,7 +1037,7 @@ function refreshDayBadges(api) {
 
         // trova la cella del giorno (FullCalendar mette data-date="YYYY-MM-DD")
         const cell = document.querySelector(
-            `.fc-daygrid-day[data-date="${key}"]`
+            `.fc-daygrid-day[data-date="${key}"]`,
         );
         if (!cell) continue;
 
@@ -1113,7 +1126,6 @@ function headerFilterDateRangePicker(cell, onRendered, success, cancel) {
     return wrap;
 }
 
-
 function initTabulator() {
     const cols = [
         {
@@ -1125,32 +1137,32 @@ function initTabulator() {
             formatter: (cell) => {
                 const v = cell.getValue() ?? "";
                 return `<div style="font-weight:600;color:#111827;">${String(
-                    v
+                    v,
                 )}</div>`;
             },
         },
         {
-    title: "Data Produzione",
-    field: "DataInizio",
-    width: 190,   // ⬅️ minimo consigliato
-    sorter: sorterDate,
+            title: "Data Produzione",
+            field: "DataInizio",
+            width: 190, // ⬅️ minimo consigliato
+            sorter: sorterDate,
 
-    headerFilter: headerFilterDateRangePicker,
-    headerFilterLiveFilter: false,
-    headerFilterFunc: headerFilterDateRangeIt,
+            headerFilter: headerFilterDateRangePicker,
+            headerFilterLiveFilter: false,
+            headerFilterFunc: headerFilterDateRangeIt,
 
-    formatter: (cell) => formatDateIt(cell.getValue()),
-},
+            formatter: (cell) => formatDateIt(cell.getValue()),
+        },
         {
             title: "Data Consegna",
             field: "DataConsegna",
             sorter: sorterDate,
             width: 160,
             headerFilter: headerFilterDateRangePicker,
-    headerFilterLiveFilter: false,
-    headerFilterFunc: headerFilterDateRangeIt,
+            headerFilterLiveFilter: false,
+            headerFilterFunc: headerFilterDateRangeIt,
 
-    formatter: (cell) => formatDateIt(cell.getValue()),
+            formatter: (cell) => formatDateIt(cell.getValue()),
         },
         {
             title: "Ordine",
@@ -1169,7 +1181,7 @@ function initTabulator() {
             formatter: (cell) => {
                 const v = cell.getValue() ?? "";
                 return `<div style="font-weight:600;color:#111827;">${String(
-                    v
+                    v,
                 )}</div>`;
             },
         },
@@ -1182,7 +1194,7 @@ function initTabulator() {
             formatter: (cell) => {
                 const v = cell.getValue() ?? "";
                 return `<div style="font-weight:600;color:#111827;">${String(
-                    v
+                    v,
                 )}</div>`;
             },
         },
@@ -1263,7 +1275,7 @@ function initTabulator() {
             "Fix headerFilter non valido:",
             c.title,
             c.field,
-            c.headerFilter
+            c.headerFilter,
         );
         delete c.headerFilter;
         delete c.headerFilterParams;
@@ -1283,7 +1295,7 @@ function initTabulator() {
                 i,
                 c.title,
                 c.field,
-                c
+                c,
             );
         }
         if ("headerFilter" in c && typeof c.headerFilter !== "string") {
@@ -1292,7 +1304,7 @@ function initTabulator() {
                 i,
                 c.title,
                 c.field,
-                c.headerFilter
+                c.headerFilter,
             );
         }
     });
@@ -1357,7 +1369,7 @@ watch(activeTab, (t) => {
 watch(
     () => elencoOrdinato.value,
     () => nextTick(() => refreshTabulatorData()),
-    { deep: true }
+    { deep: true },
 );
 
 // cleanup
@@ -1384,8 +1396,8 @@ onMounted(() => {
                 e.appointment.status === "completed"
                     ? "#10B981"
                     : e.appointment.status === "cancelled"
-                    ? "#EF4444"
-                    : "#3B82F6";
+                      ? "#EF4444"
+                      : "#3B82F6";
 
             if (event) {
                 event.setProp("title", e.appointment.title);
@@ -1533,18 +1545,20 @@ onMounted(() => {
                         </div>
                     </div>
                 </div>
-
-                <Link
+                <a
                     :href="
                         route('appointments.create', {
                             DataConsegna: giornoSelezionato,
                             DataInizio: giornoSelezionato,
                         })
                     "
+                    target="_blank"
+                    rel="noopener noreferrer"
                     class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                 >
                     Aggiungi Evento
-                </Link>
+                </a>
+
                 <button
                     v-if="isAdmin"
                     class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
@@ -1585,7 +1599,7 @@ onMounted(() => {
                     <option value="AR">Archi</option>
                     <option value="CP">Coprifili</option>
                     <option value="CA">Cover Alluminio</option>
-                    <option value="IA">Infissi Alluminio</option>
+                    <option value="FA">Infissi Alluminio</option>
                     <option value="PAF">Persiane Fisse</option>
                     <option value="PA">Persiane</option>
                     <option value="SG">Sghembi</option>
@@ -1854,54 +1868,72 @@ onMounted(() => {
     max-width: 100% !important;
 }
 .tabulator ... .tabulator-header-filter input {
-  width: 100% !important;
-  min-width: 70px;
+    width: 100% !important;
+    min-width: 70px;
 }
 /* ✅ Range date header filter: verticale (Da sopra, A sotto) */
-.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range{
-  display: grid;
-  grid-template-columns: 1fr 26px;   /* col 1 = input, col 2 = X */
-  grid-template-rows: auto auto;     /* 2 righe: Da, A */
-  gap: 4px;
-  width: 100%;
-  align-items: center;
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range {
+    display: grid;
+    grid-template-columns: 1fr 26px; /* col 1 = input, col 2 = X */
+    grid-template-rows: auto auto; /* 2 righe: Da, A */
+    gap: 4px;
+    width: 100%;
+    align-items: center;
 }
 
-.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-input{
-  width: 100% !important;
-  min-width: 0 !important;
-  box-sizing: border-box;
-  height: 26px;
-  padding: 2px 6px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 12px;
+.tabulator
+    .tabulator-header
+    .tabulator-col
+    .tabulator-header-filter
+    .hf-range
+    .hf-range-input {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    height: 26px;
+    padding: 2px 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
 }
 
 /* input Da riga 1 col 1 */
-.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-input:first-child{
-  grid-row: 1;
-  grid-column: 1;
+.tabulator
+    .tabulator-header
+    .tabulator-col
+    .tabulator-header-filter
+    .hf-range
+    .hf-range-input:first-child {
+    grid-row: 1;
+    grid-column: 1;
 }
 
 /* input A riga 2 col 1 */
-.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-input:nth-child(2){
-  grid-row: 2;
-  grid-column: 1;
+.tabulator
+    .tabulator-header
+    .tabulator-col
+    .tabulator-header-filter
+    .hf-range
+    .hf-range-input:nth-child(2) {
+    grid-row: 2;
+    grid-column: 1;
 }
 
 /* bottone X: col 2, occupa 2 righe */
-.tabulator .tabulator-header .tabulator-col .tabulator-header-filter .hf-range .hf-range-btn{
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  width: 26px;
-  height: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  padding: 0;
+.tabulator
+    .tabulator-header
+    .tabulator-col
+    .tabulator-header-filter
+    .hf-range
+    .hf-range-btn {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    width: 26px;
+    height: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    padding: 0;
 }
-
-
 </style>

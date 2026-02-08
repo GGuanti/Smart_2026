@@ -30,6 +30,7 @@ class AppointmentItem extends Model
         'Coprifili',
         'Fermavetri',
         'OrdineVetri',
+        'operatore_assemblaggio',
     ];
 
     protected $casts = [
