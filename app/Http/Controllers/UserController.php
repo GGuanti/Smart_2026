@@ -13,25 +13,71 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
     public function index()
-    {
-        $regioni = DB::table('tab_costo_trasporto')
-            ->select('regione')
-            ->whereNotNull('regione')
-            ->distinct()
-            ->orderBy('regione')
-            ->pluck('regione')
-            ->values(); // array pulito
+{
+    // ------------------ regioni ------------------
+    $regioni = DB::table('tab_costo_trasporto')
+        ->select('regione')
+        ->whereNotNull('regione')
+        ->distinct()
+        ->orderBy('regione')
+        ->pluck('regione')
+        ->values();
 
-        $users = User::query()
-            ->select(['id','name','email','profilo','listino','trasporto','azienda','datiazienda','logo_path'])
-            ->orderBy('name')
+    // ------------------ utenti ------------------
+    $users = User::query()
+        ->select(['id','name','email','profilo','listino','trasporto','azienda','datiazienda','logo_path'])
+        ->orderBy('name')
+        ->get();
+
+    // ------------------ pivot TipoDoc dinamica ------------------
+    $tipiDoc = DB::table('tab_ordine')
+        ->select('TipoDoc')
+        ->whereNotNull('TipoDoc')
+        ->distinct()
+        ->orderBy('TipoDoc')
+        ->pluck('TipoDoc')
+        ->values();
+
+    // Se non esistono ordini/documenti, evita query inutili
+    $preventiviPivot = collect();
+
+    if ($tipiDoc->count() > 0) {
+
+        // colonne dinamiche: SUM(CASE WHEN TipoDoc='X' THEN 1 ELSE 0 END) AS `X`
+        $selects = [
+            "users.name as name",
+        ];
+
+        foreach ($tipiDoc as $td) {
+            // alias "safe" per MySQL (evita backtick); NON trasformo spazi per ora
+            $alias = str_replace('`', '', (string) $td);
+
+            // escape semplice per stringa SQL
+            $tdEsc = addslashes((string) $td);
+
+            $selects[] = "SUM(CASE WHEN tab_ordine.TipoDoc = '{$tdEsc}' THEN 1 ELSE 0 END) as `{$alias}`";
+        }
+
+        $selects[] = "COUNT(tab_ordine.Nordine) as Totale";
+
+        $preventiviPivot = DB::table('tab_ordine')
+            ->join('users', 'tab_ordine.user_id', '=', 'users.id')
+            ->selectRaw(implode(",\n", $selects))
+            ->groupBy('users.name')
+            ->orderBy('users.name')
             ->get();
-
-        return Inertia::render('Users/Index', [
-            'users' => $users,
-            'regioniTrasporto' => $regioni,
-        ]);
     }
+
+    return Inertia::render('Users/Index', [
+        'users' => $users,
+        'regioniTrasporto' => $regioni,
+
+        // ✅ nuove props per la tabella pivot
+        'tipiDoc' => $tipiDoc,
+        'preventiviPivot' => $preventiviPivot,
+    ]);
+}
+
 
     public function store(Request $request)
 {

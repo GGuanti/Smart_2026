@@ -31,6 +31,10 @@ function removeLogoNow() {
 const props = defineProps({
     users: { type: Array, default: () => [] },
     regioniTrasporto: { type: Array, default: () => [] },
+
+tipiDoc: { type: Array, default: () => [] },
+  preventiviPivot: { type: Array, default: () => [] },
+
 });
 
 /* -------------------- UI state -------------------- */
@@ -234,6 +238,18 @@ function applyQuickSearch() {
 }
 
 onMounted(() => {
+pivotInstance = new Tabulator(pivotRef.value, {
+  data: props.preventiviPivot,
+  layout: "fitColumns",
+  reactiveData: true,
+  movableColumns: true,
+  resizableColumns: true,
+  pagination: true,
+  paginationSize: 10,
+  paginationSizeSelector: [10, 20, 50, 100],
+  placeholder: "Nessun dato preventivi",
+  columns: buildPivotColumns(),
+});
     tableInstance = new Tabulator(tableRef.value, {
         data: props.users,
         layout: "fitColumns",
@@ -338,6 +354,56 @@ watch(
 );
 
 watch(quickSearch, () => applyQuickSearch());
+const pivotRef = ref(null);
+let pivotInstance = null;
+
+function buildPivotColumns() {
+  const cols = [
+    {
+      title: "Utente",
+      field: "name",
+      minWidth: 220,
+      sorter: "string",
+      bottomCalc: () => "TOTALE",
+    },
+  ];
+
+  for (const td of props.tipiDoc ?? []) {
+    cols.push({
+      title: String(td),
+      field: String(td),
+      hozAlign: "center",
+      sorter: "number",
+      width: 120,
+
+      // ✅ totale colonna
+      bottomCalc: "sum",
+      bottomCalcFormatter: "money",
+      bottomCalcFormatterParams: {
+        precision: 0,
+      },
+    });
+  }
+
+  cols.push({
+    title: "Totale",
+    field: "Totale",
+    hozAlign: "center",
+    sorter: "number",
+    width: 120,
+
+    // ✅ totale colonna Totale
+    bottomCalc: "sum",
+    bottomCalcFormatter: "money",
+    bottomCalcFormatterParams: {
+      precision: 0,
+    },
+  });
+
+  return cols;
+}
+
+
 </script>
 
 <template>
@@ -406,7 +472,11 @@ watch(quickSearch, () => applyQuickSearch());
                     </div>
                 </div>
             </div>
-
+<div class="rounded-2xl border bg-white shadow-sm p-4 md:p-5">
+  <div class="text-lg font-semibold text-slate-900">Preventivi / Documenti per utente</div>
+  <div class="text-sm text-slate-500 mb-3">Conteggio per TipoDoc (pivot)</div>
+  <div ref="pivotRef"></div>
+</div>
             <!-- Filtri + Quick search -->
             <div
                 v-if="showFilters"
@@ -542,6 +612,8 @@ watch(quickSearch, () => applyQuickSearch());
   @submit.prevent="submit"
   class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
 >
+
+
   <!-- GRIGLIA MASTER: sinistra (titolo+campi) | destra (azioni+logo) -->
   <div class="grid grid-cols-12 gap-4 items-start">
     <!-- SINISTRA: titolo + campi (partono subito in alto) -->
@@ -739,6 +811,8 @@ watch(quickSearch, () => applyQuickSearch());
     </div>
   </div>
 </form>
+
+
 
 
             <!-- Tabella -->
