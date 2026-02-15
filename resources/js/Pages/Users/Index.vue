@@ -32,9 +32,8 @@ const props = defineProps({
     users: { type: Array, default: () => [] },
     regioniTrasporto: { type: Array, default: () => [] },
 
-tipiDoc: { type: Array, default: () => [] },
-  preventiviPivot: { type: Array, default: () => [] },
-
+    tipiDoc: { type: Array, default: () => [] },
+    preventiviPivot: { type: Array, default: () => [] },
 });
 
 /* -------------------- UI state -------------------- */
@@ -46,20 +45,20 @@ const totalUsers = computed(() => props.users?.length ?? 0);
 const totalAdmin = computed(
     () =>
         (props.users ?? []).filter(
-            (u) => String(u.profilo).toLowerCase() === "admin"
-        ).length
+            (u) => String(u.profilo).toLowerCase() === "admin",
+        ).length,
 );
 const totalIsomax = computed(
     () =>
         (props.users ?? []).filter(
-            (u) => String(u.profilo).toLowerCase() === "isomax"
-        ).length
+            (u) => String(u.profilo).toLowerCase() === "isomax",
+        ).length,
 );
 const totalNurith = computed(
     () =>
         (props.users ?? []).filter(
-            (u) => String(u.profilo).toLowerCase() === "nurith"
-        ).length
+            (u) => String(u.profilo).toLowerCase() === "nurith",
+        ).length,
 );
 
 /* -------------------- Form (Inertia useForm) -------------------- */
@@ -108,15 +107,26 @@ function editRow(row) {
 
     // preview logo esistente
     logoFile.value = null;
-    const p = row.logo_path
+
+    let p = row.logo_path
         ? String(row.logo_path).trim().replaceAll("\\", "/")
         : "";
 
-    logoPreview.value = !p
-        ? null
-        : p.startsWith("/storage/") || /^https?:\/\//i.test(p)
-        ? p
-        : `/storage/${p.replace(/^public\//, "")}`;
+    if (!p) {
+        logoPreview.value = null;
+    } else if (/^https?:\/\//i.test(p)) {
+        // URL assoluto
+        logoPreview.value = p;
+    } else if (p.startsWith("/")) {
+        // già assoluto
+        logoPreview.value = p;
+    } else if (p.startsWith("storage/") || p.startsWith("public/")) {
+        // file dentro storage/app/public (se mai lo usassi)
+        logoPreview.value = "/" + p.replace(/^public\//, "storage/");
+    } else {
+        // ✅ file dentro public/ (il tuo caso: Foto/Utente/..)
+        logoPreview.value = "/" + p;
+    }
 
     removeLogo.value = false;
 }
@@ -238,18 +248,18 @@ function applyQuickSearch() {
 }
 
 onMounted(() => {
-pivotInstance = new Tabulator(pivotRef.value, {
-  data: props.preventiviPivot,
-  layout: "fitColumns",
-  reactiveData: true,
-  movableColumns: true,
-  resizableColumns: true,
-  pagination: true,
-  paginationSize: 10,
-  paginationSizeSelector: [10, 20, 50, 100],
-  placeholder: "Nessun dato preventivi",
-  columns: buildPivotColumns(),
-});
+    pivotInstance = new Tabulator(pivotRef.value, {
+        data: props.preventiviPivot,
+        layout: "fitColumns",
+        reactiveData: true,
+        movableColumns: true,
+        resizableColumns: true,
+        pagination: true,
+        paginationSize: 10,
+        paginationSizeSelector: [10, 20, 50, 100],
+        placeholder: "Nessun dato preventivi",
+        columns: buildPivotColumns(),
+    });
     tableInstance = new Tabulator(tableRef.value, {
         data: props.users,
         layout: "fitColumns",
@@ -350,7 +360,7 @@ watch(
         tableInstance.replaceData(newData ?? []);
         applyDynamicFilters();
         applyQuickSearch();
-    }
+    },
 );
 
 watch(quickSearch, () => applyQuickSearch());
@@ -358,52 +368,50 @@ const pivotRef = ref(null);
 let pivotInstance = null;
 
 function buildPivotColumns() {
-  const cols = [
-    {
-      title: "Utente",
-      field: "name",
-      minWidth: 220,
-      sorter: "string",
-      bottomCalc: () => "TOTALE",
-    },
-  ];
+    const cols = [
+        {
+            title: "Utente",
+            field: "name",
+            minWidth: 220,
+            sorter: "string",
+            bottomCalc: () => "TOTALE",
+        },
+    ];
 
-  for (const td of props.tipiDoc ?? []) {
+    for (const td of props.tipiDoc ?? []) {
+        cols.push({
+            title: String(td),
+            field: String(td),
+            hozAlign: "center",
+            sorter: "number",
+            width: 120,
+
+            // ✅ totale colonna
+            bottomCalc: "sum",
+            bottomCalcFormatter: "money",
+            bottomCalcFormatterParams: {
+                precision: 0,
+            },
+        });
+    }
+
     cols.push({
-      title: String(td),
-      field: String(td),
-      hozAlign: "center",
-      sorter: "number",
-      width: 120,
+        title: "Totale",
+        field: "Totale",
+        hozAlign: "center",
+        sorter: "number",
+        width: 120,
 
-      // ✅ totale colonna
-      bottomCalc: "sum",
-      bottomCalcFormatter: "money",
-      bottomCalcFormatterParams: {
-        precision: 0,
-      },
+        // ✅ totale colonna Totale
+        bottomCalc: "sum",
+        bottomCalcFormatter: "money",
+        bottomCalcFormatterParams: {
+            precision: 0,
+        },
     });
-  }
 
-  cols.push({
-    title: "Totale",
-    field: "Totale",
-    hozAlign: "center",
-    sorter: "number",
-    width: 120,
-
-    // ✅ totale colonna Totale
-    bottomCalc: "sum",
-    bottomCalcFormatter: "money",
-    bottomCalcFormatterParams: {
-      precision: 0,
-    },
-  });
-
-  return cols;
+    return cols;
 }
-
-
 </script>
 
 <template>
@@ -472,11 +480,15 @@ function buildPivotColumns() {
                     </div>
                 </div>
             </div>
-<div class="rounded-2xl border bg-white shadow-sm p-4 md:p-5">
-  <div class="text-lg font-semibold text-slate-900">Preventivi / Documenti per utente</div>
-  <div class="text-sm text-slate-500 mb-3">Conteggio per TipoDoc (pivot)</div>
-  <div ref="pivotRef"></div>
-</div>
+            <div class="rounded-2xl border bg-white shadow-sm p-4 md:p-5">
+                <div class="text-lg font-semibold text-slate-900">
+                    Preventivi / Documenti per utente
+                </div>
+                <div class="text-sm text-slate-500 mb-3">
+                    Conteggio per TipoDoc (pivot)
+                </div>
+                <div ref="pivotRef"></div>
+            </div>
             <!-- Filtri + Quick search -->
             <div
                 v-if="showFilters"
@@ -609,211 +621,263 @@ function buildPivotColumns() {
 
             <!-- Form -->
             <form
-  @submit.prevent="submit"
-  class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
->
+                @submit.prevent="submit"
+                class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
+            >
+                <!-- GRIGLIA MASTER: sinistra (titolo+campi) | destra (azioni+logo) -->
+                <div class="grid grid-cols-12 gap-4 items-start">
+                    <!-- SINISTRA: titolo + campi (partono subito in alto) -->
+                    <div class="col-span-12 lg:col-span-9">
+                        <!-- Header sinistro (compatto) -->
+                        <div class="mb-4">
+                            <div class="text-lg font-semibold text-slate-900">
+                                {{
+                                    form.id ? "Modifica utente" : "Nuovo utente"
+                                }}
+                            </div>
+                            <div class="text-sm text-slate-500">
+                                {{
+                                    form.id
+                                        ? `ID #${form.id}`
+                                        : "Compila i campi e salva"
+                                }}
+                            </div>
+                        </div>
 
+                        <!-- Campi -->
+                        <div class="grid grid-cols-12 gap-4">
+                            <!-- Riga 1 -->
+                            <div class="col-span-12 md:col-span-4">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Nome</label
+                                >
+                                <input
+                                    v-model="form.name"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                />
+                                <div
+                                    v-if="form.errors.name"
+                                    class="mt-1 text-xs text-red-600"
+                                >
+                                    {{ form.errors.name }}
+                                </div>
+                            </div>
 
-  <!-- GRIGLIA MASTER: sinistra (titolo+campi) | destra (azioni+logo) -->
-  <div class="grid grid-cols-12 gap-4 items-start">
-    <!-- SINISTRA: titolo + campi (partono subito in alto) -->
-    <div class="col-span-12 lg:col-span-9">
-      <!-- Header sinistro (compatto) -->
-      <div class="mb-4">
-        <div class="text-lg font-semibold text-slate-900">
-          {{ form.id ? "Modifica utente" : "Nuovo utente" }}
-        </div>
-        <div class="text-sm text-slate-500">
-          {{ form.id ? `ID #${form.id}` : "Compila i campi e salva" }}
-        </div>
-      </div>
+                            <div class="col-span-12 md:col-span-4">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Email</label
+                                >
+                                <input
+                                    type="email"
+                                    v-model="form.email"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                />
+                                <div
+                                    v-if="form.errors.email"
+                                    class="mt-1 text-xs text-red-600"
+                                >
+                                    {{ form.errors.email }}
+                                </div>
+                            </div>
 
-      <!-- Campi -->
-      <div class="grid grid-cols-12 gap-4">
-        <!-- Riga 1 -->
-        <div class="col-span-12 md:col-span-4">
-          <label class="text-sm font-semibold text-slate-800">Nome</label>
-          <input
-            v-model="form.name"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-          />
-          <div v-if="form.errors.name" class="mt-1 text-xs text-red-600">
-            {{ form.errors.name }}
-          </div>
-        </div>
+                            <div class="col-span-12 md:col-span-4">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Password</label
+                                >
+                                <input
+                                    type="password"
+                                    v-model="form.password"
+                                    autocomplete="new-password"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                />
+                                <div class="mt-1 text-xs text-slate-500">
+                                    {{
+                                        form.id
+                                            ? "Lascia vuoto per non cambiarla"
+                                            : "Obbligatoria in creazione"
+                                    }}
+                                </div>
+                                <div
+                                    v-if="form.errors.password"
+                                    class="mt-1 text-xs text-red-600"
+                                >
+                                    {{ form.errors.password }}
+                                </div>
+                            </div>
 
-        <div class="col-span-12 md:col-span-4">
-          <label class="text-sm font-semibold text-slate-800">Email</label>
-          <input
-            type="email"
-            v-model="form.email"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-          />
-          <div v-if="form.errors.email" class="mt-1 text-xs text-red-600">
-            {{ form.errors.email }}
-          </div>
-        </div>
+                            <!-- Riga 2 -->
+                            <div class="col-span-12 md:col-span-4">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Azienda</label
+                                >
+                                <input
+                                    v-model="form.azienda"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                />
+                            </div>
 
-        <div class="col-span-12 md:col-span-4">
-          <label class="text-sm font-semibold text-slate-800">Password</label>
-          <input
-            type="password"
-            v-model="form.password"
-            autocomplete="new-password"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-          />
-          <div class="mt-1 text-xs text-slate-500">
-            {{
-              form.id
-                ? "Lascia vuoto per non cambiarla"
-                : "Obbligatoria in creazione"
-            }}
-          </div>
-          <div v-if="form.errors.password" class="mt-1 text-xs text-red-600">
-            {{ form.errors.password }}
-          </div>
-        </div>
+                            <div class="col-span-12 md:col-span-2">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Listino</label
+                                >
+                                <input
+                                    v-model="form.listino"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm text-center"
+                                    inputmode="numeric"
+                                />
+                            </div>
 
-        <!-- Riga 2 -->
-        <div class="col-span-12 md:col-span-4">
-          <label class="text-sm font-semibold text-slate-800">Azienda</label>
-          <input
-            v-model="form.azienda"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-          />
-        </div>
+                            <div class="col-span-12 md:col-span-4">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Regione trasporto</label
+                                >
+                                <select
+                                    v-model="form.trasporto"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                >
+                                    <option value="">— Seleziona —</option>
+                                    <option
+                                        v-for="r in regioniTrasporto"
+                                        :key="r"
+                                        :value="r"
+                                    >
+                                        {{ r }}
+                                    </option>
+                                </select>
+                            </div>
 
-        <div class="col-span-12 md:col-span-2">
-          <label class="text-sm font-semibold text-slate-800">Listino</label>
-          <input
-            v-model="form.listino"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm text-center"
-            inputmode="numeric"
-          />
-        </div>
+                            <div class="col-span-12 md:col-span-2">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Profilo</label
+                                >
+                                <select
+                                    v-model="form.profilo"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                >
+                                    <option value="admin">Admin</option>
+                                    <option value="Isomax">Isomax</option>
+                                    <option value="Nurith">Nurith</option>
+                                    <option value="user">User</option>
+                                </select>
+                                <div
+                                    v-if="form.errors.profilo"
+                                    class="mt-1 text-xs text-red-600"
+                                >
+                                    {{ form.errors.profilo }}
+                                </div>
+                            </div>
 
-        <div class="col-span-12 md:col-span-4">
-          <label class="text-sm font-semibold text-slate-800">Regione trasporto</label>
-          <select
-            v-model="form.trasporto"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-          >
-            <option value="">— Seleziona —</option>
-            <option v-for="r in regioniTrasporto" :key="r" :value="r">
-              {{ r }}
-            </option>
-          </select>
-        </div>
+                            <!-- Dati azienda -->
+                            <div class="col-span-12">
+                                <label
+                                    class="text-sm font-semibold text-slate-800"
+                                    >Dati azienda</label
+                                >
+                                <textarea
+                                    v-model="form.datiazienda"
+                                    rows="4"
+                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
+                                    placeholder="Note, intestazione, riferimenti..."
+                                ></textarea>
+                            </div>
 
-        <div class="col-span-12 md:col-span-2">
-          <label class="text-sm font-semibold text-slate-800">Profilo</label>
-          <select
-            v-model="form.profilo"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-          >
-            <option value="admin">Admin</option>
-            <option value="Isomax">Isomax</option>
-            <option value="Nurith">Nurith</option>
-            <option value="user">User</option>
-          </select>
-          <div v-if="form.errors.profilo" class="mt-1 text-xs text-red-600">
-            {{ form.errors.profilo }}
-          </div>
-        </div>
+                            <div class="col-span-12">
+                                <div class="text-xs text-slate-500">
+                                    Tip: puoi trascinare le colonne,
+                                    ridimensionarle e la vista si salva.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-        <!-- Dati azienda -->
-        <div class="col-span-12">
-          <label class="text-sm font-semibold text-slate-800">Dati azienda</label>
-          <textarea
-            v-model="form.datiazienda"
-            rows="4"
-            class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-            placeholder="Note, intestazione, riferimenti..."
-          ></textarea>
-        </div>
+                    <!-- DESTRA: bottoni + logo (in alto a destra) -->
+                    <div
+                        class="col-span-12 lg:col-span-3 flex flex-col items-end gap-3"
+                    >
+                        <!-- bottoni -->
+                        <div class="flex items-center gap-2">
+                            <button
+                                v-if="form.id"
+                                type="button"
+                                class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+                                @click="resetForm"
+                            >
+                                Annulla
+                            </button>
 
-        <div class="col-span-12">
-          <div class="text-xs text-slate-500">
-            Tip: puoi trascinare le colonne, ridimensionarle e la vista si salva.
-          </div>
-        </div>
-      </div>
-    </div>
+                            <button
+                                type="submit"
+                                class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold shadow"
+                            >
+                                {{ form.id ? "Salva" : "Aggiungi" }}
+                            </button>
+                        </div>
 
-    <!-- DESTRA: bottoni + logo (in alto a destra) -->
-    <div class="col-span-12 lg:col-span-3 flex flex-col items-end gap-3">
-      <!-- bottoni -->
-      <div class="flex items-center gap-2">
-        <button
-          v-if="form.id"
-          type="button"
-          class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-          @click="resetForm"
-        >
-          Annulla
-        </button>
+                        <!-- logo -->
+                        <div class="w-full">
+                            <label class="text-sm font-semibold text-slate-800"
+                                >Logo utente</label
+                            >
 
-        <button
-          type="submit"
-          class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold shadow"
-        >
-          {{ form.id ? "Salva" : "Aggiungi" }}
-        </button>
-      </div>
+                            <div
+                                class="mt-1 rounded-2xl border bg-white shadow-sm p-3 w-full"
+                            >
+                                <div
+                                    class="logoBox rounded-2xl border bg-slate-50 overflow-hidden flex items-center justify-center"
+                                >
+                                    <img
+                                        v-if="logoPreview"
+                                        :src="logoPreview"
+                                        class="h-full w-full object-contain"
+                                        alt="logo"
+                                        @error="logoPreview = null"
+                                    />
+                                    <div
+                                        v-else
+                                        class="text-xs text-slate-400 px-3 text-center"
+                                    >
+                                        Nessun logo
+                                    </div>
+                                </div>
 
-      <!-- logo -->
-      <div class="w-full">
-        <label class="text-sm font-semibold text-slate-800">Logo utente</label>
+                                <div class="mt-3 space-y-2">
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        @change="onPickLogo"
+                                        class="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-white hover:file:bg-slate-800"
+                                    />
 
-        <div class="mt-1 rounded-2xl border bg-white shadow-sm p-3 w-full">
-          <div
-            class="logoBox rounded-2xl border bg-slate-50 overflow-hidden flex items-center justify-center"
-          >
-            <img
-              v-if="logoPreview"
-              :src="logoPreview"
-              class="h-full w-full object-contain"
-              alt="logo"
-              @error="logoPreview = null"
-            />
-            <div v-else class="text-xs text-slate-400 px-3 text-center">
-              Nessun logo
-            </div>
-          </div>
+                                    <div
+                                        class="flex items-center justify-between gap-2"
+                                    >
+                                        <div class="text-xs text-slate-500">
+                                            PNG/JPG/WEBP • max 2MB
+                                        </div>
 
-          <div class="mt-3 space-y-2">
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              @change="onPickLogo"
-              class="block w-full text-sm
-                     file:mr-3 file:rounded-lg file:border-0
-                     file:bg-slate-900 file:px-3 file:py-1.5
-                     file:text-white hover:file:bg-slate-800"
-            />
-
-            <div class="flex items-center justify-between gap-2">
-              <div class="text-xs text-slate-500">PNG/JPG/WEBP • max 2MB</div>
-
-              <button
-                v-if="logoPreview"
-                type="button"
-                class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                @click="removeLogoNow"
-              >
-                Rimuovi
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- /logo -->
-    </div>
-  </div>
-</form>
-
-
-
+                                        <button
+                                            v-if="logoPreview"
+                                            type="button"
+                                            class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+                                            @click="removeLogoNow"
+                                        >
+                                            Rimuovi
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- /logo -->
+                    </div>
+                </div>
+            </form>
 
             <!-- Tabella -->
             <div class="rounded-2xl border bg-white shadow-sm">
