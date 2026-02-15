@@ -68,7 +68,7 @@ class OrdineController extends Controller
         });
     }
 
-    public function index(Request $request)
+    public function index1(Request $request)
     {
         $q = $request->string('q')->toString();
         $stato = $request->string('stato')->toString(); // ✅ nuovo
@@ -99,6 +99,49 @@ class OrdineController extends Controller
             ],
         ]);
     }
+   public function index(Request $request)
+{
+    $q = $request->string('q')->toString();
+    $stato = $request->string('stato')->toString();
+    $userFilter = $request->integer('user_id');
+
+    $user = auth()->user();
+    $isAdmin = strtolower((string)$user->profilo) === 'admin';
+
+    $ordini = TabOrdine::query()
+        ->with(['user:id,name'])
+        ->when(!$isAdmin, fn($q) => $q->where('user_id', $user->id))
+        ->when($isAdmin && $userFilter, fn($q) => $q->where('user_id', $userFilter))
+        ->when($q, function ($query) use ($q) {
+            $query->where(function ($qq) use ($q) {
+                $qq->where('Nordine', 'like', "%{$q}%")
+                    ->orWhere('CognomeNome', 'like', "%{$q}%")
+                    ->orWhere('Telefono', 'like', "%{$q}%")
+                    ->orWhere('Cellulare', 'like', "%{$q}%")
+                    ->orWhere('IdCitta', 'like', "%{$q}%");
+            });
+        })
+        ->when($stato, fn ($query) => $query->where('TipoDoc', $stato))
+        ->orderByDesc('Nordine')
+        ->paginate(15)
+        ->withQueryString();
+
+    return inertia('Ordini/Index', [
+        'ordini' => $ordini,
+        'filters' => [
+            'q' => $q,
+            'stato' => $stato,
+            'user_id' => $userFilter,
+        ],
+        'isAdmin' => $isAdmin,
+
+        // 👇 lista utenti SOLO se admin
+        'usersList' => $isAdmin
+            ? \App\Models\User::select('id','name')->orderBy('name')->get()
+            : [],
+    ]);
+}
+
     public function create()
     {
         $nextNordine = (int) (Ordine::max('Nordine') ?? 0) + 1;

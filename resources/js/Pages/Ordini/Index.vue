@@ -10,21 +10,29 @@ const isCopyingId = ref(null);
 const props = defineProps({
     ordini: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
+    isAdmin: { type: Boolean, default: false },
+    usersList: { type: Array, default: () => [] },
 });
 const stato = ref(props.filters?.stato ?? "");
 const statiOrdine = ["Preventivo", "Ordine", "Ordine inviato", "Consegnato"];
 
 const q = ref(props.filters?.q ?? "");
+const user_id = ref("");
 
 function search() {
     router.get(
         route("ordini.index"),
-        { q: q.value, stato: stato.value },
-        { preserveState: true, replace: true, preserveScroll: true }
+
+        { q: q.value, stato: stato.value, user_id: user_id.value || null },
+
+        { preserveState: true, replace: true, preserveScroll: true },
     );
 }
+
 function clearSearch() {
     q.value = "";
+    stato.value = "";
+    user_id.value = ""; // ✅ torna a “Tutti gli utenti”
     search();
 }
 
@@ -77,7 +85,7 @@ function copiaOrdine(id) {
             onSuccess: () => toast.success("✅ Ordine copiato"),
             onError: () => toast.error("❌ Errore copia"),
             onFinish: () => (isCopyingId.value = null),
-        }
+        },
     );
 }
 function fmtDateIT(value) {
@@ -163,6 +171,23 @@ function docPillClass(tipo) {
                                 {{ s }}
                             </option>
                         </select>
+                        <!-- ✅ FILTRO UTENTE SOLO ADMIN -->
+                        <select
+                            v-if="props.isAdmin"
+                            v-model="user_id"
+                            class="input w-[220px]"
+                            @change="search"
+                        >
+                            <option value="">Tutti gli utenti</option>
+
+                            <option
+                                v-for="u in props.usersList"
+                                :key="u.id"
+                                :value="String(u.id)"
+                            >
+                                {{ u.name }}
+                            </option>
+                        </select>
 
                         <button class="btn btn-ghost" @click="clearSearch">
                             Azzera
@@ -206,7 +231,9 @@ function docPillClass(tipo) {
                                     <th class="px-4 py-3 text-center">
                                         Utente
                                     </th>
-                                    <th class="px-4 py-3 text-center">Azioni</th>
+                                    <th class="px-4 py-3 text-center">
+                                        Azioni
+                                    </th>
                                 </tr>
                             </thead>
 
