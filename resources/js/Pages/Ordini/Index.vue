@@ -203,6 +203,9 @@ function docPillClass(tipo) {
                                     <th class="px-4 py-3 text-center">
                                         Data Consegna
                                     </th>
+                                    <th class="px-4 py-3 text-center">
+                                        Utente
+                                    </th>
                                     <th class="px-4 py-3 text-center">Azioni</th>
                                 </tr>
                             </thead>
@@ -245,6 +248,9 @@ function docPillClass(tipo) {
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         {{ fmtDateIT(o.DataCons) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        {{ o.Utente }}
                                     </td>
 
                                     <td class="px-4 py-3 text-right">

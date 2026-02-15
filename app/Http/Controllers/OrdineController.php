@@ -190,6 +190,8 @@ class OrdineController extends Controller
 
         // ✅ QUESTA È LA RIGA CHE TI MANCAVA (MA AL POSTO GIUSTO)
         $data['user_id'] = auth()->id();
+        $data['Utente'] = auth()->user()->name;
+
         if (empty($data['IdIva'])) {
             $iva22 = DB::table('tab_iva')
                 ->where('valore', 22)
@@ -232,6 +234,7 @@ class OrdineController extends Controller
             'IdIva' => 'nullable|integer|exists:tab_iva,id',
             'IdTrasporto' => 'nullable|integer',
             'CstTrasporto' => 'nullable|integer',
+            'Utente' => ['nullable', 'string', 'max:50'],
 
         ]);
 
