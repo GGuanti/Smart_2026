@@ -108,6 +108,10 @@ class OrdineController extends Controller
     $user = auth()->user();
     $isAdmin = strtolower((string)$user->profilo) === 'admin';
 
+
+
+
+
     $ordini = TabOrdine::query()
         ->with(['user:id,name'])
         ->when(!$isAdmin, fn($q) => $q->where('user_id', $user->id))

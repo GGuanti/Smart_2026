@@ -2330,9 +2330,9 @@ function isDoppiaTel(riga) {
 
 function MaggTelaio(riga) {
     const dimSp = Number(riga.DimSp ?? 0);
-    if (!Number.isFinite(dimSp) || dimSp <= 0) return 0;
 
-    // VBA: If DimSp <> 110 And DimSp <= 145 ...
+
+    if (!Number.isFinite(dimSp) || dimSp <= 0) return 0;
     if (dimSp === 110) return 0;
     if (dimSp > 145) return 0;
 
@@ -2341,6 +2341,9 @@ function MaggTelaio(riga) {
     const mod = modelloCode(riga); // PVC/SVM/SVT/...
 
     const isSvmOrSvt = mod === "SVM" || mod === "SVT";
+
+// if(mod === "MKM tirare") || (mod === "MKM spingere"  MKT tirare MKT spingere KLM a tirare KLM Spingere KLT a tirare KLT Spingere
+
 
     if (doppia) {
         // VBA: FinoA = 160 (se ti serve lo gestiamo dopo)
