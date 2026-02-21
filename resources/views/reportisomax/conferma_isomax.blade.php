@@ -713,7 +713,7 @@
                             {{ $r->TipoSoluzione ?? 'Soluzione' }}
                         </td>
                         <td class="right">
-                            L={{ $r->DimL }} • A={{ $r->DimA }} • Sp. Muro={{ $r->DimSp }} • Pz.={{ $r->Qta }} • Tot. Riga: €. {{ $r->Qta * $r->PrezzoCad }}
+                            L={{ $r->DimL }} • A={{ $r->DimA }} • Sp. Muro={{ $r->DimSp }} • Pz.={{ $r->Qta }} • Tot. Riga: €. {{ (float)$r->Qta * (float)$r->PrezzoCad + (float)$r->PrezzoMan }}
                         </td>
                     </tr>
                 </table>
