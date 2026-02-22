@@ -894,11 +894,9 @@ function cernCollezione(c) {
 }
 
 const SET_TELP = new Set([
-    "TELSI",
+    "TelSI",
     "TELP",
-    "TELBT29",
-    "TELBT49",
-    "TELBT60",
+    "TelBT",
     "RT",
     "LIBA",
     "LIBS",
@@ -1481,7 +1479,7 @@ function MaggManuale(riga) {
     return Number.isFinite(mm) ? mm : 0;
 }
 
-function MaggCstTelP(riga) {
+function MaggCstTelP1(riga) {
     const tt = tipiTelaioById(riga.IdTipTelaio);
     if (!tt) return 0;
     const col =
@@ -1494,6 +1492,46 @@ function MaggCstTelP(riga) {
         Object.entries(tt).map(([k, v]) => [String(k).toLowerCase(), v])
     );
     return Number(map[col] ?? 0) || 0;
+}
+function MaggCstTelP(riga) {
+    const tt = tipiTelaioById(riga.IdTipTelaio);
+    if (!tt) return 0;
+
+    const colonnaListino = colonnaListinoPerRiga(riga); // "TELP" | "TELBT" | "TELSI" | ...
+    const dimL = Number(riga.DimL ?? 0) || 0;
+
+    // mappa case-insensitive di tutte le proprietà di tt
+    const map = Object.fromEntries(
+        Object.entries(tt).map(([k, v]) => [String(k).toLowerCase(), v])
+    );
+
+    // helper per leggere più varianti di nome campo (snake/camel/pascal)
+    const getNum = (...keys) => {
+        for (const k of keys) {
+            const v = map[String(k).toLowerCase()];
+            const n = Number(v);
+            if (Number.isFinite(n)) return n;
+        }
+        return 0;
+    };
+
+    if (colonnaListino === "TELP") {
+        // VBA: CstTelP = CstTelP + IIf(DimL > 1080, 30, 0)
+        const base = getNum("csttelp", "cst_tel_p", "cst_telP", "csttel_p");
+        return base + (dimL > 1080 ? 30 : 0);
+    }
+
+    if (colonnaListino === "TELBT") {
+        const base = getNum("csttelbt", "cst_tel_bt", "cst_telBT", "csttel_bt");
+        return base;
+    }
+
+    if (colonnaListino === "TELSI") {
+        const base = getNum("csttelsi", "cst_tel_si", "cst_telSI", "csttel_si");
+        return base;
+    }
+
+    return 0;
 }
 function ColAntaById(IdColAnta) {
     return (
