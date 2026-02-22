@@ -40,6 +40,8 @@ class PreventivoController extends Controller
         $vetri = DB::table('tab_vetri')->get();
         $assModVetri = DB::table('ass_mod_vetri')->get();
         $imbotte = DB::table('tab_imbotte')->get();
+        $accessori = DB::table('accessori')->get();
+
 
 
         return Inertia::render('Preventivi/Form', [
@@ -48,7 +50,7 @@ class PreventivoController extends Controller
             // ✅ MODELLI DA LISTINI
             'modelli' => $modelli,
             'soluzioni' => $soluzioni,
-
+            'accessori' => $accessori,
             'colAnta' => $colAnta,
             'colTelaio' => $colTelaio,
             'maniglie' => $maniglie,
@@ -59,6 +61,7 @@ class PreventivoController extends Controller
             'vetri' => $vetri,
             'assModVetri' => $assModVetri,
             'imbotte' => $imbotte,
+
 
 
         ]);

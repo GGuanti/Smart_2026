@@ -6,21 +6,88 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useToast } from "vue-toastification";
 import { Save, Trash2, ArrowLeft, Plus } from "lucide-vue-next";
 import axios from "axios";
-
+const searchAccessorio = ref("");
 const page = usePage();
-
+const activeConfTab = ref("config"); // "config" | "accessori"
 const canSeeValPred = computed(() => {
     const u = page.props.auth?.user;
     if (!u?.email) return false;
 
-    const allowed = [
-        "info@isomaxporte.com",
-        "gguanti@gmail.com"
-    ];
+    const allowed = ["info@isomaxporte.com", "gguanti@gmail.com"];
 
     return allowed.includes(u.email.toLowerCase());
 });
+// ✅ lista filtrata
+const accessoriFiltrati = computed(() => {
+    const q = searchAccessorio.value.trim().toLowerCase();
+    const all = props.accessori ?? [];
+    if (!q) return all;
 
+    return all.filter((a) => {
+        const des = String(a.des_accessori ?? "").toLowerCase();
+        const cod = String(a.cod_art ?? "").toLowerCase();
+        return des.includes(q) || cod.includes(q);
+    });
+});
+
+// ✅ mappa id -> accessorio
+const accessoriById = computed(() => {
+    const map = new Map();
+    for (const a of props.accessori ?? []) map.set(Number(a.id), a);
+    return map;
+});
+
+// ✅ normalizza struttura selezionati: [{id, qta}]
+function normalizeSelected(riga) {
+    if (!Array.isArray(riga.AccessoriSel)) riga.AccessoriSel = [];
+    // compatibilità: se avevi riga.Accessori = [id,id,...]
+    if (
+        Array.isArray(riga.Accessori) &&
+        riga.Accessori.length &&
+        !riga.AccessoriSel.length
+    ) {
+        riga.AccessoriSel = riga.Accessori.map((id) => ({
+            id: Number(id),
+            qta: 1,
+        }));
+    }
+}
+
+function addAccessorio(riga, id) {
+    normalizeSelected(riga);
+    id = Number(id);
+    if (!id) return;
+
+    const found = riga.AccessoriSel.find((x) => Number(x.id) === id);
+    if (found) found.qta = Number(found.qta ?? 1) + 1;
+    else riga.AccessoriSel.push({ id, qta: 1 });
+
+    searchAccessorio.value = "";
+}
+
+function removeAccessorio(riga, id) {
+    normalizeSelected(riga);
+    id = Number(id);
+    riga.AccessoriSel = riga.AccessoriSel.filter((x) => Number(x.id) !== id);
+}
+
+function setQta(riga, id, qta) {
+    normalizeSelected(riga);
+    const item = riga.AccessoriSel.find((x) => Number(x.id) === Number(id));
+    if (!item) return;
+    const n = Math.max(1, Number(qta || 1));
+    item.qta = n;
+}
+
+// (opzionale) totale accessori
+function totaleAccessori(riga) {
+    normalizeSelected(riga);
+    return riga.AccessoriSel.reduce((sum, it) => {
+        const a = accessoriById.value.get(Number(it.id));
+        const prezzo = Number(a?.importo ?? 0);
+        return sum + prezzo * Number(it.qta ?? 1);
+    }, 0);
+}
 const savedMsg = ref(false);
 const savedErr = ref(false);
 const savedText = ref("");
@@ -45,6 +112,7 @@ const props = defineProps({
     cerniere: { type: Array, default: () => [] },
     serrature: { type: Array, default: () => [] },
     imbotte: { type: Array, default: () => [] },
+    accessori: { type: Array, default: () => [] },
 });
 
 /* ===================== UI state ===================== */
@@ -177,8 +245,8 @@ const focusNext = (event) => {
 
     const focusable = Array.from(
         formEl.querySelectorAll(
-            'input:not([disabled]):not([type="hidden"]), select:not([disabled]), button:not([disabled])'
-        )
+            'input:not([disabled]):not([type="hidden"]), select:not([disabled]), button:not([disabled])',
+        ),
     ).filter((el) => el.offsetParent !== null);
 
     const index = focusable.indexOf(event.target);
@@ -190,7 +258,7 @@ const modelliOrdinati = computed(() => {
     return [...(props.modelli ?? [])].sort((a, b) =>
         (a.nome_modello ?? "").localeCompare(b.nome_modello ?? "", "it", {
             sensitivity: "base",
-        })
+        }),
     );
 });
 
@@ -204,7 +272,7 @@ function listinoById(idListino) {
 function modelloById(id) {
     return (
         props.modelli.find(
-            (m) => Number(m.id_listino ?? m.id ?? m.ID) === Number(id)
+            (m) => Number(m.id_listino ?? m.id ?? m.ID) === Number(id),
         ) || null
     );
 }
@@ -245,7 +313,7 @@ function modelloNomePerRiga(riga) {
 
 function filtroTipTelById(id_listino) {
     const m = props.modelli.find(
-        (x) => Number(x.id_listino) === Number(id_listino)
+        (x) => Number(x.id_listino) === Number(id_listino),
     );
     return String(m?.filtro_tit_tel ?? "").trim();
 }
@@ -253,14 +321,14 @@ function filtroTipTelById(id_listino) {
 function filtroSoluzionePerRiga(riga) {
     const s =
         props.soluzioni.find(
-            (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+            (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
         ) || null;
     return String(s?.ass_collistino ?? "").trim();
 }
 
 function soluzioneCodePerRiga(riga) {
     const s = props.soluzioni.find(
-        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
     );
     return (s?.ass_collistino ?? "").toString().trim().toUpperCase();
 }
@@ -288,7 +356,7 @@ function filtroAperturaPerRiga(riga) {
         : [];
 
     const a = list.find(
-        (x) => Number(x.IdApertura) === Number(riga?.IdApertura)
+        (x) => Number(x.IdApertura) === Number(riga?.IdApertura),
     );
 
     return String(a?.Des ?? "").trim();
@@ -331,13 +399,13 @@ function fotoUrlForRiga(riga) {
 }
 function labelColorePannello(riga) {
     const col = coloriAntaPerRiga(riga).find(
-        (x) => Number(x.IdFinAnta) === Number(riga.IdColAnta)
+        (x) => Number(x.IdFinAnta) === Number(riga.IdColAnta),
     );
     return col?.Colore ? `Anta ${col.Colore}` : "";
 }
 function labelColoreTelaio(riga) {
     const col = finitureTelaioPerRiga(riga).find(
-        (x) => Number(x.IdFinTelaio) === Number(riga.IdColTelaio)
+        (x) => Number(x.IdFinTelaio) === Number(riga.IdColTelaio),
     );
 
     return col?.Colore ? `Telaio ${col.Colore}` : "";
@@ -351,7 +419,7 @@ function fotoUrlAntaRiga(riga) {
         : [];
 
     const sel = opts.find(
-        (o) => Number(o.IdFinAnta ?? o.id ?? o.ID) === Number(riga.IdColAnta)
+        (o) => Number(o.IdFinAnta ?? o.id ?? o.ID) === Number(riga.IdColAnta),
     );
     if (!sel) return "/Foto/placeholder.jpg";
 
@@ -390,7 +458,7 @@ function fotoUrlTelaioRiga(riga) {
 
     const sel = opts.find(
         (o) =>
-            Number(o.IdFinTelaio ?? o.id ?? o.ID) === Number(riga.IdColTelaio)
+            Number(o.IdFinTelaio ?? o.id ?? o.ID) === Number(riga.IdColTelaio),
     );
     if (!sel) return "/Foto/placeholder.jpg";
 
@@ -428,7 +496,7 @@ function soluzioniPerRiga(riga) {
     const tip = tipologiaSoluzioniPerRiga(riga);
     if (!tip) return [];
     return (Array.isArray(props.soluzioni) ? props.soluzioni : []).filter(
-        (s) => String(s.tipologia ?? "").trim() === tip
+        (s) => String(s.tipologia ?? "").trim() === tip,
     );
 }
 
@@ -447,7 +515,7 @@ function coloriAntaPerRiga(riga) {
             String(a.Colore ?? "").localeCompare(String(b.Colore ?? ""), "it", {
                 sensitivity: "base", // ignora maiuscole/accenti
                 numeric: true, // se hai "RAL 10" vs "RAL 2"
-            })
+            }),
         );
 }
 
@@ -557,7 +625,7 @@ function hasToken(needleList, token) {
 function filtroColoreTelaioPerRiga(riga) {
     const all = Array.isArray(props.colTelaio) ? props.colTelaio : [];
     const rec = all.find(
-        (x) => Number(x.IdFinTelaio) === Number(riga.IdColTelaio)
+        (x) => Number(x.IdFinTelaio) === Number(riga.IdColTelaio),
     );
     return String(rec?.FiltroTipoTel ?? "").trim();
 }
@@ -584,7 +652,6 @@ function tipiTelaioPerRiga(riga) {
     const filtroColore = String(filtroColoreTelaioPerRiga(riga) ?? "").trim();
     const filtroSol = String(filtroSoluzionePerRiga(riga) ?? "").trim();
 
-
     const out = all.filter((tt) => {
         const okSol = hasToken(tt.filtro_soluzione, filtroSol);
         const okMod = hasToken(tt.filtro, filtroTipTel);
@@ -601,7 +668,7 @@ function tipiTelaioPerRiga(riga) {
     });
 
     out.sort(
-        (a, b) => Number(a.id_tipo_telaio ?? 0) - Number(b.id_tipo_telaio ?? 0)
+        (a, b) => Number(a.id_tipo_telaio ?? 0) - Number(b.id_tipo_telaio ?? 0),
     );
     return out;
 }
@@ -617,7 +684,7 @@ function range48_999(dimSp) {
 
 function getFiltriTipoTelaio(idTipTelaio) {
     const t = (props.tipiTelaio ?? []).find(
-        (x) => x.id_tipo_telaio === idTipTelaio
+        (x) => x.id_tipo_telaio === idTipTelaio,
     );
     return {
         filtro1: (t?.filtro_imbotte ?? "").toString(),
@@ -629,7 +696,6 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
     let noImbotte = false;
     let da = null;
     let a = null;
-
 
     const grpA = [
         "TELP",
@@ -748,79 +814,76 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
         }
     }
 
-
     return { noImbotte, da, a };
 }
 function imbottePerRiga(riga) {
-  const all = props.imbotte ?? [];
-  const idTip = Number(riga.IdTipTelaio ?? 0);
+    const all = props.imbotte ?? [];
+    const idTip = Number(riga.IdTipTelaio ?? 0);
 
-  const soluzione = filtroSoluzionePerRiga(riga); // es: "SI", "BT", ecc.
-  const dimSp = Number(riga.DimSp ?? 0);
+    const soluzione = filtroSoluzionePerRiga(riga); // es: "SI", "BT", ecc.
+    const dimSp = Number(riga.DimSp ?? 0);
 
-  if (!idTip || !soluzione) return [];
+    if (!idTip || !soluzione) return [];
 
-  const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
+    const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
 
-  const res = calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp);
+    const res = calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp);
 
-
-
-
-  const isBase = (i) =>
-    Number(i.importo ?? 0) === 0 &&
-    Number(i.spess_muro_da ?? 0) === 0 &&
-    Number(i.spess_muro_a ?? 0) === 0 &&
-    String(i.filtro_sistema ?? "") === "T";
-
-  // (1) Se no imbotte: ritorna solo base
-  if (res.noImbotte) {
-
-    return all.filter((i) => {
-      const sp0 =
+    const isBase = (i) =>
+        Number(i.importo ?? 0) === 0 &&
         Number(i.spess_muro_da ?? 0) === 0 &&
-        Number(i.spess_muro_a ?? 0) === 0;
-      const fs = String(i.filtro_sistema ?? "") === "T";
-      return sp0 && fs;
-    });
-  }
+        Number(i.spess_muro_a ?? 0) === 0 &&
+        String(i.filtro_sistema ?? "") === "T";
 
-  const isTip45 = filtro1  === 4 || filtro1  === 5;
+    // (1) Se no imbotte: ritorna solo base
+    if (res.noImbotte) {
+        return all.filter((i) => {
+            const sp0 =
+                Number(i.spess_muro_da ?? 0) === 0 &&
+                Number(i.spess_muro_a ?? 0) === 0;
+            const fs = String(i.filtro_sistema ?? "") === "T";
+            return sp0 && fs;
+        });
+    }
 
-  return all
-    .filter((i) => {
-      if (isBase(i)) return true;
+    const isTip45 = filtro1 === 4 || filtro1 === 5;
 
-      const da = Number(i.spess_muro_da ?? 0);
-      const a = Number(i.spess_muro_a ?? 0);
+    return all
+        .filter((i) => {
+            if (isBase(i)) return true;
 
-      // (2) RANGE SPESSORE: regola speciale per IdTipTelaio 4/5
-      const inRange = isTip45
-        ? (da > dimSp && a <= dimSp)          // <-- COME HAI SCRITTO TU
-        : (da >= res.da && a <= res.a);       // <-- logica attuale
+            const da = Number(i.spess_muro_da ?? 0);
+            const a = Number(i.spess_muro_a ?? 0);
 
-      // (3) Filtro per tipo telaio (logica tua)
-      const ftt = String(i.filtro_tipo_telaio ?? "");
-      const okFiltroTipoTelaio = soluzione.includes("SI")
-        ? ftt.startsWith("T")
-        : ftt.includes(`;${filtro1};`);
+            // (2) RANGE SPESSORE: regola speciale per IdTipTelaio 4/5
+            const inRange = isTip45
+                ? da > dimSp && a <= dimSp // <-- COME HAI SCRITTO TU
+                : da >= res.da && a <= res.a; // <-- logica attuale
 
-      // (4) Filtro "soluzione" extra SOLO per 4/5 (se hai un campo dedicato)
-      // Se NON esiste filtro_soluzione, non blocca nulla.
-      const fsoll = String(i.filtro_soluzione ?? "");
-      const okSoluzione = !isTip45
-        ? true
-        : (!fsoll ? true : fsoll.includes(soluzione));
+            // (3) Filtro per tipo telaio (logica tua)
+            const ftt = String(i.filtro_tipo_telaio ?? "");
+            const okFiltroTipoTelaio = soluzione.includes("SI")
+                ? ftt.startsWith("T")
+                : ftt.includes(`;${filtro1};`);
 
-      return inRange && okFiltroTipoTelaio && okSoluzione;
-    })
-    .sort((x, y) =>
-      String(x.des_imbotte ?? "").localeCompare(
-        String(y.des_imbotte ?? ""),
-        "it",
-        { sensitivity: "base" }
-      )
-    );
+            // (4) Filtro "soluzione" extra SOLO per 4/5 (se hai un campo dedicato)
+            // Se NON esiste filtro_soluzione, non blocca nulla.
+            const fsoll = String(i.filtro_soluzione ?? "");
+            const okSoluzione = !isTip45
+                ? true
+                : !fsoll
+                  ? true
+                  : fsoll.includes(soluzione);
+
+            return inRange && okFiltroTipoTelaio && okSoluzione;
+        })
+        .sort((x, y) =>
+            String(x.des_imbotte ?? "").localeCompare(
+                String(y.des_imbotte ?? ""),
+                "it",
+                { sensitivity: "base" },
+            ),
+        );
 }
 function imbottePerRiga1(riga) {
     const all = props.imbotte ?? [];
@@ -850,7 +913,6 @@ function imbottePerRiga1(riga) {
         });
     }
 
-
     return all
         .filter((i) => {
             if (isBase(i)) return true;
@@ -872,8 +934,8 @@ function imbottePerRiga1(riga) {
                 "it",
                 {
                     sensitivity: "base",
-                }
-            )
+                },
+            ),
         );
 }
 
@@ -942,8 +1004,8 @@ function cernFiltroSistema(c) {
         pick(
             c,
             ["filtro_sistema", "FiltroSistema", "Filtro", "filtroSistema"],
-            ""
-        )
+            "",
+        ),
     ).trim();
 }
 function cernCollezione(c) {
@@ -953,7 +1015,7 @@ function cernCollezione(c) {
             c?.COLLEZIONE ??
             c?.collez ??
             c?.Collez ??
-            ""
+            "",
     ).trim();
 }
 
@@ -989,7 +1051,7 @@ function cernierePerRiga(riga) {
     if (!all.length) return [];
 
     const modelloNomeSel = String(
-        modelloNome(modelloById(riga.IdModello)) ?? ""
+        modelloNome(modelloById(riga.IdModello)) ?? "",
     ).trim();
     const filtroSoluzione = filtroSoluzionePerRiga(riga);
     const filtroCollezione = filtroCollezionePerRiga(riga);
@@ -1001,7 +1063,7 @@ function cernierePerRiga(riga) {
         return all
             .filter((c) => cernFiltroSistema(c) === "BL")
             .sort((a, b) =>
-                String(cernDes(a)).localeCompare(String(cernDes(b)))
+                String(cernDes(a)).localeCompare(String(cernDes(b))),
             );
     }
 
@@ -1009,7 +1071,7 @@ function cernierePerRiga(riga) {
         return all
             .filter((c) => cernFiltroSistema(c) === "TELP")
             .sort((a, b) =>
-                String(cernDes(a)).localeCompare(String(cernDes(b)))
+                String(cernDes(a)).localeCompare(String(cernDes(b))),
             );
     }
 
@@ -1017,7 +1079,7 @@ function cernierePerRiga(riga) {
         return all
             .filter((c) => cernFiltroSistema(c) === "LIBRB")
             .sort((a, b) =>
-                String(cernDes(a)).localeCompare(String(cernDes(b)))
+                String(cernDes(a)).localeCompare(String(cernDes(b))),
             );
     }
 
@@ -1050,7 +1112,7 @@ function cernierePerRiga(riga) {
 /* ===================== Serrature ===================== */
 function filtroSerraturaPerRiga(riga) {
     const s = props.soluzioni.find(
-        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
     );
     const v =
         s?.filtro_serr ??
@@ -1075,12 +1137,12 @@ function serraturePerRiga(riga) {
         .filter(
             (x) =>
                 Number(x.FiltroSistema ?? x.filtro_sistema) ===
-                Number(filtroSistema)
+                Number(filtroSistema),
         )
         .sort((a, b) =>
             String(a.DesSerratura ?? a.des_serratura ?? "").localeCompare(
-                String(b.DesSerratura ?? b.des_serratura ?? "")
-            )
+                String(b.DesSerratura ?? b.des_serratura ?? ""),
+            ),
         );
 }
 
@@ -1112,7 +1174,7 @@ function vetriPerRiga(riga) {
 
     if (!col) {
         return (props.vetri ?? []).filter(
-            (v) => (v.des_vetro ?? "").trim() === "No Vetro"
+            (v) => (v.des_vetro ?? "").trim() === "No Vetro",
         );
     }
 
@@ -1132,7 +1194,7 @@ function ensureSoluzioneValida(riga) {
         riga,
         "IdSoluzione",
         soluzioniPerRiga(riga),
-        (s) => s.id_tab_soluzioni
+        (s) => s.id_tab_soluzioni,
     );
 }
 function ensureAntaValida(riga) {
@@ -1144,7 +1206,7 @@ function ensureAntaValida(riga) {
         riga,
         "IdColAnta",
         coloriAntaPerRiga(riga),
-        (a) => a.IdFinAnta
+        (a) => a.IdFinAnta,
     );
 }
 function ensureTelaioValido(riga) {
@@ -1156,7 +1218,7 @@ function ensureTelaioValido(riga) {
         riga,
         "IdColTelaio",
         finitureTelaioPerRiga(riga),
-        (t) => t.IdFinTelaio
+        (t) => t.IdFinTelaio,
     );
 }
 function ensureTipoTelaioValido(riga) {
@@ -1164,7 +1226,7 @@ function ensureTipoTelaioValido(riga) {
         riga,
         "IdTipTelaio",
         tipiTelaioPerRiga(riga),
-        (tt) => tt.id_tipo_telaio
+        (tt) => tt.id_tipo_telaio,
     );
 }
 function ensureImbotteValida(riga) {
@@ -1172,7 +1234,7 @@ function ensureImbotteValida(riga) {
         riga,
         "IdImbotte",
         imbottePerRiga(riga),
-        (i) => i.id_imbotte
+        (i) => i.id_imbotte,
     );
 }
 function ensureManigliaValida(riga) {
@@ -1184,7 +1246,7 @@ function ensureManigliaValida(riga) {
         riga,
         "IdManiglia",
         manigliePerRiga(riga),
-        (m) => m.IdManiglia
+        (m) => m.IdManiglia,
     );
 }
 function ensureAperturaValida(riga) {
@@ -1192,7 +1254,7 @@ function ensureAperturaValida(riga) {
         riga,
         "IdApertura",
         aperturePerRiga(riga),
-        (a) => a.IdApertura
+        (a) => a.IdApertura,
     );
 }
 function ensureVetroValido(riga) {
@@ -1200,7 +1262,7 @@ function ensureVetroValido(riga) {
 }
 function ensureFerramentaValida(riga) {
     ensureFirstValid(riga, "IdColFerr", cernierePerRiga(riga), (c) =>
-        cernId(c)
+        cernId(c),
     );
 }
 function serrId(s) {
@@ -1241,7 +1303,7 @@ function cascadeRiga(riga) {
 }
 function nAntePerRiga(riga) {
     const soluzione = props.soluzioni.find(
-        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
     );
     return Number(soluzione?.nante) || 0; // oppure 1 come fallback se ti serve
 }
@@ -1287,7 +1349,7 @@ watch(
             refreshPrezzo(riga);
         });
     },
-    { immediate: true }
+    { immediate: true },
 );
 
 watch(
@@ -1302,7 +1364,7 @@ watch(
 
             refreshPrezzo(riga);
         });
-    }
+    },
 );
 
 // 2) campi che influenzano filtri/prezzo -> cascata + prezzo (NO foto)
@@ -1324,7 +1386,7 @@ watch(
                 r.DimA,
                 r.DimSp,
                 r.CkTaglioObl,
-            ].join("|")
+            ].join("|"),
         ),
     (newV, oldV) => {
         form.righe.forEach((riga, i) => {
@@ -1332,7 +1394,7 @@ watch(
             cascadeRiga(riga);
             refreshPrezzo(riga);
         });
-    }
+    },
 );
 watch(
     () => form.righe.map((r) => r.IdSoluzione),
@@ -1343,7 +1405,7 @@ watch(
             aggiornaDimLCombo(riga, true); // ✅ Aggiorna=True
             refreshPrezzo(riga);
         });
-    }
+    },
 );
 watch(
     () =>
@@ -1365,7 +1427,7 @@ watch(
             cascadeRiga(riga);
             refreshPrezzo(riga);
         });
-    }
+    },
 );
 
 watch(
@@ -1375,7 +1437,7 @@ watch(
             if (newV?.[i] === oldV?.[i]) return;
             bumpImgKeyOnly(riga);
         });
-    }
+    },
 );
 /* ===================== Totali ===================== */
 const totalePreventivo = computed(() =>
@@ -1385,7 +1447,7 @@ const totalePreventivo = computed(() =>
         const m = Number(r.PrezzoMan ?? 0);
 
         return sum + q * (p + m);
-    }, 0)
+    }, 0),
 );
 
 function totaleRiga(r) {
@@ -1458,7 +1520,7 @@ function copyRiga(riga) {
         // ma se lo usi solo "one-shot", puoi toglierlo
         delete copia._copied;
     });
-                showSavedMsg("📋 Riga copiata (in fondo)", 1500);
+    showSavedMsg("📋 Riga copiata (in fondo)", 1500);
 }
 
 function destroyRiga(riga, index) {
@@ -1477,19 +1539,14 @@ function destroyRiga(riga, index) {
         preserveScroll: true,
 
         onSuccess: () => {
-
-                showSavedMsg("🗑️ Riga eliminata", 1500);
-
+            showSavedMsg("🗑️ Riga eliminata", 1500);
 
             const idx = form.righe.findIndex((x) => x.uid === riga.uid);
             if (idx !== -1) form.righe.splice(idx, 1);
         },
 
         onError: () => {
-
-                showSavedMsg("❌ Errore durante l’eliminazione", 1500);
-
-
+            showSavedMsg("❌ Errore durante l’eliminazione", 1500);
         },
 
         onFinish: () => {
@@ -1509,7 +1566,7 @@ function listinoPorta(riga) {
     if (!col) return 0;
 
     const map = Object.fromEntries(
-        Object.entries(m).map(([k, v]) => [String(k).toLowerCase(), v])
+        Object.entries(m).map(([k, v]) => [String(k).toLowerCase(), v]),
     );
     return Number(map[col] ?? 0) || 0;
 }
@@ -1517,7 +1574,7 @@ function listinoPorta(riga) {
 function tipiTelaioById(IdTipTelaio) {
     return (
         props.tipiTelaio.find(
-            (tt) => Number(tt.id_tipo_telaio) === Number(IdTipTelaio)
+            (tt) => Number(tt.id_tipo_telaio) === Number(IdTipTelaio),
         ) || null
     );
 }
@@ -1527,11 +1584,9 @@ function MaggKitScFM(riga) {
     return Number(tt?.magg_kit_scorr ?? 0) || 0;
 }
 function tipiImbotteById(IdTipTelaio) {
-
-
     return (
         props.imbotte.find(
-            (im) => Number(im.id_imbotte) === Number(IdTipTelaio)
+            (im) => Number(im.id_imbotte) === Number(IdTipTelaio),
         ) || null
     );
 }
@@ -1555,7 +1610,7 @@ function MaggCstTelP1(riga) {
             .toLowerCase();
     if (!col) return 0;
     const map = Object.fromEntries(
-        Object.entries(tt).map(([k, v]) => [String(k).toLowerCase(), v])
+        Object.entries(tt).map(([k, v]) => [String(k).toLowerCase(), v]),
     );
     return Number(map[col] ?? 0) || 0;
 }
@@ -1568,7 +1623,7 @@ function MaggCstTelP(riga) {
 
     // mappa case-insensitive di tutte le proprietà di tt
     const map = Object.fromEntries(
-        Object.entries(tt).map(([k, v]) => [String(k).toLowerCase(), v])
+        Object.entries(tt).map(([k, v]) => [String(k).toLowerCase(), v]),
     );
 
     // helper per leggere più varianti di nome campo (snake/camel/pascal)
@@ -1602,7 +1657,7 @@ function MaggCstTelP(riga) {
 function ColAntaById(IdColAnta) {
     return (
         props.colAnta.find(
-            (fa) => Number(fa.IdFinAnta) === Number(IdColAnta)
+            (fa) => Number(fa.IdFinAnta) === Number(IdColAnta),
         ) || null
     );
 }
@@ -1618,7 +1673,7 @@ function MaggColAnta(riga) {
 function MaggMan(riga) {
     const ma =
         props.maniglie.find(
-            (ma) => Number(ma.IdManiglia) === Number(riga.IdManiglia)
+            (ma) => Number(ma.IdManiglia) === Number(riga.IdManiglia),
         ) || null;
     if (!ma) return 0;
     return Number(ma?.Importo ?? 0) || 0;
@@ -1626,7 +1681,7 @@ function MaggMan(riga) {
 function MaggCer(riga) {
     const cr =
         props.cerniere.find(
-            (cr) => Number(cr.id_col_ferr) === Number(riga.IdColFerr)
+            (cr) => Number(cr.id_col_ferr) === Number(riga.IdColFerr),
         ) || null;
     if (!cr) return 0;
     return Number(cr?.importo ?? 0) || 0;
@@ -1634,7 +1689,7 @@ function MaggCer(riga) {
 function MaggSerr(riga) {
     const se =
         props.serrature.find(
-            (se) => Number(se.id_serratura) === Number(riga.IdSerratura)
+            (se) => Number(se.id_serratura) === Number(riga.IdSerratura),
         ) || null;
     if (!se) return 0;
     return Number(se?.importo ?? 0) || 0;
@@ -1659,7 +1714,7 @@ function MaggVetro(riga) {
 
     // accesso case-insensitive
     const map = Object.fromEntries(
-        Object.entries(vt).map(([k, v]) => [String(k).toLowerCase(), v])
+        Object.entries(vt).map(([k, v]) => [String(k).toLowerCase(), v]),
     );
 
     const val = Number(map[col] ?? 0);
@@ -1682,7 +1737,7 @@ function MaggLarghezza90(riga) {
     const dimL = Number(riga.DimL) || 0;
 
     const soluzione = props.soluzioni.find(
-        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
     );
     const nAnte = Number(soluzione?.nante) || 0;
 
@@ -1759,7 +1814,7 @@ function MaggLarghezza100(riga) {
 
     // NANTE da tab_soluzioni
     const soluzione = props.soluzioni.find(
-        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione)
+        (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
     );
     const nAnte = Number(soluzione?.nante) || 0;
 
@@ -1769,7 +1824,6 @@ function MaggLarghezza100(riga) {
 
     if (dimL >= 981 && nAnte === 1) {
         if (v3 === 0) {
-
             toast.error("Porta da 1080 non realizzabile", {
                 position: "top-left",
                 timeout: 2500,
@@ -1923,14 +1977,14 @@ async function saveValPredModelSol(riga) {
             valpred, // <-- ora ESISTE
         },
         {
-                preserveScroll: true,
-                onSuccess: () => {
+            preserveScroll: true,
+            onSuccess: () => {
                 showSavedMsg("✅ Valore salvato", 1500);
-                },
-                onError: () => {
+            },
+            onError: () => {
                 showSavedMsg("❌ Errore salvataggio", 1500);
-                },
-            }
+            },
+        },
     );
 }
 
@@ -1945,7 +1999,7 @@ async function loadValPredModelSol(riga) {
                 id_tab_soluzioni: riga.IdSoluzione,
                 IdColAnta: riga.IdColAnta,
             },
-        }
+        },
     );
 
     const vp = data?.valpred;
@@ -2005,7 +2059,7 @@ function saveValPredForModel(riga) {
     if (!riga.IdModello) {
         toast.error(
             "Seleziona un modello prima di salvare i valori predefiniti",
-            { position: "top-left" }
+            { position: "top-left" },
         );
         return;
     }
@@ -2018,13 +2072,10 @@ function saveValPredForModel(riga) {
         {
             preserveScroll: true,
             onSuccess: () =>
-                            showSavedMsg("✅ Valori predefiniti salvati nel modello", 1500)
+                showSavedMsg("✅ Valori predefiniti salvati nel modello", 1500),
 
-            ,
-            onError: () =>
-            showSavedMsg("❌ Errore salvataggio ValPred", 1500)
-                ,
-        }
+            onError: () => showSavedMsg("❌ Errore salvataggio ValPred", 1500),
+        },
     );
 }
 
@@ -2179,7 +2230,7 @@ function dimLRulesForRiga(riga) {
     }
 
     const dimLDefault =
-        dimLOptions.length >= 3 ? dimLOptions[2] : dimLOptions[0] ?? null;
+        dimLOptions.length >= 3 ? dimLOptions[2] : (dimLOptions[0] ?? null);
 
     return { dimLOptions, dimAForced, dimLDefault };
 }
@@ -2201,7 +2252,7 @@ function applyDimLRules(riga, aggiorna = false) {
             "⚠️ Sistema non gestito per DimL (" +
                 (soluzioneCodePerRiga(riga) || "") +
                 ")",
-            { position: "top-left", timeout: 2500 }
+            { position: "top-left", timeout: 2500 },
         );
     }
     if (!riga._copied) {
@@ -2353,7 +2404,7 @@ function syncTelaioToAntaColor(riga) {
 
     // trova l'opzione pannello selezionata
     const antaSel = antaOpts.find(
-        (o) => Number(o.IdFinAnta) === Number(riga.IdColAnta)
+        (o) => Number(o.IdFinAnta) === Number(riga.IdColAnta),
     );
     const antaColor = normColor(antaSel?.Colore);
 
@@ -2361,7 +2412,7 @@ function syncTelaioToAntaColor(riga) {
 
     // se il telaio attuale ha già lo stesso colore, non fare nulla
     const telSel = telOpts.find(
-        (o) => Number(o.IdFinTelaio) === Number(riga.IdColTelaio)
+        (o) => Number(o.IdFinTelaio) === Number(riga.IdColTelaio),
     );
     if (telSel && normColor(telSel.Colore) === antaColor) return;
 
@@ -2444,7 +2495,6 @@ function isDoppiaTel(riga) {
 function MaggTelaio(riga) {
     const dimSp = Number(riga.DimSp ?? 0);
 
-
     if (!Number.isFinite(dimSp) || dimSp <= 0) return 0;
     if (dimSp === 110) return 0;
     if (dimSp > 145) return 0;
@@ -2455,8 +2505,7 @@ function MaggTelaio(riga) {
 
     const isSvmOrSvt = mod === "SVM" || mod === "SVT";
 
-// if(mod === "MKM tirare") || (mod === "MKM spingere"  MKT tirare MKT spingere KLM a tirare KLM Spingere KLT a tirare KLT Spingere
-
+    // if(mod === "MKM tirare") || (mod === "MKM spingere"  MKT tirare MKT spingere KLM a tirare KLM Spingere KLT a tirare KLT Spingere
 
     if (doppia) {
         // VBA: FinoA = 160 (se ti serve lo gestiamo dopo)
@@ -2551,8 +2600,8 @@ onBeforeUnmount(() => {
                                             route(
                                                 'ordini.edit',
                                                 props.ordine?.id ??
-                                                    props.ordine?.ID
-                                            )
+                                                    props.ordine?.ID,
+                                            ),
                                         )
                                     "
                                     class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm"
@@ -2614,12 +2663,14 @@ onBeforeUnmount(() => {
                         >
                             <div class="font-semibold">Riga #{{ i + 1 }}</div>
                             <div class="flex items-center gap-2">
-<div class="text-sm md:text-base opacity-90">
-    Tot riga:
-    <span class="ml-1 font-bold text-lg opacity-90">
-        € {{ totaleRiga(riga).toFixed(2) }}
-    </span>
-</div>
+                                <div class="text-sm md:text-base opacity-90">
+                                    Tot riga:
+                                    <span
+                                        class="ml-1 font-bold text-lg opacity-90"
+                                    >
+                                        € {{ totaleRiga(riga).toFixed(2) }}
+                                    </span>
+                                </div>
 
                                 <!-- 📋 COPIA -->
 
@@ -2682,11 +2733,10 @@ onBeforeUnmount(() => {
                                         riga._isDeleting
                                             ? "Eliminazione..."
                                             : riga._confirmDelete
-                                            ? "⚠️ Conferma"
-                                            : "🗑️ Elimina"
+                                              ? "⚠️ Conferma"
+                                              : "🗑️ Elimina"
                                     }}
                                 </button>
-
                             </div>
                         </div>
 
@@ -2696,16 +2746,344 @@ onBeforeUnmount(() => {
                                 <div
                                     class="rounded-2xl border bg-white overflow-hidden"
                                 >
-                                    <div
-                                        class="px-4 py-2 bg-blue-50 border-b text-blue-900 font-semibold flex justify-between"
-                                    >
-                                        <span>🧩 Configurazione</span>
-                                        <span class="text-xs text-blue-700"
-                                            >Modello, colori, accessori</span
+                                    <div class="px-4 py-2 bg-blue-50 border-b">
+                                        <div
+                                            class="flex items-center justify-between"
                                         >
-                                    </div>
+                                            <span
+                                                class="text-blue-900 font-semibold"
+                                                >🧩 Configurazione</span
+                                            >
+                                            <span class="text-xs text-blue-700"
+                                                >Modello, colori,
+                                                accessori</span
+                                            >
+                                        </div>
 
+                                        <div class="mt-2 flex gap-2">
+                                            <button
+                                                type="button"
+                                                class="px-3 py-1.5 rounded-lg text-sm border"
+                                                :class="
+                                                    activeConfTab === 'config'
+                                                        ? 'bg-white border-blue-300 text-blue-900'
+                                                        : 'bg-transparent border-transparent text-blue-700 hover:bg-white/60'
+                                                "
+                                                @click="
+                                                    activeConfTab = 'config'
+                                                "
+                                            >
+                                                Porta
+                                            </button>
+
+                                            <button
+                                            v-if="canAccessori"
+                                                type="button"
+                                                class="px-3 py-1.5 rounded-lg text-sm border"
+                                                :class="
+                                                    activeConfTab ===
+                                                    'accessori'
+                                                        ? 'bg-white border-blue-300 text-blue-900'
+                                                        : 'bg-transparent border-transparent text-blue-700 hover:bg-white/60'
+                                                "
+                                                @click="
+                                                    activeConfTab = 'accessori'
+                                                "
+                                            >
+                                                Accessori
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div
+                                        v-show="activeConfTab === 'accessori'"
+                                        class="p-3 space-y-3"
+                                    >
+                                        <!-- ACCESSORI -->
+                                        <div class="space-y-3">
+                                            <div
+                                                class="rounded-2xl border bg-white overflow-hidden"
+                                            >
+                                                <div
+                                                    class="px-4 py-2 bg-slate-50 border-b flex items-center justify-between"
+                                                >
+                                                    <div
+                                                        class="font-semibold text-slate-800"
+                                                    >
+                                                        Accessori
+                                                    </div>
+                                                    <div
+                                                        class="text-xs text-slate-500"
+                                                    >
+                                                        {{
+                                                            accessoriFiltrati.length
+                                                        }}
+                                                        /
+                                                        {{
+                                                            (
+                                                                props.accessori ??
+                                                                []
+                                                            ).length
+                                                        }}
+                                                    </div>
+                                                </div>
+
+                                                <!-- search sticky -->
+                                                <div
+                                                    class="p-3 border-b bg-white sticky top-0 z-10"
+                                                >
+                                                    <input
+                                                        v-model="
+                                                            searchAccessorio
+                                                        "
+                                                        type="text"
+                                                        placeholder="Scrivi per cercare (descrizione o codice)…"
+                                                        class="w-full rounded-xl border px-3 py-2 shadow-sm"
+                                                    />
+                                                    <div
+                                                        class="mt-2 flex gap-2 text-xs"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            class="px-2 py-1 rounded-lg border"
+                                                            @click="
+                                                                searchAccessorio =
+                                                                    ''
+                                                            "
+                                                        >
+                                                            Pulisci
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="px-2 py-1 rounded-lg border"
+                                                            @click="
+                                                                addAccessorio(
+                                                                    riga,
+                                                                    0,
+                                                                )
+                                                            "
+                                                        >
+                                                            No accessori
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- list -->
+                                                <div
+                                                    class="max-h-72 overflow-auto"
+                                                >
+                                                    <div
+                                                        v-if="
+                                                            accessoriFiltrati.length ===
+                                                            0
+                                                        "
+                                                        class="p-4 text-sm text-slate-500"
+                                                    >
+                                                        Nessun accessorio
+                                                        trovato.
+                                                    </div>
+
+                                                    <div
+                                                        v-for="a in accessoriFiltrati"
+                                                        :key="a.id"
+                                                        class="px-4 py-3 border-b hover:bg-blue-50/60 flex items-center gap-3"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            class="shrink-0 w-9 h-9 rounded-xl border bg-white hover:bg-slate-50 flex items-center justify-center"
+                                                            title="Aggiungi"
+                                                            @click="
+                                                                addAccessorio(
+                                                                    riga,
+                                                                    a.id,
+                                                                )
+                                                            "
+                                                        >
+                                                            ➕
+                                                        </button>
+
+                                                        <div
+                                                            class="min-w-0 flex-1"
+                                                        >
+                                                            <div
+                                                                class="font-semibold text-slate-900 truncate"
+                                                            >
+                                                                {{
+                                                                    a.des_accessori
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-xs text-slate-500 truncate"
+                                                            >
+                                                                {{
+                                                                    a.cod_art ||
+                                                                    "—"
+                                                                }}
+                                                                • metodo:
+                                                                {{
+                                                                    a.codice_metodo ||
+                                                                    "—"
+                                                                }}
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            class="shrink-0 text-right"
+                                                        >
+                                                            <div
+                                                                class="text-sm font-semibold text-blue-700"
+                                                            >
+                                                                €
+                                                                {{
+                                                                    Number(
+                                                                        a.importo ??
+                                                                            0,
+                                                                    ).toFixed(2)
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-[11px] text-slate-500"
+                                                            >
+                                                                {{
+                                                                    a.vis_dim
+                                                                        ? "VisDim"
+                                                                        : ""
+                                                                }}
+                                                                {{
+                                                                    a.nascondi
+                                                                        ? "• nascosto"
+                                                                        : ""
+                                                                }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- SELEZIONATI -->
+                                            <div
+                                                class="rounded-2xl border bg-white overflow-hidden"
+                                            >
+                                                <div
+                                                    class="px-4 py-2 bg-slate-50 border-b flex items-center justify-between"
+                                                >
+                                                    <div
+                                                        class="font-semibold text-slate-800"
+                                                    >
+                                                        Accessori selezionati
+                                                    </div>
+                                                    <div
+                                                        class="text-sm font-semibold text-slate-900"
+                                                    >
+                                                        €
+                                                        {{
+                                                            Number(
+                                                                totaleAccessori(
+                                                                    riga,
+                                                                ),
+                                                            ).toFixed(2)
+                                                        }}
+                                                    </div>
+                                                </div>
+
+                                                <div
+                                                    class="p-4 text-sm text-slate-500"
+                                                    v-if="
+                                                        !riga.AccessoriSel
+                                                            ?.length
+                                                    "
+                                                >
+                                                    Nessun accessorio
+                                                    selezionato.
+                                                </div>
+
+                                                <div class="divide-y" v-else>
+                                                    <div
+                                                        v-for="it in riga.AccessoriSel"
+                                                        :key="it.id"
+                                                        class="px-4 py-3 flex items-center gap-3"
+                                                    >
+                                                        <div
+                                                            class="min-w-0 flex-1"
+                                                        >
+                                                            <div
+                                                                class="font-semibold truncate"
+                                                            >
+                                                                {{
+                                                                    accessoriById.get(
+                                                                        Number(
+                                                                            it.id,
+                                                                        ),
+                                                                    )
+                                                                        ?.des_accessori ??
+                                                                    "Accessorio #" +
+                                                                        it.id
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-xs text-slate-500"
+                                                            >
+                                                                €
+                                                                {{
+                                                                    Number(
+                                                                        accessoriById.get(
+                                                                            Number(
+                                                                                it.id,
+                                                                            ),
+                                                                        )
+                                                                            ?.importo ??
+                                                                            0,
+                                                                    ).toFixed(2)
+                                                                }}
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            class="flex items-center gap-2"
+                                                        >
+                                                            <label
+                                                                class="text-xs text-slate-500"
+                                                                >Qta</label
+                                                            >
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                class="w-20 rounded-lg border px-2 py-1 text-sm"
+                                                                :value="
+                                                                    it.qta ?? 1
+                                                                "
+                                                                @input="
+                                                                    setQta(
+                                                                        riga,
+                                                                        it.id,
+                                                                        $event
+                                                                            .target
+                                                                            .value,
+                                                                    )
+                                                                "
+                                                            />
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            class="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                                                            @click="
+                                                                removeAccessorio(
+                                                                    riga,
+                                                                    it.id,
+                                                                )
+                                                            "
+                                                        >
+                                                            Rimuovi
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+
+                                    </div>
+                                    <div
+                                        v-show="activeConfTab === 'config'"
                                         class="p-3 grid grid-cols-12 gap-x-4 gap-y-1.5"
                                     >
                                         <div class="col-span-12 md:col-span-4">
@@ -2752,7 +3130,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="s in soluzioniPerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="s.id_tab_soluzioni"
                                                     :value="s.id_tab_soluzioni"
@@ -2780,7 +3158,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="x in coloriAntaPerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="x.IdFinAnta"
                                                     :value="x.IdFinAnta"
@@ -2804,7 +3182,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="x in finitureTelaioPerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="x.IdFinTelaio"
                                                     :value="x.IdFinTelaio"
@@ -2827,7 +3205,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="tt in tipiTelaioPerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="tt.id_tipo_telaio"
                                                     :value="tt.id_tipo_telaio"
@@ -2849,7 +3227,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="i in imbottePerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="i.id_imbotte"
                                                     :value="i.id_imbotte"
@@ -2857,7 +3235,7 @@ onBeforeUnmount(() => {
                                                     {{ i.des_imbotte }} — €
                                                     {{
                                                         Number(
-                                                            i.importo ?? 0
+                                                            i.importo ?? 0,
                                                         ).toFixed(2)
                                                     }}
                                                 </option>
@@ -2874,7 +3252,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="a in aperturePerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="a.IdApertura"
                                                     :value="a.IdApertura"
@@ -2895,7 +3273,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="m in manigliePerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="m.IdManiglia"
                                                     :value="m.IdManiglia"
@@ -2903,7 +3281,7 @@ onBeforeUnmount(() => {
                                                     {{ m.DesMan }} — €
                                                     {{
                                                         Number(
-                                                            m.Importo ?? 0
+                                                            m.Importo ?? 0,
                                                         ).toFixed(2)
                                                     }}
                                                 </option>
@@ -2921,7 +3299,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="v in vetriPerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="v.id_vetro"
                                                     :value="v.id_vetro"
@@ -2931,9 +3309,9 @@ onBeforeUnmount(() => {
                                                         Number(
                                                             v[
                                                                 colonnaListVetroPerRiga(
-                                                                    riga
+                                                                    riga,
                                                                 )
-                                                            ] ?? 0
+                                                            ] ?? 0,
                                                         ).toFixed(2)
                                                     }}
                                                 </option>
@@ -2950,7 +3328,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="c in cernierePerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="cernId(c)"
                                                     :value="cernId(c)"
@@ -2958,7 +3336,7 @@ onBeforeUnmount(() => {
                                                     {{ cernDes(c) }} — €
                                                     {{
                                                         Number(
-                                                            cernImporto(c) ?? 0
+                                                            cernImporto(c) ?? 0,
                                                         ).toFixed(2)
                                                     }}
                                                 </option>
@@ -2977,7 +3355,7 @@ onBeforeUnmount(() => {
                                             >
                                                 <option
                                                     v-for="s in serraturePerRiga(
-                                                        riga
+                                                        riga,
                                                     )"
                                                     :key="s.id_serratura"
                                                     :value="s.id_serratura"
@@ -2985,7 +3363,7 @@ onBeforeUnmount(() => {
                                                     {{ s.des_serratura }} — €
                                                     {{
                                                         Number(
-                                                            s.importo ?? 0
+                                                            s.importo ?? 0,
                                                         ).toFixed(2)
                                                     }}
                                                 </option>
@@ -3013,7 +3391,7 @@ onBeforeUnmount(() => {
                                     class="rounded-2xl border bg-white overflow-hidden"
                                 >
                                     <div
-                                    class="px-4 py-2 bg-blue-50 border-b text-blue-900 font-semibold flex justify-between"
+                                        class="px-4 py-2 bg-blue-50 border-b text-blue-900 font-semibold flex justify-between"
                                     >
                                         <span>📐 Misure & Prezzi</span>
                                         <span class="text-xs text-slate-500"
@@ -3035,7 +3413,9 @@ onBeforeUnmount(() => {
                                                     class="h-48 w-auto object-contain"
                                                     @click="
                                                         openZoom(
-                                                            fotoUrlForRiga(riga)
+                                                            fotoUrlForRiga(
+                                                                riga,
+                                                            ),
                                                         )
                                                     "
                                                     @error="onImgError"
@@ -3053,18 +3433,18 @@ onBeforeUnmount(() => {
                                                     <img
                                                         :src="
                                                             fotoUrlAntaRiga(
-                                                                riga
+                                                                riga,
                                                             )
                                                         "
                                                         class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
                                                         @click="
                                                             openZoom(
                                                                 fotoUrlAntaRiga(
-                                                                    riga
+                                                                    riga,
                                                                 ),
                                                                 labelColorePannello(
-                                                                    riga
-                                                                )
+                                                                    riga,
+                                                                ),
                                                             )
                                                         "
                                                     />
@@ -3072,18 +3452,18 @@ onBeforeUnmount(() => {
                                                     <img
                                                         :src="
                                                             fotoUrlTelaioRiga(
-                                                                riga
+                                                                riga,
                                                             )
                                                         "
                                                         class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
                                                         @click="
                                                             openZoom(
                                                                 fotoUrlTelaioRiga(
-                                                                    riga
+                                                                    riga,
                                                                 ),
                                                                 labelColoreTelaio(
-                                                                    riga
-                                                                )
+                                                                    riga,
+                                                                ),
                                                             )
                                                         "
                                                         @error="onImgError"
@@ -3094,15 +3474,15 @@ onBeforeUnmount(() => {
                                                 <img
                                                     :src="
                                                         fotoUrlVersoAperturaRiga(
-                                                            riga
+                                                            riga,
                                                         )
                                                     "
                                                     class="h-20 w-auto object-contain rounded border cursor-pointer hover:scale-105 transition"
                                                     @click="
                                                         openZoom(
                                                             fotoUrlVersoAperturaRiga(
-                                                                riga
-                                                            )
+                                                                riga,
+                                                            ),
                                                         )
                                                     "
                                                     @error="onImgError"
@@ -3142,7 +3522,7 @@ onBeforeUnmount(() => {
                                                 >
                                                     <option
                                                         v-for="v in dimLOptionsPerRiga(
-                                                            riga
+                                                            riga,
                                                         )"
                                                         :key="v"
                                                         :value="v"
@@ -3277,7 +3657,7 @@ onBeforeUnmount(() => {
                                                 €
                                                 {{
                                                     listinoPorta(riga).toFixed(
-                                                        2
+                                                        2,
                                                     )
                                                 }}
                                             </div>
