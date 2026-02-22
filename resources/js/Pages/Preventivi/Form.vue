@@ -11,7 +11,14 @@ const page = usePage();
 
 const canSeeValPred = computed(() => {
     const u = page.props.auth?.user;
-    return !!u && u.email?.toLowerCase() === "info@isomaxporte.com"; // <-- metti email reale
+    if (!u?.email) return false;
+
+    const allowed = [
+        "info@isomaxporte.com",
+        "gguanti@gmail.com"
+    ];
+
+    return allowed.includes(u.email.toLowerCase());
 });
 
 const savedMsg = ref(false);
@@ -1389,11 +1396,7 @@ function copyRiga(riga) {
         // ma se lo usi solo "one-shot", puoi toglierlo
         delete copia._copied;
     });
-
-    toast.success("📋 Riga copiata (in fondo)", {
-        position: "top-left",
-        timeout: 1200,
-    });
+                showSavedMsg("📋 Riga copiata (in fondo)", 1500);
 }
 
 function destroyRiga(riga, index) {
@@ -1412,20 +1415,19 @@ function destroyRiga(riga, index) {
         preserveScroll: true,
 
         onSuccess: () => {
-            toast.success("🗑️ Riga eliminata", {
-                position: "top-left",
-                timeout: 1500,
-            });
+
+                showSavedMsg("🗑️ Riga eliminata", 1500);
+
 
             const idx = form.righe.findIndex((x) => x.uid === riga.uid);
             if (idx !== -1) form.righe.splice(idx, 1);
         },
 
         onError: () => {
-            toast.error("❌ Errore durante l’eliminazione", {
-                position: "top-left",
-                timeout: 2500,
-            });
+
+                showSavedMsg("❌ Errore durante l’eliminazione", 1500);
+
+
         },
 
         onFinish: () => {
@@ -1663,6 +1665,7 @@ function MaggLarghezza100(riga) {
 
     if (dimL >= 981 && nAnte === 1) {
         if (v3 === 0) {
+
             toast.error("Porta da 1080 non realizzabile", {
                 position: "top-left",
                 timeout: 2500,
@@ -1815,7 +1818,15 @@ async function saveValPredModelSol(riga) {
             IdColAnta: riga.IdColAnta,
             valpred, // <-- ora ESISTE
         },
-        { preserveScroll: true }
+        {
+                preserveScroll: true,
+                onSuccess: () => {
+                showSavedMsg("✅ Valore salvato", 1500);
+                },
+                onError: () => {
+                showSavedMsg("❌ Errore salvataggio", 1500);
+                },
+            }
     );
 }
 
@@ -1903,14 +1914,12 @@ function saveValPredForModel(riga) {
         {
             preserveScroll: true,
             onSuccess: () =>
-                toast.success("✅ Valori predefiniti salvati nel modello", {
-                    position: "top-left",
-                    timeout: 1400,
-                }),
+                            showSavedMsg("✅ Valori predefiniti salvati nel modello", 1500)
+
+            ,
             onError: () =>
-                toast.error("❌ Errore salvataggio ValPred", {
-                    position: "top-left",
-                }),
+            showSavedMsg("❌ Errore salvataggio ValPred", 1500)
+                ,
         }
     );
 }

@@ -92,7 +92,8 @@ class ReportGiornateController extends Controller
             }
 
             // Invia email con allegato
-            Mail::to($data['email'])->send(
+            Mail::to($data['email'])
+                    ->send(
                 new ReportGiornateMail(
                     $absolutePath,
                     $data['codCliente'],

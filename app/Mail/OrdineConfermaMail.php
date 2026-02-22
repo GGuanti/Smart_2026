@@ -13,12 +13,17 @@ class OrdineConfermaMail extends Mailable
     public $ordine;
     protected string $pdfBytes;
     protected string $filename;
+    public string $viewName;
+public string $utente;
 
-    public function __construct($ordine, string $pdfBytes, string $filename)
+    public function __construct($ordine, string $pdfBytes, string $filename , string $utente,string $viewName)
     {
         $this->ordine = $ordine;
         $this->pdfBytes = $pdfBytes;
         $this->filename = $filename;
+        $this->utente = $utente;
+        $this->viewName = $viewName;
+
     }
 
     public function build()
@@ -26,7 +31,7 @@ class OrdineConfermaMail extends Mailable
         $n = $this->ordine->Nordine ?? $this->ordine->ID;
 
         return $this->subject("Conferma Ordine #{$n}")
-            ->view('emails.ordine_conferma') // corpo email
+            ->view( $this->viewName) // corpo email
             ->attachData($this->pdfBytes, $this->filename, [
                 'mime' => 'application/pdf',
             ]);

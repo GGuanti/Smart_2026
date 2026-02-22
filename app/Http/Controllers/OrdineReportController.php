@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\OrdineConfermaMail;
 use App\Models\TabOrdine;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -15,16 +16,21 @@ use Illuminate\Support\Facades\Mail;
 class OrdineReportController extends Controller
 {
 
-    public function conferma(Request $request,$id)
+    public function conferma(Request $request, $id)
     {
         // $ordine = TabOrdine::findOrFail($id);
         $ordine = TabOrdine::query()
-    ->leftJoin('tab_trasporto as tr', 'tr.id', '=', 'tab_ordine.IdTrasporto')
-    ->select('tab_ordine.*','tab_ordine.TxtModPagamento as Pagamento', 'tab_ordine.DataCons as ConsegnaRichiesta',
-    'tr.des as trasporto_des')
-    ->where('tab_ordine.ID', $id)
-    ->firstOrFail();
-        abort_if($ordine->user_id !== auth()->id(), 403);
+            ->leftJoin('tab_trasporto as tr', 'tr.id', '=', 'tab_ordine.IdTrasporto')
+            ->select(
+                'tab_ordine.*',
+                'tab_ordine.TxtModPagamento as Pagamento',
+                'tab_ordine.DataCons as ConsegnaRichiesta',
+                'tr.des as trasporto_des'
+            )
+            ->where('tab_ordine.ID', $id)
+            ->firstOrFail();
+        $userId = $request->user()->id; // se la route è protetta da auth
+        abort_if($ordine->user_id !== $userId, 403);
         $TipoStampa = $request->get('tipo', 'conferma');
         // ✅ RIGHE collegate via Nordine (non via ID)
         $righe = DB::table('tab_elementi_ordine as e')
@@ -66,32 +72,43 @@ class OrdineReportController extends Controller
         } else {
             $NomeReport = 'reportisomax.conferma_isomax';
         }
-        $userDoc = \App\Models\User::select('id','name','datiazienda','logo_path')
-    ->find($ordine->user_id);
+        $userDoc = User::select('id', 'name', 'datiazienda', 'logo_path')
+            ->find($ordine->user_id);
         return Pdf::loadView($NomeReport, [
             'ordine' => $ordine,
             'righe' => $righe,
             'userDoc' => $userDoc,
-            'utente' => optional(auth()->user())->name,
+            'utente' => $request->user()?->name,
             'totaleImponibile' => $totaleImponibile,
             'totaleIva' => $totaleIva,
             'totaleComplessivo' => $totaleComplessivo,
         ])->stream('Conferma_Ordine_' . $ordine->Nordine . '.pdf');
     }
-    public function emailConferma(Request $request, TabOrdine $ordine)
+   public function emailConferma(Request $request, TabOrdine $ordine)
     {
+        // Auth obbligatoria (route protetta da middleware auth)
+        abort_if($ordine->user_id !== $request->user()->id, 403);
+
         $data = $request->validate([
-            'to' => ['nullable', 'email'],
+            'to'   => ['nullable', 'email'],
+            'tipo' => ['nullable', 'string'], // opzionale, se arriva nel body
         ]);
 
+        // tipo può arrivare da route o da body/query
+        $TipoStampa = $request->route('tipo') ?? $request->input('tipo') ?? 'ConfOrd';
+        $TipoStampa = ($TipoStampa === 'Prev') ? 'Prev' : 'ConfOrd';
+
         $to = $data['to'] ?? $ordine->Email ?? null;
-        if (!$to) {
+        if (!$to && $TipoStampa === 'Prev') {
             return response()->json([
                 'message' => 'Email destinatario mancante (campo Email).'
             ], 422);
         }
-        $userDoc = \App\Models\User::select('id','name','datiazienda','logo_path')
-    ->find($ordine->user_id);
+
+        $userDoc = User::select('id', 'name', 'datiazienda', 'logo_path')
+            ->find($ordine->user_id);
+
+        $utente = $request->user()?->name ?? 'Sistema';
 
         $righe = DB::table('tab_elementi_ordine as e')
             ->leftJoin('listini as l', 'l.id_listino', '=', 'e.IdModello')
@@ -106,11 +123,8 @@ class OrdineReportController extends Controller
             ->where('e.Nordine', $ordine->Nordine)
             ->select([
                 'e.*',
-
-                // modello per immagine
                 'l.nome_modello as nome_modello',
                 'l.dis_libro_simm as dis_libro_simm',
-                // colore anta
                 'fa.Colore as ColoreAnta',
                 'ft.Colore as ColoreTelaio',
                 's.soluzione as TipoSoluzione',
@@ -120,36 +134,54 @@ class OrdineReportController extends Controller
                 'ce.des_cernira as Cerniere',
                 'ap.des as Verso',
                 'v.des_vetro as Vetro',
-
-
             ])
             ->get();
+
         $totaleImponibile  = (float)($ordine->TotaleImponibile ?? 0);
         $totaleIva         = (float)($ordine->TotaleIva ?? 0);
         $totaleComplessivo = (float)($ordine->TotaleComplessivo ?? ($totaleImponibile + $totaleIva));
 
+        $NomeReport = $TipoStampa === 'Prev'
+            ? 'reportisomax.preventivo_isomax'
+            : 'reportisomax.conferma_isomax';
+
+        // View email coerente col tipo
+        $viewMail = $TipoStampa === 'Prev'
+            ? 'emails.prev_conferma'
+            : 'emails.ordine_conferma';
+
+        if (!view()->exists($viewMail)) {
+            throw new \RuntimeException("View mail non trovata: {$viewMail}");
+        }
 
         try {
-            $pdf = Pdf::loadView('reportisomax.conferma_isomax', [
-                'ordine' => $ordine,
-                'righe' => $righe,
-                'userDoc' => $userDoc,
-                'utente' => optional(auth()->user())->name,
-                'totaleImponibile' => $totaleImponibile,
-                'totaleIva' => $totaleIva,
+            $pdf = Pdf::loadView($NomeReport, [
+                'ordine'            => $ordine,
+                'righe'             => $righe,
+                'userDoc'           => $userDoc,
+                'utente'            => $utente,
+                'totaleImponibile'  => $totaleImponibile,
+                'totaleIva'         => $totaleIva,
                 'totaleComplessivo' => $totaleComplessivo,
             ])->setPaper('a4');
 
             $pdfBytes = $pdf->output();
-            $filename = 'Conferma_Ordine_' . ($ordine->Nordine ?? $ordine->ID) . '.pdf';
+            $filename = ($TipoStampa === 'Prev' ? 'Preventivo_' : 'Conferma_Ordine_') . ($ordine->Nordine ?? $ordine->ID) . '.pdf';
 
-            Mail::to($to)->send(new OrdineConfermaMail($ordine, $pdfBytes, $filename));
+            if ($TipoStampa === 'ConfOrd') {
+                Mail::to('info@isomaxporte.com')
+                    ->cc('giuseppe.guanti@smartit.coop')
+                    ->send(new OrdineConfermaMail($ordine, $pdfBytes, $filename, $utente, $viewMail));
+            } else {
+                Mail::to($to)
+                    ->send(new OrdineConfermaMail($ordine, $pdfBytes, $filename, $utente, $viewMail));
+            }
 
             return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
             Log::error('Invio email conferma ordine fallito', [
                 'ordine_id' => $ordine->ID ?? null,
-                'error' => $e->getMessage(),
+                'error'    => $e->getMessage(),
             ]);
 
             return response()->json([

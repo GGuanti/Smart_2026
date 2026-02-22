@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Report Giornate</title>
+    <title>Report Preventivo</title>
 </head>
 
 <body style="background-color: #ffffff; font-family: Arial, sans-serif; padding: 20px;">
@@ -14,9 +14,9 @@
     <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: auto; background-color: #ffffff; border: 1px solid #ddd;">
         <tr>
             <td style="padding: 20px;">
-                <h2 style="color: #333;">📄 Conferma Ordine {{ $ordine->CognomeNome }}</h2>
+                <h2 style="color: #333;">📄 Preventivo  {{ $ordine->CognomeNome }}</h2>
                 <p style="color:#555;">
-                    In allegato trovi la conferma ordine N.
+                    In allegato trovi la Preventivo N.
                     <strong>{{ $ordine->Nordine }}</strong>
                     del
                     <strong>{{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</strong>.

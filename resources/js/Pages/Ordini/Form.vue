@@ -131,12 +131,14 @@ const isSendingEmail = ref(false);
 async function generaEInviaEmail() {
     saveThen(async (id) => {
         const to = String(form.Email || "").trim();
+        const tipo = form.TipoStampa;
+
         if (!to)
             return toast.error(
                 "Inserisci l'email del cliente prima di inviare."
             );
 
-        await axios.post(route("ordini.email.conferma", id), { to });
+        await axios.post(route("ordini.email.conferma", { id}), { to, tipo  });
 
         toast.success("✅ Email inviata con PDF allegato!", {
             position: "top-center",
