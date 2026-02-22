@@ -895,9 +895,9 @@ function cernCollezione(c) {
 }
 
 const SET_TELP = new Set([
-    "TelSI",
+    "TELSI",
     "TELP",
-    "TelBT",
+    "TELBT",
     "RT",
     "LIBA",
     "LIBS",
@@ -944,7 +944,7 @@ function cernierePerRiga(riga) {
 
     if (SET_TELP.has(filtroSoluzione) || SET_TELP.has(modelloNomeSel)) {
         return all
-            .filter((c) => cernFiltroSistema(c) === "TelP")
+            .filter((c) => cernFiltroSistema(c) === "TELP")
             .sort((a, b) =>
                 String(cernDes(a)).localeCompare(String(cernDes(b)))
             );
