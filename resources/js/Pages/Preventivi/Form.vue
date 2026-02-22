@@ -584,7 +584,7 @@ function tipiTelaioPerRiga(riga) {
     const filtroColore = String(filtroColoreTelaioPerRiga(riga) ?? "").trim();
     const filtroSol = String(filtroSoluzionePerRiga(riga) ?? "").trim();
 
-console.log('pippo',filtroTipTel);
+
     const out = all.filter((tt) => {
         const okSol = hasToken(tt.filtro_soluzione, filtroSol);
         const okMod = hasToken(tt.filtro, filtroTipTel);
@@ -629,6 +629,7 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
     let noImbotte = false;
     let da = null;
     let a = null;
+
 
     const grpA = [
         "TELP",
@@ -747,10 +748,81 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
         }
     }
 
+
     return { noImbotte, da, a };
 }
-
 function imbottePerRiga(riga) {
+  const all = props.imbotte ?? [];
+  const idTip = Number(riga.IdTipTelaio ?? 0);
+
+  const soluzione = filtroSoluzionePerRiga(riga); // es: "SI", "BT", ecc.
+  const dimSp = Number(riga.DimSp ?? 0);
+
+  if (!idTip || !soluzione) return [];
+
+  const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
+
+  const res = calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp);
+
+
+
+
+  const isBase = (i) =>
+    Number(i.importo ?? 0) === 0 &&
+    Number(i.spess_muro_da ?? 0) === 0 &&
+    Number(i.spess_muro_a ?? 0) === 0 &&
+    String(i.filtro_sistema ?? "") === "T";
+
+  // (1) Se no imbotte: ritorna solo base
+  if (res.noImbotte) {
+
+    return all.filter((i) => {
+      const sp0 =
+        Number(i.spess_muro_da ?? 0) === 0 &&
+        Number(i.spess_muro_a ?? 0) === 0;
+      const fs = String(i.filtro_sistema ?? "") === "T";
+      return sp0 && fs;
+    });
+  }
+
+  const isTip45 = filtro1  === 4 || filtro1  === 5;
+
+  return all
+    .filter((i) => {
+      if (isBase(i)) return true;
+
+      const da = Number(i.spess_muro_da ?? 0);
+      const a = Number(i.spess_muro_a ?? 0);
+
+      // (2) RANGE SPESSORE: regola speciale per IdTipTelaio 4/5
+      const inRange = isTip45
+        ? (da > dimSp && a <= dimSp)          // <-- COME HAI SCRITTO TU
+        : (da >= res.da && a <= res.a);       // <-- logica attuale
+
+      // (3) Filtro per tipo telaio (logica tua)
+      const ftt = String(i.filtro_tipo_telaio ?? "");
+      const okFiltroTipoTelaio = soluzione.includes("SI")
+        ? ftt.startsWith("T")
+        : ftt.includes(`;${filtro1};`);
+
+      // (4) Filtro "soluzione" extra SOLO per 4/5 (se hai un campo dedicato)
+      // Se NON esiste filtro_soluzione, non blocca nulla.
+      const fsoll = String(i.filtro_soluzione ?? "");
+      const okSoluzione = !isTip45
+        ? true
+        : (!fsoll ? true : fsoll.includes(soluzione));
+
+      return inRange && okFiltroTipoTelaio && okSoluzione;
+    })
+    .sort((x, y) =>
+      String(x.des_imbotte ?? "").localeCompare(
+        String(y.des_imbotte ?? ""),
+        "it",
+        { sensitivity: "base" }
+      )
+    );
+}
+function imbottePerRiga1(riga) {
     const all = props.imbotte ?? [];
     const idTip = Number(riga.IdTipTelaio ?? 0);
 
@@ -777,16 +849,7 @@ function imbottePerRiga(riga) {
             return sp0 && fs;
         });
     }
-    console.log(
-        "dimSp",
-        dimSp,
-        "res",
-        res,
-        "idTip",
-        idTip,
-        "soluzione",
-        soluzione
-    );
+
 
     return all
         .filter((i) => {
@@ -1464,6 +1527,8 @@ function MaggKitScFM(riga) {
     return Number(tt?.magg_kit_scorr ?? 0) || 0;
 }
 function tipiImbotteById(IdTipTelaio) {
+
+
     return (
         props.imbotte.find(
             (im) => Number(im.id_imbotte) === Number(IdTipTelaio)
