@@ -584,6 +584,7 @@ function tipiTelaioPerRiga(riga) {
     const filtroColore = String(filtroColoreTelaioPerRiga(riga) ?? "").trim();
     const filtroSol = String(filtroSoluzionePerRiga(riga) ?? "").trim();
 
+console.log('pippo',filtroTipTel);
     const out = all.filter((tt) => {
         const okSol = hasToken(tt.filtro_soluzione, filtroSol);
         const okMod = hasToken(tt.filtro, filtroTipTel);
