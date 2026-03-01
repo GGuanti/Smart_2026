@@ -325,7 +325,13 @@ function filtroSoluzionePerRiga(riga) {
         ) || null;
     return String(s?.ass_collistino ?? "").trim();
 }
-
+function filtroSoluzioneImgPerRiga(riga) {
+    const s =
+        props.soluzioni.find(
+            (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
+        ) || null;
+    return String(s?.immagine ?? "").trim();
+}
 function soluzioneCodePerRiga(riga) {
     const s = props.soluzioni.find(
         (x) => Number(x.id_tab_soluzioni) === Number(riga.IdSoluzione),
@@ -363,9 +369,9 @@ function filtroAperturaPerRiga(riga) {
 }
 
 function fotoUrlVersoAperturaRiga(riga) {
-    const soluzione = filtroSoluzionePerRiga(riga); // es. LIBS, BAT1
+    const soluzione = filtroSoluzioneImgPerRiga(riga); // es. LIBS, BAT1
     const apertura = filtroAperturaPerRiga(riga).toUpperCase();
-
+console.log("ssss",soluzione);
     if (!soluzione || !apertura) {
         return "/Foto/Verso/placeholder.jpg";
     }
@@ -818,6 +824,7 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
 }
 function imbottePerRiga(riga) {
     const all = props.imbotte ?? [];
+    console.log("All", all);
     const idTip = Number(riga.IdTipTelaio ?? 0);
 
     const soluzione = filtroSoluzionePerRiga(riga); // es: "SI", "BT", ecc.
@@ -1590,7 +1597,65 @@ function tipiImbotteById(IdTipTelaio) {
         ) || null
     );
 }
+
+function finituraTelaioById(id) {
+    return (
+        (props.colTelaio ?? []).find(
+            (f) => Number(f.IdFinTelaio ?? f.id ?? f.ID) === Number(id),
+        ) || null
+    );
+}
+function getNumField(obj, ...keys) {
+    for (const k of keys) {
+        const v = obj?.[k];
+        if (v !== undefined && v !== null && v !== "") {
+            const n = parseFloat(String(v).replace(",", "."));
+            if (!Number.isNaN(n)) return n;
+        }
+    }
+    return 0;
+}
+function imbotteImportoView(riga, i) {
+    const im = tipiImbotteById(riga.IdImbotte);
+    if (!im) return 0;
+
+    const fin = finituraTelaioById(riga.IdColTelaio);
+    const colore = String(fin?.Colore ?? fin?.colore ?? "").trim();
+
+    const laccato = colore.startsWith("Laccato");
+
+    const base = laccato
+        ? getNumField(i, "importo_ral")
+        : getNumField(i, "importo");
+
+    return base;
+}
 function MaggImbotte(riga) {
+    const im = tipiImbotteById(riga.IdImbotte);
+    if (!im) return 0;
+
+    const fin = finituraTelaioById(riga.IdColTelaio);
+    const colore = String(fin?.Colore ?? fin?.colore ?? "").trim();
+
+    const isLaccato = colore.startsWith("Laccato");
+
+    const base = isLaccato
+        ? getNumField(im, "importo_ral")
+        : getNumField(im, "importo");
+
+    const dimSp = Number(riga.DimSp ?? 0);
+
+    // replica la struttura VBA
+    if (Number(riga.IdImbotte) === 21) {
+        return 135 + base * (Math.round(dimSp - 130) / 10);
+    }
+    if (Number(riga.IdImbotte) === 25) {
+        return 37 + base * (Math.round(dimSp - 130) / 10);
+    }
+
+    return base;
+}
+function MaggImbotte1(riga) {
     const im = tipiImbotteById(riga.IdImbotte);
     if (!im) return 0;
     return Number(im?.importo ?? 0) || 0;
@@ -2448,6 +2513,7 @@ function showErrorMsg(text = "❌ Errore nel salvataggio", ms = 2500) {
         savedText.value = "";
     }, ms);
 }
+
 function applyImbotteOnDimSpChange(riga) {
     const dimSp = Number(riga.DimSp);
     if (!Number.isFinite(dimSp)) return;
@@ -2776,10 +2842,12 @@ onBeforeUnmount(() => {
                                                 Porta
                                             </button>
 
+
                                             <button
-                                            v-if="canAccessori"
                                                 type="button"
                                                 class="px-3 py-1.5 rounded-lg text-sm border"
+                                         v-if="canAccessori"
+
                                                 :class="
                                                     activeConfTab ===
                                                     'accessori'
@@ -2794,7 +2862,9 @@ onBeforeUnmount(() => {
                                             </button>
                                         </div>
                                     </div>
+
                                     <div
+
                                         v-show="activeConfTab === 'accessori'"
                                         class="p-3 space-y-3"
                                     >
@@ -3079,9 +3149,8 @@ onBeforeUnmount(() => {
                                                 </div>
                                             </div>
                                         </div>
-
-
                                     </div>
+
                                     <div
                                         v-show="activeConfTab === 'config'"
                                         class="p-3 grid grid-cols-12 gap-x-4 gap-y-1.5"
@@ -3234,8 +3303,9 @@ onBeforeUnmount(() => {
                                                 >
                                                     {{ i.des_imbotte }} — €
                                                     {{
-                                                        Number(
-                                                            i.importo ?? 0,
+                                                        imbotteImportoView(
+                                                            riga,
+                                                            i,
                                                         ).toFixed(2)
                                                     }}
                                                 </option>
@@ -3369,19 +3439,53 @@ onBeforeUnmount(() => {
                                                 </option>
                                             </select>
                                         </div>
-                                        <div class="col-span-12">
-                                            <label
-                                                class="text-sm font-semibold text-gray-800"
-                                                >Note</label
-                                            >
-                                            <textarea
-                                                v-model="riga.NoteMan"
-                                                rows="10"
-                                                class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                                placeholder="Annotazioni lavorazioni..."
-                                            ></textarea>
-                                        </div>
                                     </div>
+
+                                   <!-- NOTE (scheda premium coerente) -->
+<!-- NOTE (sempre visibili: fuori dai v-show) -->
+<div class="p-3 pt-0">
+    <div class="rounded-2xl border bg-white overflow-hidden">
+        <div
+            class="px-4 py-2 bg-slate-50 border-b flex items-center justify-between"
+        >
+            <div class="font-semibold text-slate-800 flex items-center gap-2">
+                <span
+                    class="inline-flex w-6 h-6 items-center justify-center rounded-lg bg-white border"
+                >
+                    📝
+                </span>
+                Note
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="text-xs text-slate-500">
+                    {{ String(riga.NoteMan ?? "").length }} caratteri
+                </div>
+
+                <button
+                    type="button"
+                    class="px-2.5 py-1 rounded-lg border text-xs text-slate-700 hover:bg-white disabled:opacity-50"
+                    @click="riga.NoteMan = ''"
+                    :disabled="!String(riga.NoteMan ?? '').length"
+                    title="Svuota note"
+                >
+                    Pulisci
+                </button>
+            </div>
+        </div>
+
+        <div class="p-3">
+            <textarea
+                v-model="riga.NoteMan"
+                rows="8"
+                class="w-full rounded-xl border px-3 py-2 shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                placeholder="Annotazioni lavorazioni…"
+            ></textarea>
+
+
+        </div>
+    </div>
+</div>
                                 </div>
                             </div>
 
