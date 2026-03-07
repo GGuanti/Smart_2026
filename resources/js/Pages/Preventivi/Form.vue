@@ -3070,8 +3070,8 @@ onBeforeUnmount(() => {
                                             >
                                                 Porta
                                             </button>
-                                            <!-- v-if="canAccessori" -->
                                             <button
+                                            < v-if="canAccessori">
                                                 type="button"
                                                 class="px-3 py-1.5 rounded-lg text-sm border"
                                                 :class="
