@@ -52,19 +52,48 @@ function normalizeSelected(riga) {
         }));
     }
 }
-
 function addAccessorio(riga, id) {
     normalizeSelected(riga);
+
+    const acc = getAccessorio(id);
+    const base = Number(acc?.importo ?? 0);
+
+    riga.AccessoriSel.push({
+        id: Number(id),
+        qta: 1,
+        prezzo: base,
+        prezzo_man: 0,
+        note: "",
+    });
+}
+function addAccessorio1(riga, id) {
+    normalizeSelected(riga);
+
     id = Number(id);
     if (!id) return;
 
+    const acc = accessoriById.value.get(id);
+    if (!acc) return;
+
+    // se già presente: incrementa qta
     const found = riga.AccessoriSel.find((x) => Number(x.id) === id);
-    if (found) found.qta = Number(found.qta ?? 1) + 1;
-    else riga.AccessoriSel.push({ id, qta: 1 });
+    if (found) {
+        found.qta = Number(found.qta ?? 1) + 1;
+        // opzionale: se vuoi aggiornare il prezzo base quando re-inserisci:
+        // found.prezzo = Number(acc.importo ?? 0);
+        return;
+    }
+
+    // nuovo inserimento
+    riga.AccessoriSel.push({
+        id,
+        qta: 1,
+        prezzo: Number(acc.importo ?? 0),
+        prezzo_man: 0, // nuovo campo
+    });
 
     searchAccessorio.value = "";
 }
-
 function removeAccessorio(riga, id) {
     normalizeSelected(riga);
     id = Number(id);
@@ -83,9 +112,10 @@ function setQta(riga, id, qta) {
 function totaleAccessori(riga) {
     normalizeSelected(riga);
     return riga.AccessoriSel.reduce((sum, it) => {
-        const a = accessoriById.value.get(Number(it.id));
-        const prezzo = Number(a?.importo ?? 0);
-        return sum + prezzo * Number(it.qta ?? 1);
+        const prezzo = Number(it.prezzo ?? 0);
+        const prezzoMan = Number(it.prezzo_man ?? 0);
+        const qta = Number(it.qta ?? 1);
+        return sum + (prezzo + prezzoMan) * qta;
     }, 0);
 }
 const savedMsg = ref(false);
@@ -214,6 +244,19 @@ function newRigaFromElemento(el = null) {
         IdSerratura: el?.IdSerratura ?? "",
         CkTaglioObl: el?.CkTaglioObl ?? "No",
         IdImbotte: el?.IdImbotte ?? "",
+
+        AccessoriSel: Array.isArray(el?.accessori_sel)
+            ? el.accessori_sel.map((x) => ({
+                  id: Number(x.id),
+                  qta: Number(x.qta ?? 1),
+                  prezzo: Number(x.prezzo ?? 0),
+                  prezzo_man: Number(x.prezzo_man ?? 0),
+                  note: x.note ?? "",
+              }))
+            : [],
+
+        // campi client
+        uid: crypto.randomUUID(),
 
         _imgKey: 0,
         _confirmDelete: false,
@@ -371,7 +414,7 @@ function filtroAperturaPerRiga(riga) {
 function fotoUrlVersoAperturaRiga(riga) {
     const soluzione = filtroSoluzioneImgPerRiga(riga); // es. LIBS, BAT1
     const apertura = filtroAperturaPerRiga(riga).toUpperCase();
-console.log("ssss",soluzione);
+
     if (!soluzione || !apertura) {
         return "/Foto/Verso/placeholder.jpg";
     }
@@ -680,7 +723,7 @@ function tipiTelaioPerRiga(riga) {
 }
 
 /* ===================== IMBOTTE (logica VBA) ===================== */
-function range48_999(dimSp) {
+function range48_999xxx(dimSp) {
     dimSp = Number(dimSp ?? 0);
     if (dimSp <= 80) return [48, 80];
     if (dimSp <= 110) return [81, 110];
@@ -697,8 +740,116 @@ function getFiltriTipoTelaio(idTipTelaio) {
         filtro2: (t?.filtro_imbotte2 ?? "").toString(),
     };
 }
-
+function range48_999(dimSp) {
+    if (dimSp <= 80) return [48, 80];
+    if (dimSp <= 110) return [81, 110];
+    if (dimSp <= 130) return [111, 130];
+    return [131, 999];
+}
 function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
+    // normalizzo a stringa (evita bug "4" vs 4)
+    soluzione = String(soluzione ?? "");
+    filtro1 = String(filtro1 ?? ""); // IdTipoTelaio2
+    filtro2 = String(filtro2 ?? ""); // IdTipoTelaio
+    dimSp = Number(dimSp ?? 0);
+
+    let noImbotte = false;
+    let da = null;
+    let a = null;
+
+    const grpA = ["TELP", "TELSI", "LibRB", "BT", "BT2A", "BT2S", "LIBA", "LIBS", "TELBT"];
+    const grpB = ["TELP", "SE", "SE2M", "SE2S", "SES", "ESLIDEM1", "ESLIDEM2", "ESLIDES1", "ESLIDES2"];
+    const grpSI = ["SI", "SIS", "SI2M", "SI2S"];
+
+    // ----------------- GRUPPO A -----------------
+    if (grpA.includes(soluzione)) {
+        if (filtro2 === "" || dimSp <= 47) {
+            noImbotte = true;
+
+        } else if (filtro2 === "0") {
+            // caso speciale: usa IdTipoTelaio2 (filtro1) e scaglioni 48..999
+            if (filtro1 === "4" || filtro1 === "5") {
+                [da, a] = range48_999(dimSp);
+            } else if (filtro1 === "") {
+                noImbotte = true;
+            }
+
+        } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 145) {
+            noImbotte = true;
+
+        } else if (filtro2 === "4" && dimSp <= 140) {
+            noImbotte = true;
+
+        } else {
+            // scaglioni standard
+            if (dimSp <= 200) [da, a] = [151, 200];
+            else if (dimSp <= 300) [da, a] = [201, 300];
+            else if (dimSp <= 400) [da, a] = [301, 400];
+            else if (dimSp <= 500) [da, a] = [401, 500];
+            else [da, a] = [501, 600];
+        }
+    }
+
+    // ----------------- RT -----------------
+    else if (soluzione === "RT") {
+        if (filtro2 === "") {
+            noImbotte = true;
+
+        } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 125) {
+            noImbotte = true;
+
+        } else if (filtro2 === "4" && dimSp <= 120) {
+            noImbotte = true;
+
+        } else {
+            if (dimSp <= 200) [da, a] = [151, 200];
+            else if (dimSp <= 300) [da, a] = [201, 300];
+            else if (dimSp <= 400) [da, a] = [301, 400];
+            else if (dimSp <= 500) [da, a] = [401, 500];
+            else [da, a] = [501, 600];
+        }
+    }
+
+    // ----------------- GRUPPO B -----------------
+    else if (grpB.includes(soluzione)) {
+        if (filtro2 === "") {
+            noImbotte = true;
+
+        } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 160) {
+            noImbotte = true;
+
+        } else if (filtro2 === "4" && dimSp <= 150) {
+            noImbotte = true;
+
+        } else {
+            if (dimSp <= 200) [da, a] = [151, 200];
+            else if (dimSp <= 300) [da, a] = [201, 300];
+            else if (dimSp <= 400) [da, a] = [301, 400];
+            else if (dimSp <= 500) [da, a] = [401, 500];
+            else [da, a] = [501, 600];
+        }
+    }
+
+    // ----------------- GRUPPO SI -----------------
+    else if (grpSI.includes(soluzione)) {
+        if (filtro2 === "") noImbotte = true;
+        else if (filtro2 === "1" && dimSp <= 125) noImbotte = true;
+        else if (filtro2 === "2" && dimSp <= 135) noImbotte = true;
+        else if (filtro2 === "3" && dimSp <= 125) noImbotte = true;
+        else if (filtro2 === "4" && dimSp <= 135) noImbotte = true;
+        else {
+            if (dimSp <= 130) [da, a] = [125, 130];
+            else if (dimSp <= 200) [da, a] = [131, 200];
+            else if (dimSp <= 300) [da, a] = [201, 300];
+            else if (dimSp <= 400) [da, a] = [301, 400];
+            else if (dimSp <= 500) [da, a] = [401, 500];
+            else [da, a] = [501, 600];
+        }
+    }
+
+    return { noImbotte, da, a };
+}
+function calcolaFiltroImbotte1(soluzione, filtro1, filtro2, dimSp) {
     let noImbotte = false;
     let da = null;
     let a = null;
@@ -752,6 +903,17 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
             } else {
                 [da, a] = [501, 600];
             }
+        }
+    }
+    if (grpA.includes(soluzione)) {
+
+        if (filtro2 === "" && filtro1 === "5") {
+ let noImbotte = false;
+                if (dimSp <= 80) [da, a] = [48, 80];
+                else if (dimSp <= 110) [da, a] = [81, 110];
+                else if (dimSp <= 130) [da, a] = [111, 130];
+                else if (dimSp > 130) [da, a] = [131, 999];
+
         }
     }
 
@@ -823,6 +985,96 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
     return { noImbotte, da, a };
 }
 function imbottePerRiga(riga) {
+    const all = Array.isArray(props.imbotte) ? props.imbotte : [];
+
+    const idTip = Number(riga.IdTipTelaio ?? 0);
+    const soluzione = filtroSoluzionePerRiga(riga);
+    const dimSp = Number(riga.DimSp ?? 0);
+
+    if (!idTip || !soluzione) return [];
+
+    const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
+    const fil1 = String(filtro1 ?? "");
+    const fil2 = String(filtro2 ?? "");
+
+    const res = calcolaFiltroImbotte(soluzione, fil1, fil2, dimSp);
+
+    const isBase = (i) =>
+        Number(i.importo ?? 0) === 0 &&
+        Number(i.spess_muro_da ?? 0) === 0 &&
+        Number(i.spess_muro_a ?? 0) === 0 &&
+        String(i.filtro_sistema ?? "") === "T";
+
+    // ===== TC1 / TC2 (come VBA) =====
+    const telaioDesc = String(
+        riga.TelaioDesc ?? riga.telaio_desc ?? riga.Telaio ?? riga.telaio ?? "",
+    );
+    const tipoTelaioDesc = String(
+        riga.TipoTelaioDesc ??
+            riga.tipo_telaio_desc ??
+            riga.TipoTelaio ??
+            riga.tipo_telaio ??
+            "",
+    );
+
+    const isSpecialFinish =
+        telaioDesc.startsWith("Laccato") ||
+        telaioDesc === "Bianco Soft" ||
+        telaioDesc === "Tundra" ||
+        telaioDesc === "Larice Bianco";
+
+    const has100 = tipoTelaioDesc.includes("100");
+    const allowedSistemi = isSpecialFinish
+        ? ["T", has100 ? "TC1" : "TC2"]
+        : ["T"];
+    // ================================
+
+    // (1) Se no imbotte: spessore 0/0 e sistema in allowedSistemi
+    if (res.noImbotte) {
+        return all
+            .filter((i) => {
+                const sp0 =
+                    Number(i.spess_muro_da ?? 0) === 0 &&
+                    Number(i.spess_muro_a ?? 0) === 0;
+
+                const fs = String(i.filtro_sistema ?? "");
+                return sp0 && allowedSistemi.includes(fs);
+            })
+            .sort((x, y) =>
+                String(x.des_imbotte ?? "").localeCompare(
+                    String(y.des_imbotte ?? ""),
+                    "it",
+                    { sensitivity: "base" },
+                ),
+            );
+    }
+
+    return all
+        .filter((i) => {
+            if (isBase(i)) return true;
+
+            const da = Number(i.spess_muro_da ?? 0);
+            const a = Number(i.spess_muro_a ?? 0);
+
+            const inRange =
+                res.da == null || res.a == null ? true : da >= res.da && a <= res.a;
+
+            const ftt = String(i.filtro_tipo_telaio ?? "");
+            const okFiltroTipoTelaio = soluzione.includes("SI")
+                ? ftt.startsWith("T")
+                : (fil1 ? ftt.includes(`;${fil1};`) : true);
+
+            return inRange && okFiltroTipoTelaio;
+        })
+        .sort((x, y) =>
+            String(x.des_imbotte ?? "").localeCompare(
+                String(y.des_imbotte ?? ""),
+                "it",
+                { sensitivity: "base" },
+            ),
+        );
+}
+function imbottePerRiga1(riga) {
     const all = props.imbotte ?? [];
     console.log("All", all);
     const idTip = Number(riga.IdTipTelaio ?? 0);
@@ -892,59 +1144,7 @@ function imbottePerRiga(riga) {
             ),
         );
 }
-function imbottePerRiga1(riga) {
-    const all = props.imbotte ?? [];
-    const idTip = Number(riga.IdTipTelaio ?? 0);
 
-    const soluzione = filtroSoluzionePerRiga(riga);
-    const dimSp = Number(riga.DimSp ?? 0);
-
-    if (!idTip || !soluzione) return [];
-
-    const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
-    const res = calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp);
-
-    const isBase = (i) =>
-        Number(i.importo ?? 0) === 0 &&
-        Number(i.spess_muro_da ?? 0) === 0 &&
-        Number(i.spess_muro_a ?? 0) === 0 &&
-        String(i.filtro_sistema ?? "") === "T";
-
-    if (res.noImbotte) {
-        return all.filter((i) => {
-            const sp0 =
-                Number(i.spess_muro_da ?? 0) === 0 &&
-                Number(i.spess_muro_a ?? 0) === 0;
-            const fs = String(i.filtro_sistema ?? "") === "T";
-            return sp0 && fs;
-        });
-    }
-
-    return all
-        .filter((i) => {
-            if (isBase(i)) return true;
-
-            const da = Number(i.spess_muro_da ?? 0);
-            const a = Number(i.spess_muro_a ?? 0);
-            const inRange = da >= res.da && a <= res.a;
-
-            const ftt = String(i.filtro_tipo_telaio ?? "");
-            const okFiltro = soluzione.includes("SI")
-                ? ftt.startsWith("T")
-                : ftt.includes(`;${filtro1};`);
-
-            return inRange && okFiltro;
-        })
-        .sort((x, y) =>
-            String(x.des_imbotte ?? "").localeCompare(
-                String(y.des_imbotte ?? ""),
-                "it",
-                {
-                    sensitivity: "base",
-                },
-            ),
-        );
-}
 
 /* ===================== Aperture ===================== */
 function aperturePerRiga(riga) {
@@ -1796,7 +1996,18 @@ function isDimLExtra(riga) {
 
     return !opts.some((v) => Number(v) === dimL);
 }
+const accessoriByIdMap = computed(() => {
+    const map = new Map();
+    for (const a of props.accessori ?? []) {
+        const key = Number(a.id ?? a.Id ?? a.id_accessori ?? a.ID);
+        if (!Number.isNaN(key)) map.set(key, a);
+    }
+    return map;
+});
 
+function getAccessorio(id) {
+    return accessoriByIdMap.value.get(Number(id)) ?? null;
+}
 function MaggLarghezza90(riga) {
     const colonnaListino = soluzioneCodePerRiga(riga);
     const dimL = Number(riga.DimL) || 0;
@@ -2572,6 +2783,24 @@ function MaggTelaio(riga) {
     const isSvmOrSvt = mod === "SVM" || mod === "SVT";
 
     // if(mod === "MKM tirare") || (mod === "MKM spingere"  MKT tirare MKT spingere KLM a tirare KLM Spingere KLT a tirare KLT Spingere
+    const modelliZero = [
+        "KLM A TIRARE",
+        "KLM SPINGERE",
+        "KLT A TIRARE",
+        "KLT SPINGERE",
+        "KQM A TIRARE",
+        "KQM SPINGERE",
+        "KQT A TIRARE",
+        "KQT SPINGERE",
+        "MKM SPINGERE",
+        "MKM A TIRARE",
+        "MKT SPINGERE",
+        "MKT A TIRARE",
+    ];
+
+    if (modelliZero.includes(mod)) {
+        return 0;
+    }
 
     if (doppia) {
         // VBA: FinoA = 160 (se ti serve lo gestiamo dopo)
@@ -2841,13 +3070,10 @@ onBeforeUnmount(() => {
                                             >
                                                 Porta
                                             </button>
-
-
+                                            <!-- v-if="canAccessori" -->
                                             <button
                                                 type="button"
                                                 class="px-3 py-1.5 rounded-lg text-sm border"
-                                         v-if="canAccessori"
-
                                                 :class="
                                                     activeConfTab ===
                                                     'accessori'
@@ -2864,7 +3090,6 @@ onBeforeUnmount(() => {
                                     </div>
 
                                     <div
-
                                         v-show="activeConfTab === 'accessori'"
                                         class="p-3 space-y-3"
                                     >
@@ -2879,7 +3104,7 @@ onBeforeUnmount(() => {
                                                     <div
                                                         class="font-semibold text-slate-800"
                                                     >
-                                                        Accessori
+                                                        Elenco accessori
                                                     </div>
                                                     <div
                                                         class="text-xs text-slate-500"
@@ -2909,44 +3134,18 @@ onBeforeUnmount(() => {
                                                         placeholder="Scrivi per cercare (descrizione o codice)…"
                                                         class="w-full rounded-xl border px-3 py-2 shadow-sm"
                                                     />
-                                                    <div
-                                                        class="mt-2 flex gap-2 text-xs"
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            class="px-2 py-1 rounded-lg border"
-                                                            @click="
-                                                                searchAccessorio =
-                                                                    ''
-                                                            "
-                                                        >
-                                                            Pulisci
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            class="px-2 py-1 rounded-lg border"
-                                                            @click="
-                                                                addAccessorio(
-                                                                    riga,
-                                                                    0,
-                                                                )
-                                                            "
-                                                        >
-                                                            No accessori
-                                                        </button>
-                                                    </div>
                                                 </div>
 
                                                 <!-- list -->
                                                 <div
-                                                    class="max-h-72 overflow-auto"
+                                                    class="max-h-72 overflow-auto divide-y"
                                                 >
                                                     <div
                                                         v-if="
                                                             accessoriFiltrati.length ===
                                                             0
                                                         "
-                                                        class="p-4 text-sm text-slate-500"
+                                                        class="p-3 text-xs text-slate-500"
                                                     >
                                                         Nessun accessorio
                                                         trovato.
@@ -2955,75 +3154,43 @@ onBeforeUnmount(() => {
                                                     <div
                                                         v-for="a in accessoriFiltrati"
                                                         :key="a.id"
-                                                        class="px-4 py-3 border-b hover:bg-blue-50/60 flex items-center gap-3"
+                                                        class="px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition"
                                                     >
+                                                        <!-- Pulsante -->
                                                         <button
                                                             type="button"
-                                                            class="shrink-0 w-9 h-9 rounded-xl border bg-white hover:bg-slate-50 flex items-center justify-center"
-                                                            title="Aggiungi"
+                                                            class="w-6 h-6 rounded-md border text-xs flex items-center justify-center hover:bg-white"
                                                             @click="
                                                                 addAccessorio(
                                                                     riga,
                                                                     a.id,
                                                                 )
                                                             "
+                                                            title="Aggiungi"
                                                         >
-                                                            ➕
+                                                            +
                                                         </button>
 
+                                                        <!-- Nome -->
                                                         <div
-                                                            class="min-w-0 flex-1"
+                                                            class="flex-1 text-sm text-slate-900 truncate"
                                                         >
-                                                            <div
-                                                                class="font-semibold text-slate-900 truncate"
-                                                            >
-                                                                {{
-                                                                    a.des_accessori
-                                                                }}
-                                                            </div>
-                                                            <div
-                                                                class="text-xs text-slate-500 truncate"
-                                                            >
-                                                                {{
-                                                                    a.cod_art ||
-                                                                    "—"
-                                                                }}
-                                                                • metodo:
-                                                                {{
-                                                                    a.codice_metodo ||
-                                                                    "—"
-                                                                }}
-                                                            </div>
+                                                            {{
+                                                                a.des_accessori
+                                                            }}
                                                         </div>
 
+                                                        <!-- Prezzo -->
                                                         <div
-                                                            class="shrink-0 text-right"
+                                                            class="text-sm font-semibold text-blue-700 whitespace-nowrap"
                                                         >
-                                                            <div
-                                                                class="text-sm font-semibold text-blue-700"
-                                                            >
-                                                                €
-                                                                {{
-                                                                    Number(
-                                                                        a.importo ??
-                                                                            0,
-                                                                    ).toFixed(2)
-                                                                }}
-                                                            </div>
-                                                            <div
-                                                                class="text-[11px] text-slate-500"
-                                                            >
-                                                                {{
-                                                                    a.vis_dim
-                                                                        ? "VisDim"
-                                                                        : ""
-                                                                }}
-                                                                {{
-                                                                    a.nascondi
-                                                                        ? "• nascosto"
-                                                                        : ""
-                                                                }}
-                                                            </div>
+                                                            €
+                                                            {{
+                                                                Number(
+                                                                    a.importo ??
+                                                                        0,
+                                                                ).toFixed(2)
+                                                            }}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -3033,118 +3200,343 @@ onBeforeUnmount(() => {
                                             <div
                                                 class="rounded-2xl border bg-white overflow-hidden"
                                             >
+                                                <!-- Toolbar -->
                                                 <div
                                                     class="px-4 py-2 bg-slate-50 border-b flex items-center justify-between"
                                                 >
                                                     <div
-                                                        class="font-semibold text-slate-800"
+                                                        class="flex items-center gap-2"
                                                     >
-                                                        Accessori selezionati
+                                                        <div
+                                                            class="font-semibold text-slate-900"
+                                                        >
+                                                            Accessori inseriti
+                                                        </div>
+                                                        <span
+                                                            class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700"
+                                                        >
+                                                            {{
+                                                                riga
+                                                                    .AccessoriSel
+                                                                    ?.length ??
+                                                                0
+                                                            }}
+                                                        </span>
                                                     </div>
+
                                                     <div
-                                                        class="text-sm font-semibold text-slate-900"
+                                                        class="text-sm font-extrabold text-slate-900 tabular-nums"
                                                     >
-                                                        €
                                                         {{
                                                             Number(
                                                                 totaleAccessori(
                                                                     riga,
                                                                 ),
                                                             ).toFixed(2)
-                                                        }}
+                                                        }}<span class="ml-1"
+                                                            >€</span
+                                                        >
                                                     </div>
                                                 </div>
 
                                                 <div
-                                                    class="p-4 text-sm text-slate-500"
                                                     v-if="
                                                         !riga.AccessoriSel
                                                             ?.length
                                                     "
+                                                    class="p-3 text-sm text-slate-500"
                                                 >
                                                     Nessun accessorio
                                                     selezionato.
                                                 </div>
 
-                                                <div class="divide-y" v-else>
+                                                <div
+                                                    v-else
+                                                    class="divide-y divide-slate-100"
+                                                >
+                                                    <!-- HEADER: tabella unica per md+ (5 colonne fisse) -->
+                                                    <div
+                                                        class="hidden md:grid grid-cols-[minmax(280px,1fr)_80px_60px_100px_40px] gap-x-4 px-3 py-1 text-[11px] font-semibold text-slate-500 bg-slate-50/70"
+                                                    >
+                                                        <div class="text-left">
+                                                            Descrizione
+                                                        </div>
+                                                        <div
+                                                            class="text-right pr-1"
+                                                        >
+                                                            Prezzo
+                                                        </div>
+                                                        <div class="text-right">
+                                                            Man.
+                                                        </div>
+                                                        <div
+                                                            class="text-right pr-10"
+                                                        >
+                                                            Qta
+                                                        </div>
+                                                        <div
+                                                            class="text-right pr-1"
+                                                        >
+                                                            Tot
+                                                        </div>
+                                                    </div>
+
                                                     <div
                                                         v-for="it in riga.AccessoriSel"
                                                         :key="it.id"
-                                                        class="px-4 py-3 flex items-center gap-3"
+                                                        class="px-3 py-1.5 hover:bg-slate-50/70"
                                                     >
-                                                        <div
-                                                            class="min-w-0 flex-1"
-                                                        >
+                                                        <!-- MOBILE (<md): descrizione + mini label + campi -->
+                                                        <div class="md:hidden">
                                                             <div
-                                                                class="font-semibold truncate"
+                                                                class="flex items-start min-w-0"
                                                             >
-                                                                {{
-                                                                    accessoriById.get(
-                                                                        Number(
+                                                                <button
+                                                                    type="button"
+                                                                    @click="
+                                                                        removeAccessorio(
+                                                                            riga,
                                                                             it.id,
-                                                                        ),
-                                                                    )
-                                                                        ?.des_accessori ??
-                                                                    "Accessorio #" +
-                                                                        it.id
-                                                                }}
+                                                                        )
+                                                                    "
+                                                                    class="shrink-0 w-5 h-5 mr-1 mt-0.5 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 transition flex items-center justify-center"
+                                                                    title="Rimuovi"
+                                                                >
+                                                                    ✕
+                                                                </button>
+
+                                                                <div
+                                                                    class="min-w-0 w-full"
+                                                                >
+                                                                    <div
+                                                                        class="truncate text-[13px] font-medium text-slate-800 leading-4 text-left"
+                                                                    >
+                                                                        {{
+                                                                            getAccessorio(
+                                                                                it.id,
+                                                                            )
+                                                                                ?.des_accessori ??
+                                                                            `Accessorio #${it.id}`
+                                                                        }}
+                                                                    </div>
+
+                                                                    <div
+                                                                        class="mt-1 grid grid-cols-4 gap-2 text-[10px] font-semibold text-slate-400"
+                                                                    >
+                                                                        <div
+                                                                            class="text-right pr-1"
+                                                                        >
+                                                                            Prezzo
+                                                                        </div>
+                                                                        <div
+                                                                            class="text-center"
+                                                                        >
+                                                                            Man.
+                                                                        </div>
+                                                                        <div
+                                                                            class="text-center"
+                                                                        >
+                                                                            Qta
+                                                                        </div>
+                                                                        <div
+                                                                            class="text-right pr-1"
+                                                                        >
+                                                                            Tot
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div
+                                                                        class="mt-0.5 grid grid-cols-4 gap-2 items-center"
+                                                                    >
+                                                                        <div
+                                                                            class="tabular-nums text-[13px] font-semibold text-slate-700 text-right pr-1"
+                                                                        >
+                                                                            {{
+                                                                                Number(
+                                                                                    it.prezzo ??
+                                                                                        getAccessorio(
+                                                                                            it.id,
+                                                                                        )
+                                                                                            ?.importo ??
+                                                                                        0,
+                                                                                ).toFixed(
+                                                                                    2,
+                                                                                )
+                                                                            }}€
+                                                                        </div>
+
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            v-model.number="
+                                                                                it.prezzo_man
+                                                                            "
+                                                                            class="w-full h-7 rounded-md border border-slate-200 px-2 text-[13px] text-right tabular-nums bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                                            placeholder="0"
+                                                                        />
+
+                                                                        <input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            v-model.number="
+                                                                                it.qta
+                                                                            "
+                                                                            class="w-[52px] h-7 rounded-md border border-slate-200 px-2 text-[13px] text-center tabular-nums bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                                        />
+
+                                                                        <div
+                                                                            class="flex justify-end tabular-nums text-[13px] font-extrabold text-blue-700"
+                                                                        >
+                                                                            {{
+                                                                                (
+                                                                                    (Number(
+                                                                                        it.prezzo ??
+                                                                                            getAccessorio(
+                                                                                                it.id,
+                                                                                            )
+                                                                                                ?.importo ??
+                                                                                            0,
+                                                                                    ) +
+                                                                                        Number(
+                                                                                            it.prezzo_man ??
+                                                                                                0,
+                                                                                        )) *
+                                                                                    Number(
+                                                                                        it.qta ??
+                                                                                            1,
+                                                                                    )
+                                                                                ).toFixed(
+                                                                                    2,
+                                                                                )
+                                                                            }}€
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
                                                             </div>
+                                                        </div>
+
+                                                        <!-- TABELLA md+ (stessa griglia dell'header: 5 colonne) -->
+
+                                                        <div
+                                                            class="hidden md:grid grid-cols-[minmax(280px,1fr)_90px_70px_50px_70px] gap-x-4 items-center"
+                                                        >
+                                                            <!-- Descrizione + remove -->
                                                             <div
-                                                                class="text-xs text-slate-500"
+                                                                class="min-w-0 flex items-center"
                                                             >
-                                                                €
+                                                                <button
+                                                                    type="button"
+                                                                    @click="
+                                                                        removeAccessorio(
+                                                                            riga,
+                                                                            it.id,
+                                                                        )
+                                                                    "
+                                                                    class="shrink-0 w-5 h-5 mr-1 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 transition flex items-center justify-center"
+                                                                    title="Rimuovi"
+                                                                >
+                                                                    ✕
+                                                                </button>
+
+                                                                <div
+                                                                    class="min-w-0 w-full"
+                                                                >
+                                                                    <!-- Descrizione -->
+                                                                    <div
+                                                                        class="truncate text-[13px] font-medium text-slate-800 leading-5 text-left"
+                                                                    >
+                                                                        {{
+                                                                            getAccessorio(
+                                                                                it.id,
+                                                                            )
+                                                                                ?.des_accessori ??
+                                                                            `Accessorio #${it.id}`
+                                                                        }}
+                                                                    </div>
+
+                                                                    <!-- NOTE -->
+                                                                    <input
+                                                                        type="text"
+                                                                        v-model="
+                                                                            it.note
+                                                                        "
+                                                                        class="mt-1 w-full h-7 rounded-md border border-slate-200 px-2 text-[12px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                                        placeholder="Note accessorio…"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- Prezzo -->
+                                                            <div
+                                                                class="text-right tabular-nums text-[13px] font-semibold text-slate-700 pr-1"
+                                                            >
                                                                 {{
                                                                     Number(
-                                                                        accessoriById.get(
-                                                                            Number(
+                                                                        it.prezzo ??
+                                                                            getAccessorio(
                                                                                 it.id,
-                                                                            ),
-                                                                        )
-                                                                            ?.importo ??
+                                                                            )
+                                                                                ?.importo ??
                                                                             0,
-                                                                    ).toFixed(2)
-                                                                }}
+                                                                    ).toFixed(
+                                                                        2,
+                                                                    )
+                                                                }}€
                                                             </div>
-                                                        </div>
 
-                                                        <div
-                                                            class="flex items-center gap-2"
-                                                        >
-                                                            <label
-                                                                class="text-xs text-slate-500"
-                                                                >Qta</label
-                                                            >
+                                                            <!-- Man -->
                                                             <input
                                                                 type="number"
-                                                                min="1"
-                                                                class="w-20 rounded-lg border px-2 py-1 text-sm"
-                                                                :value="
-                                                                    it.qta ?? 1
+                                                                step="0.01"
+                                                                v-model.number="
+                                                                    it.prezzo_man
                                                                 "
-                                                                @input="
-                                                                    setQta(
-                                                                        riga,
-                                                                        it.id,
-                                                                        $event
-                                                                            .target
-                                                                            .value,
-                                                                    )
-                                                                "
+                                                                class="w-full h-7 rounded-md border border-slate-200 px-2 text-[13px] text-right tabular-nums bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                                placeholder="0"
                                                             />
-                                                        </div>
 
-                                                        <button
-                                                            type="button"
-                                                            class="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
-                                                            @click="
-                                                                removeAccessorio(
-                                                                    riga,
-                                                                    it.id,
-                                                                )
-                                                            "
-                                                        >
-                                                            Rimuovi
-                                                        </button>
+                                                            <!-- Qta -->
+                                                            <div
+                                                                class="flex justify-center"
+                                                            >
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    v-model.number="
+                                                                        it.qta
+                                                                    "
+                                                                    class="w-16 h-7 rounded-md border border-slate-200 px-2 text-[13px] text-center tabular-nums bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                                />
+                                                            </div>
+
+                                                            <!-- Tot -->
+                                                            <div
+                                                                class="text-right tabular-nums text-[13px] font-extrabold text-blue-700 pr-1"
+                                                            >
+                                                                {{
+                                                                    (
+                                                                        (Number(
+                                                                            it.prezzo ??
+                                                                                getAccessorio(
+                                                                                    it.id,
+                                                                                )
+                                                                                    ?.importo ??
+                                                                                0,
+                                                                        ) +
+                                                                            Number(
+                                                                                it.prezzo_man ??
+                                                                                    0,
+                                                                            )) *
+                                                                        Number(
+                                                                            it.qta ??
+                                                                                1,
+                                                                        )
+                                                                    ).toFixed(
+                                                                        2,
+                                                                    )
+                                                                }}€
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3439,53 +3831,27 @@ onBeforeUnmount(() => {
                                                 </option>
                                             </select>
                                         </div>
+                                        <div class="col-span-12 md:col-span-12">
+                                            <label
+                                                class="text-sm font-semibold text-gray-800"
+                                                >Note</label
+                                            >
+                                            <div class="text-xs text-slate-500">
+                                                {{
+                                                    String(riga.NoteMan ?? "")
+                                                        .length
+                                                }}
+                                                caratteri
+                                            </div>
+
+                                            <textarea
+                                                v-model="riga.NoteMan"
+                                                rows="10"
+                                                class="w-full rounded-xl border px-3 py-2 shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                placeholder="Annotazioni lavorazioni…"
+                                            ></textarea>
+                                        </div>
                                     </div>
-
-                                   <!-- NOTE (scheda premium coerente) -->
-<!-- NOTE (sempre visibili: fuori dai v-show) -->
-<div class="p-3 pt-0">
-    <div class="rounded-2xl border bg-white overflow-hidden">
-        <div
-            class="px-4 py-2 bg-slate-50 border-b flex items-center justify-between"
-        >
-            <div class="font-semibold text-slate-800 flex items-center gap-2">
-                <span
-                    class="inline-flex w-6 h-6 items-center justify-center rounded-lg bg-white border"
-                >
-                    📝
-                </span>
-                Note
-            </div>
-
-            <div class="flex items-center gap-3">
-                <div class="text-xs text-slate-500">
-                    {{ String(riga.NoteMan ?? "").length }} caratteri
-                </div>
-
-                <button
-                    type="button"
-                    class="px-2.5 py-1 rounded-lg border text-xs text-slate-700 hover:bg-white disabled:opacity-50"
-                    @click="riga.NoteMan = ''"
-                    :disabled="!String(riga.NoteMan ?? '').length"
-                    title="Svuota note"
-                >
-                    Pulisci
-                </button>
-            </div>
-        </div>
-
-        <div class="p-3">
-            <textarea
-                v-model="riga.NoteMan"
-                rows="10"
-                class="w-full rounded-xl border px-3 py-2 shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                placeholder="Annotazioni lavorazioni…"
-            ></textarea>
-
-
-        </div>
-    </div>
-</div>
                                 </div>
                             </div>
 

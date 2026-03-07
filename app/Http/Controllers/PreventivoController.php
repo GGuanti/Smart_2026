@@ -27,8 +27,8 @@ class PreventivoController extends Controller
 
         $modelli = DB::table('listini')->get();
         $soluzioni = DB::table('tab_soluzioni')
-        ->orderBy('soluzione')
-        ->get();
+            ->orderBy('soluzione')
+            ->get();
 
         $colAnta = DB::table('finitura_anta')->get();
         $colTelaio = DB::table('finitura_telaio')->get();
@@ -91,6 +91,12 @@ class PreventivoController extends Controller
             'righe.*.IdImbotte' => 'nullable|integer',
             'righe.*.CkTaglioObl' => 'nullable|string|max:255',
             'righe.*.TxtCassMet'  => 'nullable|string|max:255',
+            'righe.*.AccessoriSel' => 'nullable|array',
+            'righe.*.AccessoriSel.*.id' => 'required|integer|min:1',
+            'righe.*.AccessoriSel.*.qta' => 'nullable|integer|min:1',
+            'righe.*.AccessoriSel.*.prezzo' => 'nullable|numeric|min:0',
+            'righe.*.AccessoriSel.*.prezzo_man' => 'nullable|numeric',
+            'righe.*.AccessoriSel.*.note' => ['nullable','string','max:255'],
         ]);
 
         DB::transaction(function () use ($data, $ordine) {
@@ -101,6 +107,51 @@ class PreventivoController extends Controller
 
                 // sicurezza: forza Nordine dal padre
                 $r['Nordine'] = $ordine->Nordine;
+
+                // ✅ mapping + normalizzazione AccessoriSel -> accessori_sel
+                $rawAcc = $r['AccessoriSel'] ?? [];
+                $acc = [];
+
+                if (is_array($rawAcc)) {
+                    foreach ($rawAcc as $it) {
+
+                        $id = (int)($it['id'] ?? 0);
+                        if ($id <= 0) continue;
+
+                        $qta = (int)($it['qta'] ?? 1);
+                        if ($qta < 1) $qta = 1;
+
+                        $prezzo = isset($it['prezzo']) ? (float)$it['prezzo'] : 0;
+                        $prezzoMan = isset($it['prezzo_man']) ? (float)$it['prezzo_man'] : 0;
+
+                    $note = isset($it['note']) ? trim((string)$it['note']) : '';
+                    $note = $note !== '' ? mb_substr($note, 0, 255) : null;
+
+                        $acc[] = [
+                            'id'         => $id,
+                            'qta'        => $qta,
+                            'prezzo'     => $prezzo,
+                            'prezzo_man' => $prezzoMan,
+                            'note'       => $note,
+                        ];
+                    }
+                }
+
+                $r['accessori_sel'] = $acc;   // ✅ DB field
+                unset($r['AccessoriSel']);    // ✅ pulizia chiave Vue
+
+                // ❌ pulizia campi solo-client (importante!)
+                unset(
+                    $r['uid'],
+                    $r['_imgKey'],
+                    $r['_confirmDelete'],
+                    $r['_isDeleting'],
+                    $r['_copied'],
+                    $r['_skipNextValPredLoad'],
+                    $r['_dimLOptions'],
+                    $r['_dimLPrev'],
+                    $r['_dimSpPrev']
+                );
 
                 if (!empty($r['Id'])) {
                     // ✅ UPDATE (solo se appartiene allo stesso ordine)
@@ -129,7 +180,7 @@ class PreventivoController extends Controller
     }
     public function store1(Request $request, TabOrdine $ordine)
     {
-abort_if($ordine->user_id !== Auth::id(), 403);
+        abort_if($ordine->user_id !== Auth::id(), 403);
 
         // ✅ se arriva il nuovo form: righe[]
         if ($request->has('righe') && is_array($request->input('righe'))) {
@@ -271,12 +322,12 @@ abort_if($ordine->user_id !== Auth::id(), 403);
 
         return redirect()
             ->route('ordini.edit', $ordine->ID)
-             ->with('success', '✅ Riga preventivo aggiornata');
+            ->with('success', '✅ Riga preventivo aggiornata');
     }
 
     public function destroy(TabOrdine $ordine, TabElementiOrdine $elemento)
     {
-abort_if($ordine->user_id !== Auth::id(), 403);
+        abort_if($ordine->user_id !== Auth::id(), 403);
         abort_if($elemento->Nordine !== $ordine->Nordine, 404);
 
         // 🔒 Sicurezza: l'elemento deve appartenere all'ordine

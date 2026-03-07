@@ -43,6 +43,7 @@ class TabElementiOrdine extends Model
         'NoteMan'     => 'string',
         'PercFile'    => 'string',
         'TxtCassMet'  => 'string',
+         'accessori_sel' => 'array',
     ];
 
     protected $fillable = [
@@ -56,14 +57,27 @@ class TabElementiOrdine extends Model
         'IdModello','IdColAnta','IdColTelaio','IdSoluzione','IdManiglia','IdApertura',
         'IdTipTelaio','IdVetro','IdColFerr','IdSerratura',
         'CkTaglioObl','IdImbotte','TxtCassMet',
+         'accessori_sel',
     ];
+public function getAccessoriSelAttribute($value)
+{
+    if ($value === null || $value === '') return [];
 
+    if (is_array($value)) return $value;
+
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    return [];
+}
     public function ordine()
     {
         return $this->belongsTo(TabOrdine::class, 'Nordine', 'Nordine');
     }
 
-    protected $guarded = [];
+  //  protected $guarded = [];
 
 
 }
