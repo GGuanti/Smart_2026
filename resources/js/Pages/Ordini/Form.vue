@@ -983,9 +983,9 @@ watch(
                                                 <option value="Ord">
                                                     Ordine
                                                 </option>
-                                                <option value="ConfOrd">
+                                            <!--    <option value="ConfOrd">
                                                     Conferma Ordine
-                                                </option>
+                                                </option> -->
                                             </select>
                                         </div>
 
