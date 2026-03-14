@@ -2987,15 +2987,7 @@ onBeforeUnmount(() => {
                                 </div>
 
                                 <!-- 📋 COPIA -->
-<button
-                                    type="button"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
-                                    @click="loadValPredToRow(riga)"
-                                    :disabled="!riga.IdModello"
-                                    title="Carica valori predefiniti dal modello"
-                                >
-                                    📥 Val. Predef.
-                                </button>
+
                                 <button
                                     v-if="canSeeValPred"
                                     type="button"
