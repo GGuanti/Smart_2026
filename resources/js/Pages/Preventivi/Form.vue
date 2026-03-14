@@ -2380,7 +2380,7 @@ function applyValPredFromModel(riga) {
 
     const raw = m.ValPred ?? m.valpred ?? m.val_pred ?? null;
     const vp = normalizeValPred(raw);
-
+console.log("raw",raw);
     // ✅ se non c'è ValPred: NON applico nulla (lascia la cascata normale)
     if (!vp) return;
 
@@ -3586,7 +3586,7 @@ onBeforeUnmount(() => {
                                                 translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                                 @change="
-                                                    loadValPredToRow(riga);
+                                                    applyValPredFromModel(riga);
                                                     bumpImgKeyOnly(riga);
                                                 "
                                             >
