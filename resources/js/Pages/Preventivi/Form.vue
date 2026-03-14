@@ -1987,6 +1987,7 @@ function MaggVetro(riga) {
     return val || 0;
 }
 
+
 function isDimLExtra(riga) {
     const opts = dimLOptionsPerRiga(riga);
     if (!Array.isArray(opts) || !opts.length) return false;
@@ -2190,9 +2191,27 @@ function totaleRigaD(riga) {
         MaggCer(riga)
     );
 }
+function totaleRigaGG(riga) {
+    return (
+        listinoPorta(riga) +
+        MaggLarghezza(riga) +
+        MaggLarghezza90(riga) +
+        MaggLarghezza100(riga) +
+        MaggTelaio(riga) +
+        MaggAltezza(riga) +
+        MaggKitScFM(riga) +
+        MaggCstTelP(riga) +
+        MaggColAnta(riga) +
+        MaggVetro(riga) +
+        MaggMan(riga) +
+        MaggSerr(riga) +
+        MaggImbotte(riga) +
+        MaggCer(riga)
+    );
+}
 function syncPrezzoCad(riga) {
     // evita NaN, forza numero a 2 decimali
-    const val = Number(totaleRigaD(riga) ?? 0);
+    const val = Number(totaleRigaGG(riga) ?? 0);
     riga.PrezzoCad = Number.isFinite(val) ? +val.toFixed(2) : 0;
 }
 /* ===================== Submit ===================== */
