@@ -289,6 +289,7 @@ function docPillClass(tipo) {
                                                     route('ordini.edit', o.ID)
                                                 "
                                                 class="px-3 py-2 hover:bg-blue-50 text-blue-700"
+                                                 title="Modifca Ordine"
                                                 >✏️</Link
                                             >
 
@@ -296,6 +297,7 @@ function docPillClass(tipo) {
                                                 class="px-3 py-2 hover:bg-emerald-50 text-emerald-700"
                                                 @click="copiaOrdine(o.ID)"
                                                 :disabled="isCopyingId === o.ID"
+                                                title="Copia Ordine"
                                             >
                                                 {{
                                                     isCopyingId === o.ID
@@ -307,6 +309,7 @@ function docPillClass(tipo) {
                                             <button
                                                 class="px-3 py-2 hover:bg-red-50 text-red-700"
                                                 @click="destroy(o.ID)"
+                                                 title="Cancella Ordine"
                                             >
                                                 {{
                                                     confirmDeleteId === o.ID
