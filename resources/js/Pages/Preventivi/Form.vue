@@ -2430,7 +2430,6 @@ function loadValPredToRow(riga) {
     }
 
     const vp = getValPredFromModel(riga.IdModello);
-
     if (!vp) {
         toast.info("Nessun ValPred salvato per questo modello", {
             position: "top-left",
@@ -2438,6 +2437,7 @@ function loadValPredToRow(riga) {
         });
         return;
     }
+
 
     // applica campi
     for (const [k, v] of Object.entries(vp)) {
@@ -3586,7 +3586,7 @@ onBeforeUnmount(() => {
                                                 translate="no"
                                                 class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                                 @change="
-                                                    applyValPredFromModel(riga);
+                                                    loadValPredToRow(riga);
                                                     bumpImgKeyOnly(riga);
                                                 "
                                             >
