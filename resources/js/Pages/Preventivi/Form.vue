@@ -2872,7 +2872,7 @@ onBeforeUnmount(() => {
     <AuthenticatedLayout>
         <Head title="Preventivo" />
 
-        <div class="py-10">
+        <div class="py-1">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- HEADER -->
                 <div class="sticky top-0 z-40 bg-white border-b">
