@@ -177,7 +177,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 
 function onImgError(e) {
     // fallback immagine se manca il file
-    if (e?.target) e.target.src = "/foto/placeholder.jpg";
+    if (e?.target) e.target.src = "/Foto/placeholder.jpg";
 }
 
 /* ===================== Helpers generici ===================== */
