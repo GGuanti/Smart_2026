@@ -8,9 +8,7 @@ import { Save, Trash2, ArrowLeft, Plus } from "lucide-vue-next";
 import axios from "axios";
 const searchAccessorio = ref("");
 const page = usePage();
-const canAccessori = computed(() => {
-    return page.props.auth.user?.email === "gguanti@gmail.com";
-});
+const canAccessori = computed(() => true);
 const activeConfTab = ref("config"); // "config" | "accessori"
 const canSeeValPred = computed(() => {
     const u = page.props.auth?.user;
