@@ -2569,14 +2569,7 @@ function applyDimLRules(riga, aggiorna = false) {
 
     riga._dimLOptions = dimLOptions ?? [];
 
-    if (unhandled && modelloCodePerRiga(riga) !== "ACC") {
-        toast.warning(
-            "⚠️ Sistema non gestito per DimL(" +
-                (soluzioneCodePerRiga(riga) || "") +
-                ")",
-            { position: "top-left", timeout: 2500 },
-        );
-    }
+
     if (!riga._copied) {
         if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
     }
@@ -2638,14 +2631,7 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
         dimLRulesForRiga(riga);
 
     riga._dimLOptions = dimLOptions ?? [];
-    if (unhandled && modelloCodePerRiga(riga) !== "ACC") {
-        toast.warning(
-            "⚠️ Sistema non gestito per DimL(" +
-                (soluzioneCodePerRiga(riga) || "") +
-                ")",
-            { position: "top-left", timeout: 2500 },
-        );
-    }
+
 
     // ❌ NON forzare DimL se la riga è stata copiata
     if (aggiorna && !riga._copied && riga._dimLOptions.length) {
