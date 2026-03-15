@@ -25,7 +25,7 @@ return new class extends Migration {
             $table->double('PrezzoMan')->nullable();
 
             // note / file
-            $table->string('NoteMan', 255)->nullable();
+            $table->string('NoteMan', 555)->nullable();
             $table->string('PercFile', 255)->nullable();
 
             // riferimenti listini / opzioni (come da DB originale)

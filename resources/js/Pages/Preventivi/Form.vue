@@ -8,6 +8,9 @@ import { Save, Trash2, ArrowLeft, Plus } from "lucide-vue-next";
 import axios from "axios";
 const searchAccessorio = ref("");
 const page = usePage();
+const canAccessori = computed(() => {
+    return page.props.auth.user?.email === "gguanti@gmail.com";
+});
 const activeConfTab = ref("config"); // "config" | "accessori"
 const canSeeValPred = computed(() => {
     const u = page.props.auth?.user;
@@ -65,6 +68,7 @@ function addAccessorio(riga, id) {
         prezzo_man: 0,
         note: "",
     });
+    syncPrezzoCad(riga);
 }
 function addAccessorio1(riga, id) {
     normalizeSelected(riga);
@@ -98,6 +102,7 @@ function removeAccessorio(riga, id) {
     normalizeSelected(riga);
     id = Number(id);
     riga.AccessoriSel = riga.AccessoriSel.filter((x) => Number(x.id) !== id);
+    syncPrezzoCad(riga);
 }
 
 function setQta(riga, id, qta) {
@@ -757,15 +762,34 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
     let da = null;
     let a = null;
 
-    const grpA = ["TELP", "TELSI", "LibRB", "BT", "BT2A", "BT2S", "LIBA", "LIBS", "TELBT"];
-    const grpB = ["TELP", "SE", "SE2M", "SE2S", "SES", "ESLIDEM1", "ESLIDEM2", "ESLIDES1", "ESLIDES2"];
+    const grpA = [
+        "TELP",
+        "TELSI",
+        "LibRB",
+        "BT",
+        "BT2A",
+        "BT2S",
+        "LIBA",
+        "LIBS",
+        "TELBT",
+    ];
+    const grpB = [
+        "TELP",
+        "SE",
+        "SE2M",
+        "SE2S",
+        "SES",
+        "ESLIDEM1",
+        "ESLIDEM2",
+        "ESLIDES1",
+        "ESLIDES2",
+    ];
     const grpSI = ["SI", "SIS", "SI2M", "SI2S"];
 
     // ----------------- GRUPPO A -----------------
     if (grpA.includes(soluzione)) {
         if (filtro2 === "" || dimSp <= 47) {
             noImbotte = true;
-
         } else if (filtro2 === "0") {
             // caso speciale: usa IdTipoTelaio2 (filtro1) e scaglioni 48..999
             if (filtro1 === "4" || filtro1 === "5") {
@@ -773,13 +797,10 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
             } else if (filtro1 === "") {
                 noImbotte = true;
             }
-
         } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 145) {
             noImbotte = true;
-
         } else if (filtro2 === "4" && dimSp <= 140) {
             noImbotte = true;
-
         } else {
             // scaglioni standard
             if (dimSp <= 200) [da, a] = [151, 200];
@@ -794,13 +815,10 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
     else if (soluzione === "RT") {
         if (filtro2 === "") {
             noImbotte = true;
-
         } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 125) {
             noImbotte = true;
-
         } else if (filtro2 === "4" && dimSp <= 120) {
             noImbotte = true;
-
         } else {
             if (dimSp <= 200) [da, a] = [151, 200];
             else if (dimSp <= 300) [da, a] = [201, 300];
@@ -814,13 +832,10 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
     else if (grpB.includes(soluzione)) {
         if (filtro2 === "") {
             noImbotte = true;
-
         } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 160) {
             noImbotte = true;
-
         } else if (filtro2 === "4" && dimSp <= 150) {
             noImbotte = true;
-
         } else {
             if (dimSp <= 200) [da, a] = [151, 200];
             else if (dimSp <= 300) [da, a] = [201, 300];
@@ -906,14 +921,12 @@ function calcolaFiltroImbotte1(soluzione, filtro1, filtro2, dimSp) {
         }
     }
     if (grpA.includes(soluzione)) {
-
         if (filtro2 === "" && filtro1 === "5") {
- let noImbotte = false;
-                if (dimSp <= 80) [da, a] = [48, 80];
-                else if (dimSp <= 110) [da, a] = [81, 110];
-                else if (dimSp <= 130) [da, a] = [111, 130];
-                else if (dimSp > 130) [da, a] = [131, 999];
-
+            let noImbotte = false;
+            if (dimSp <= 80) [da, a] = [48, 80];
+            else if (dimSp <= 110) [da, a] = [81, 110];
+            else if (dimSp <= 130) [da, a] = [111, 130];
+            else if (dimSp > 130) [da, a] = [131, 999];
         }
     }
 
@@ -992,7 +1005,17 @@ function imbottePerRiga(riga) {
     const dimSp = Number(riga.DimSp ?? 0);
 
     if (!idTip || !soluzione) return [];
-
+    if (String(soluzione).toUpperCase() === "ACC") {
+        return all
+            .filter((i) => String(i.filtro_sistema ?? "").includes(";ACC;"))
+            .sort((x, y) =>
+                String(x.des_imbotte ?? "").localeCompare(
+                    String(y.des_imbotte ?? ""),
+                    "it",
+                    { sensitivity: "base" },
+                ),
+            );
+    }
     const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
     const fil1 = String(filtro1 ?? "");
     const fil2 = String(filtro2 ?? "");
@@ -1057,12 +1080,16 @@ function imbottePerRiga(riga) {
             const a = Number(i.spess_muro_a ?? 0);
 
             const inRange =
-                res.da == null || res.a == null ? true : da >= res.da && a <= res.a;
+                res.da == null || res.a == null
+                    ? true
+                    : da >= res.da && a <= res.a;
 
             const ftt = String(i.filtro_tipo_telaio ?? "");
             const okFiltroTipoTelaio = soluzione.includes("SI")
                 ? ftt.startsWith("T")
-                : (fil1 ? ftt.includes(`;${fil1};`) : true);
+                : fil1
+                  ? ftt.includes(`;${fil1};`)
+                  : true;
 
             return inRange && okFiltroTipoTelaio;
         })
@@ -1144,7 +1171,6 @@ function imbottePerRiga1(riga) {
             ),
         );
 }
-
 
 /* ===================== Aperture ===================== */
 function aperturePerRiga(riga) {
@@ -1987,7 +2013,6 @@ function MaggVetro(riga) {
     return val || 0;
 }
 
-
 function isDimLExtra(riga) {
     const opts = dimLOptionsPerRiga(riga);
     if (!Array.isArray(opts) || !opts.length) return false;
@@ -2211,7 +2236,10 @@ function totaleRigaGG(riga) {
 }
 function syncPrezzoCad(riga) {
     // evita NaN, forza numero a 2 decimali
-    const val = Number(totaleRigaGG(riga) ?? 0);
+    // const val = Number(totaleRigaGG(riga) ?? 0);
+    const val =
+        Number(totaleRigaGG(riga) ?? 0) + Number(totaleAccessori(riga) ?? 0);
+
     riga.PrezzoCad = Number.isFinite(val) ? +val.toFixed(2) : 0;
 }
 /* ===================== Submit ===================== */
@@ -2380,7 +2408,7 @@ function applyValPredFromModel(riga) {
 
     const raw = m.ValPred ?? m.valpred ?? m.val_pred ?? null;
     const vp = normalizeValPred(raw);
-console.log("raw",raw);
+    console.log("raw", raw);
     // ✅ se non c'è ValPred: NON applico nulla (lascia la cascata normale)
     if (!vp) return;
 
@@ -2437,7 +2465,6 @@ function loadValPredToRow(riga) {
         });
         return;
     }
-
 
     // applica campi
     for (const [k, v] of Object.entries(vp)) {
@@ -2542,9 +2569,9 @@ function applyDimLRules(riga, aggiorna = false) {
 
     riga._dimLOptions = dimLOptions ?? [];
 
-    if (unhandled) {
+    if (unhandled && modelloCodePerRiga(riga) !== "ACC") {
         toast.warning(
-            "⚠️ Sistema non gestito per DimL (" +
+            "⚠️ Sistema non gestito per DimL(" +
                 (soluzioneCodePerRiga(riga) || "") +
                 ")",
             { position: "top-left", timeout: 2500 },
@@ -2611,12 +2638,13 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
         dimLRulesForRiga(riga);
 
     riga._dimLOptions = dimLOptions ?? [];
-
-    if (unhandled) {
-        toast.warning("⚠️ Sistema non gestito per DimL", {
-            position: "top-left",
-            timeout: 2500,
-        });
+    if (unhandled && modelloCodePerRiga(riga) !== "ACC") {
+        toast.warning(
+            "⚠️ Sistema non gestito per DimL(" +
+                (soluzioneCodePerRiga(riga) || "") +
+                ")",
+            { position: "top-left", timeout: 2500 },
+        );
     }
 
     // ❌ NON forzare DimL se la riga è stata copiata
@@ -3090,7 +3118,7 @@ onBeforeUnmount(() => {
                                                 Porta
                                             </button>
                                             <button
-                                            < v-if="canAccessori">
+                                                v-if="canAccessori"
                                                 type="button"
                                                 class="px-3 py-1.5 rounded-lg text-sm border"
                                                 :class="
@@ -3510,6 +3538,11 @@ onBeforeUnmount(() => {
                                                                 v-model.number="
                                                                     it.prezzo_man
                                                                 "
+                                                                @input="
+                                                                    syncPrezzoCad(
+                                                                        riga,
+                                                                    )
+                                                                "
                                                                 class="w-full h-7 rounded-md border border-slate-200 px-2 text-[13px] text-right tabular-nums bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
                                                                 placeholder="0"
                                                             />
@@ -3523,6 +3556,11 @@ onBeforeUnmount(() => {
                                                                     min="1"
                                                                     v-model.number="
                                                                         it.qta
+                                                                    "
+                                                                    @input="
+                                                                        syncPrezzoCad(
+                                                                            riga,
+                                                                        )
                                                                     "
                                                                     class="w-16 h-7 rounded-md border border-slate-200 px-2 text-[13px] text-center tabular-nums bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
                                                                 />

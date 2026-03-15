@@ -40,8 +40,10 @@ class PreventivoController extends Controller
         $vetri = DB::table('tab_vetri')->get();
         $assModVetri = DB::table('ass_mod_vetri')->get();
         $imbotte = DB::table('tab_imbotte')->get();
-        $accessori = DB::table('accessori')->get();
 
+$accessori = DB::table('accessori')
+    ->orderBy('des_accessori')
+    ->get();
 
 
         return Inertia::render('Preventivi/Form', [
@@ -76,7 +78,7 @@ class PreventivoController extends Controller
             'righe.*.Qta' => 'nullable|numeric|min:0',
             'righe.*.PrezzoCad' => 'nullable|numeric|min:0',
             'righe.*.PrezzoMan' => 'nullable|numeric|min:0',
-            'righe.*.NoteMan' => 'nullable|string|max:255',
+            'righe.*.NoteMan' => 'nullable|string|max:555',
             'righe.*.PercFile' => 'nullable|string|max:255',
             'righe.*.IdModello' => 'nullable|integer',
             'righe.*.IdColAnta' => 'nullable|integer',
@@ -193,7 +195,7 @@ class PreventivoController extends Controller
                 'righe.*.Qta' => 'nullable|numeric|min:0',
                 'righe.*.PrezzoCad' => 'nullable|numeric|min:0',
                 'righe.*.PrezzoMan' => 'nullable|numeric|min:0',
-                'righe.*.NoteMan' => 'nullable|string|max:255',
+                'righe.*.NoteMan' => 'nullable|string|max:555',
                 'righe.*.PercFile' => 'nullable|string|max:255',
                 'righe.*.IdModello' => 'nullable|integer',
                 'righe.*.IdColAnta' => 'nullable|integer',
@@ -238,7 +240,7 @@ class PreventivoController extends Controller
             'Qta' => 'nullable|numeric|min:0',
             'PrezzoCad' => 'nullable|numeric|min:0',
             'PrezzoMan' => 'nullable|numeric|min:0',
-            'NoteMan' => 'nullable|string|max:255',
+            'NoteMan' => 'nullable|string|max:555',
             'PercFile' => 'nullable|string|max:255',
 
             'IdModello' => 'nullable|integer',
@@ -298,7 +300,7 @@ class PreventivoController extends Controller
             'Qta' => 'nullable|numeric|min:0',
             'PrezzoCad' => 'nullable|numeric|min:0',
             'PrezzoMan' => 'nullable|numeric|min:0',
-            'NoteMan' => 'nullable|string|max:255',
+            'NoteMan' => 'nullable|string|max:555',
             'PercFile' => 'nullable|string|max:255',
 
             'IdModello' => 'nullable|integer',

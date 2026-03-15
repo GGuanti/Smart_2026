@@ -63,6 +63,9 @@ class OrdineReportController extends Controller
 
             ])
             ->get();
+            $mapAccessori = DB::table('accessori')
+    ->pluck('des_accessori', 'id')
+    ->toArray();
         // (opzionale) totali
         $totaleImponibile  = (float)($ordine->TotaleImponibile ?? 0);
         $totaleIva         = (float)($ordine->TotaleIva ?? 0);
@@ -77,6 +80,7 @@ class OrdineReportController extends Controller
         return Pdf::loadView($NomeReport, [
             'ordine' => $ordine,
             'righe' => $righe,
+            'mapAccessori' => $mapAccessori,
             'userDoc' => $userDoc,
             'utente' => $request->user()?->name,
             'totaleImponibile' => $totaleImponibile,
@@ -136,6 +140,9 @@ class OrdineReportController extends Controller
                 'v.des_vetro as Vetro',
             ])
             ->get();
+$mapAccessori = DB::table('accessori')
+    ->pluck('des_accessori', 'id')
+    ->toArray();
 
         $totaleImponibile  = (float)($ordine->TotaleImponibile ?? 0);
         $totaleIva         = (float)($ordine->TotaleIva ?? 0);
@@ -158,6 +165,7 @@ class OrdineReportController extends Controller
             $pdf = Pdf::loadView($NomeReport, [
                 'ordine'            => $ordine,
                 'righe'             => $righe,
+                'mapAccessori' => $mapAccessori,
                 'userDoc'           => $userDoc,
                 'utente'            => $utente,
                 'totaleImponibile'  => $totaleImponibile,

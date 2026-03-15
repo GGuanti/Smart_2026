@@ -652,6 +652,15 @@
         {{-- ================== RIGHE ORDINE ================== --}}
         @foreach($righe as $r)
         @php
+        $accessori = [];
+
+        if (!empty($r->accessori_sel)) {
+        $accessori = is_array($r->accessori_sel)
+        ? $r->accessori_sel
+        : json_decode($r->accessori_sel, true);
+        }
+        $isAccessorio = strtoupper($r->nome_modello ?? '') === 'ACC';
+
         // Path reali per file_exists + Dompdf (Windows safe)
         //$imgAbs = 'Foto/' . $r->nome_modello . '.jpg';
         //$fallbackAbs = 'Foto/default.jpg';
@@ -712,9 +721,16 @@
                         <td class="left">
                             {{ $r->TipoSoluzione ?? 'Soluzione' }}
                         </td>
+                        @if(!$isAccessorio)
                         <td class="right">
                             L={{ $r->DimL }} • A={{ $r->DimA }} • Sp. Muro={{ $r->DimSp }} • Pz.={{ $r->Qta }} • Tot. Riga: €. {{ (float)$r->Qta * ((float)$r->PrezzoCad + (float)$r->PrezzoMan) }}
                         </td>
+                        @else
+                        <td class="right">
+                            Pz.={{ $r->Qta }} • Tot. Riga: €. {{ (float)$r->Qta * ((float)$r->PrezzoCad + (float)$r->PrezzoMan) }}
+                        </td>
+
+                        @endif
                     </tr>
                 </table>
             </div>
@@ -722,6 +738,7 @@
             {{-- BODY --}}
             <table class="card-body">
                 <tr>
+                    @if(!$isAccessorio)
                     <td class="card-left">
                         <div class="imgbox">
                             @if(!empty($r->nome_modello) && file_exists($imgAbs))
@@ -738,8 +755,9 @@
 
 
                     </td>
-
+                    @endif
                     <td class="card-right">
+                        @if(!$isAccessorio)
                         <div class="kv">
                             <span class="k">Modello:</span>
                             {{ $r->nome_modello }}
@@ -779,6 +797,38 @@
                             <span class="k">Cerniere:</span> {{ $r->Cerniere }}
                         </div>
                         @endif
+                        @endif
+
+
+                        @if(!empty($accessori))
+                        @if(!$isAccessorio)
+                        <div class="divider"></div>
+                        <div class="kv">
+                            <span class="k">Accessori:</span>
+                        </div>
+                        @endif
+
+                        @foreach($accessori as $acc)
+
+                        <div class="kv" style="margin-left:0mm;">
+
+                            @if(!empty($acc['qta']))
+                            Pz. {{ $acc['qta'] }}
+                            @endif
+
+                            {{ $mapAccessori[$acc['id']] ?? 'Accessorio '.$acc['id'] }}
+
+
+                            @if(!empty($acc['note']))
+                            <div class="kv muted" style="margin-left:8mm; font-size:10px;">
+                                Nota: {{ $acc['note'] }}
+                            </div>
+                            @endif
+                        </div>
+
+                        @endforeach
+                        @endif
+
 
                         @if(!empty($r->NoteMan))
                         <div class="divider"></div>
