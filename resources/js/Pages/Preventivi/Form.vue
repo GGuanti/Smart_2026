@@ -239,11 +239,11 @@ function newRigaFromElemento(el = null) {
         IdSoluzione: el?.IdSoluzione ?? "",
         IdColAnta: el?.IdColAnta ?? "",
         IdColTelaio: el?.IdColTelaio ?? "",
-        IdManiglia: el?.IdManiglia ?? "",
+        IdManiglia: el?.IdManiglia ?? 1,
         IdApertura: el?.IdApertura ?? "",
         IdTipTelaio: el?.IdTipTelaio ?? "",
         IdVetro: el?.IdVetro ?? "",
-        IdColFerr: el?.IdColFerr ?? "",
+        IdColFerr: el?.IdColFerr ?? 110,
         IdSerratura: el?.IdSerratura ?? "",
         CkTaglioObl: el?.CkTaglioObl ?? "No",
         IdImbotte: el?.IdImbotte ?? "",
@@ -744,6 +744,8 @@ function getFiltriTipoTelaio(idTipTelaio) {
     };
 }
 function range48_999(dimSp) {
+
+    if (dimSp < 48) return [0, 47];
     if (dimSp <= 80) return [48, 80];
     if (dimSp <= 110) return [81, 110];
     if (dimSp <= 130) return [111, 130];
@@ -786,13 +788,10 @@ function calcolaFiltroImbotte(soluzione, filtro1, filtro2, dimSp) {
 
     // ----------------- GRUPPO A -----------------
     if (grpA.includes(soluzione)) {
-        if (filtro2 === "" || dimSp <= 47) {
-            noImbotte = true;
-        } else if (filtro2 === "0") {
-            // caso speciale: usa IdTipoTelaio2 (filtro1) e scaglioni 48..999
+        if (filtro2 === "") {
             if (filtro1 === "4" || filtro1 === "5") {
                 [da, a] = range48_999(dimSp);
-            } else if (filtro1 === "") {
+            } else {
                 noImbotte = true;
             }
         } else if (["1", "2", "3"].includes(filtro2) && dimSp <= 145) {
@@ -1014,11 +1013,12 @@ function imbottePerRiga(riga) {
                 ),
             );
     }
+
     const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
     const fil1 = String(filtro1 ?? "");
     const fil2 = String(filtro2 ?? "");
-
     const res = calcolaFiltroImbotte(soluzione, fil1, fil2, dimSp);
+    console.log("res", res);
 
     const isBase = (i) =>
         Number(i.importo ?? 0) === 0 &&
@@ -1051,6 +1051,43 @@ function imbottePerRiga(riga) {
     // ================================
 
     // (1) Se no imbotte: spessore 0/0 e sistema in allowedSistemi
+
+    if (
+        String(filtroModelloPerRiga(riga)).toUpperCase().trim() ===
+        "MKM SPINGERE bbbbb"
+    ) {
+        const isBasemk = (i) =>
+            Number(i.importo ?? 0) === 0 &&
+            Number(i.spess_muro_da ?? 0) === 0 &&
+            Number(i.spess_muro_a ?? 0) === 0;
+
+        const dimSp = Number(riga.DimSp ?? 0);
+
+        return all
+            .filter((i) => {
+                if (isBasemk(i)) {
+                    return dimSp < 74;
+                }
+
+                const da = Number(i.spess_muro_da ?? 0);
+                const a = Number(i.spess_muro_a ?? 0);
+
+                const inRange = dimSp > da && dimSp <= a;
+
+                const filtroTelaio = String(
+                    i.filtro_tipo_telaio ?? "",
+                ).includes(";5;");
+
+                return inRange && filtroTelaio;
+            })
+            .sort((x, y) =>
+                String(x.des_imbotte ?? "").localeCompare(
+                    String(y.des_imbotte ?? ""),
+                    "it",
+                    { sensitivity: "base" },
+                ),
+            );
+    }
     if (res.noImbotte) {
         return all
             .filter((i) => {
@@ -1069,7 +1106,6 @@ function imbottePerRiga(riga) {
                 ),
             );
     }
-
     return all
         .filter((i) => {
             if (isBase(i)) return true;
@@ -1083,11 +1119,15 @@ function imbottePerRiga(riga) {
                     : da >= res.da && a <= res.a;
 
             const ftt = String(i.filtro_tipo_telaio ?? "");
+
+
             const okFiltroTipoTelaio = soluzione.includes("SI")
                 ? ftt.startsWith("T")
                 : fil1
                   ? ftt.includes(`;${fil1};`)
                   : true;
+
+
 
             return inRange && okFiltroTipoTelaio;
         })
@@ -2567,7 +2607,6 @@ function applyDimLRules(riga, aggiorna = false) {
 
     riga._dimLOptions = dimLOptions ?? [];
 
-
     if (!riga._copied) {
         if (aggiorna && dimAForced) riga.DimA = Number(dimAForced);
     }
@@ -2629,7 +2668,6 @@ function aggiornaDimLCombo(riga, aggiorna = false) {
         dimLRulesForRiga(riga);
 
     riga._dimLOptions = dimLOptions ?? [];
-
 
     // ❌ NON forzare DimL se la riga è stata copiata
     if (aggiorna && !riga._copied && riga._dimLOptions.length) {
@@ -2758,9 +2796,16 @@ function showErrorMsg(text = "❌ Errore nel salvataggio", ms = 2500) {
 
 function applyImbotteOnDimSpChange(riga) {
     const dimSp = Number(riga.DimSp);
-    if (!Number.isFinite(dimSp)) return;
+     const idTip = Number(riga.IdTipTelaio ?? 0);
+    const { filtro1, filtro2 } = getFiltriTipoTelaio(idTip);
+    const fil1 = String(filtro1 ?? "");
+    const fil2 = String(filtro2 ?? "");
 
-    if (dimSp > 145) {
+    console.log("dimSp",dimSp);
+    console.log("fil1",fil1);
+
+    if (!Number.isFinite(dimSp)) return;
+    if (dimSp > 145 || fil1 === "5" || fil1 === "4") {
         const opts = imbottePerRiga(riga);
         if (!Array.isArray(opts) || !opts.length) return;
 
