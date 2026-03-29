@@ -235,7 +235,7 @@ function newRigaFromElemento(el = null) {
         PercFile: el?.PercFile ?? "",
         TxtCassMet: el?.TxtCassMet ?? "",
 
-        IdModello: el?.IdModello ?? DEFAULT_ID_MODELLO,
+        IdModello: el?.IdModello ?? 299,
         IdSoluzione: el?.IdSoluzione ?? "",
         IdColAnta: el?.IdColAnta ?? "",
         IdColTelaio: el?.IdColTelaio ?? "",

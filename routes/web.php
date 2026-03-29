@@ -30,7 +30,7 @@ use App\Http\Controllers\{
     AttivitaController,
     ProgettoController,
     CorsoController,
-
+    CalendarioControllerIsomax,
     GiornateController,
     VistaGiornateController,
 
@@ -76,7 +76,7 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/stampa/settimana/{year}/{week}', [PrintController::class, 'Settimana'])
-    ->name('print.week.pdf');
+        ->name('print.week.pdf');
     Route::get('/preferences', [UserPreferenceControllerN::class, 'show']);
     Route::post('/preferences', [UserPreferenceControllerN::class, 'store']);
     Route::delete('/preferences', [UserPreferenceControllerN::class, 'destroy']); // ✅
@@ -145,6 +145,13 @@ Route::middleware('auth')->group(function () {
 
 
 Route::middleware(['auth', 'isomax'])->group(function () {
+    Route::get('/CalendarIsomax', [CalendarioControllerIsomax::class, 'index'])->name('Isomax.CalendarIsomax');
+    Route::get('/Calendario/{evento}/edit', [CalendarioControllerIsomax::class, 'edit'])->name('Calendario.edit');
+    Route::resource('Calendario', CalendarioControllerIsomax::class)
+        ->except(['show']);
+
+Route::put('/Calendario/{id}/move', [CalendarioControllerIsomax::class, 'move']);
+
     Route::resource('ordini', OrdineController::class);
     Route::post('/ordini/{id}/copia', [OrdineController::class, 'copia'])
         ->name('ordini.copia');
@@ -168,15 +175,14 @@ Route::middleware(['auth', 'isomax'])->group(function () {
     Route::post('/listini', [ListinoController::class, 'store'])->name('listini.store');
     Route::get('/listini/{listino}/modifica', [ListinoController::class, 'edit'])->name('listini.edit');
     Route::put('/listini/{listino}', [ListinoController::class, 'update'])->name('listini.update');
-   //  Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
-   //      ->name('listini.valpred.save');
+    //  Route::put('/listini/{listino}/valpred', [ListinoController::class, 'saveValPred'])
+    //      ->name('listini.valpred.save');
 
-   Route::get('/listini/{listino}/valpred', [ListinoValPredController::class, 'show'])
-   ->name('listini.valpred.show');
+    Route::get('/listini/{listino}/valpred', [ListinoValPredController::class, 'show'])
+        ->name('listini.valpred.show');
 
-Route::put('/listini/{listino}/valpred', [ListinoValPredController::class, 'store'])
-   ->name('listini.valpred.store');
-
+    Route::put('/listini/{listino}/valpred', [ListinoValPredController::class, 'store'])
+        ->name('listini.valpred.store');
 });
 
 Route::middleware(['auth'])->group(function () {
@@ -321,7 +327,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class);
-    Route::get('/admin', fn () => Inertia::render('Admin'))->name('admin');
+    Route::get('/admin', fn() => Inertia::render('Admin'))->name('admin');
 });
 
 /*

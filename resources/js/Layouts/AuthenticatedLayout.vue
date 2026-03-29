@@ -212,6 +212,18 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                                             ></button>
                                         </template>
                                         <template #content>
+                                         <DropdownLink
+                                         v-if="
+                                                    $page.props.auth.user
+                                                        .profilo === 'admin'
+                                                "
+                                                :href="
+                                                    route(
+                                                        'Isomax.CalendarIsomax',
+                                                    )
+                                                "
+                                                >📅 Calendario</DropdownLink
+                                            >
                                             <DropdownLink
                                                 :href="route('ordini.index')"
                                                 >📄 Ordini</DropdownLink
