@@ -41,7 +41,8 @@ function newItem() {
         descrizione: "",
         Lotto: "",
         pezzi: 0,
-
+        Modello: "",
+        Colore: "",
         _confirmDelete: false,
         _isDeleting: false,
         _confirmTimer: null,
@@ -145,10 +146,10 @@ const form = useForm({
                       ? crypto.randomUUID()
                       : String(Date.now() + Math.random()),
                   prodotto: x.Prodotto ?? "",
-                  colore: x.Colore ?? "",
+                  Colore: x.Colore ?? "",
                   descrizione: x.Descrizione ?? "",
                   Lotto: x.Lotto ?? "",
-
+                  Modello: x.Modello ?? "",
                   pezzi: Number(x.Pezzi ?? 0),
                   OrdineVetri: !!x.OrdineVetri,
 
@@ -169,6 +170,8 @@ const submit = () => {
                 Pezzi: i.pezzi || 0,    // 🔥 FIX
                 Lotto: i.Lotto ?? "",
                 Descrizione: i.descrizione ?? "",
+                Modello: i.Modello ?? "",
+                Colore: i.Colore ?? "",
             })),
     })).put(route("Calendario.update", props.appointment.id), {
         preserveScroll: true,
@@ -543,7 +546,7 @@ watch(
                             class="mt-4 p-4 rounded-lg border bg-gray-50"
                         >
                             <div class="grid grid-cols-12 gap-4">
-                                <div class="col-span-6 md:col-span-4">
+                                <div class="col-span-6 md:col-span-2">
                                     <label class="text-sm font-semibold"
                                         >Prodotto</label
                                     >
@@ -558,7 +561,26 @@ watch(
                                         <option value="VA">Varie</option>
                                     </select>
                                 </div>
-
+<div class="col-span-6 md:col-span-1">
+                                    <label class="text-sm font-semibold"
+                                        >Modello</label
+                                    >
+                                    <input
+                                        v-model="it.Modello"
+                                        @keydown.enter.prevent="focusNext"
+                                        class="mt-1 w-full rounded-lg border"
+                                    />
+                                </div>
+<div class="col-span-6 md:col-span-4">
+                                    <label class="text-sm font-semibold"
+                                        >Colore</label
+                                    >
+                                    <input
+                                        v-model="it.Colore"
+                                        @keydown.enter.prevent="focusNext"
+                                        class="mt-1 w-full rounded-lg border"
+                                    />
+                                </div>
 
                                 <div class="col-span-6 md:col-span-1">
                                     <label class="text-sm font-semibold"

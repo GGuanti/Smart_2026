@@ -82,6 +82,9 @@ public function store(Request $request)
             'StatoMagazzino' => 'nullable|string',
             'Nordine' => 'nullable|integer',
             'Riferimento' => 'nullable|string',
+             'Modello' => 'nullable|string',
+             'Colore' => 'nullable|string',
+
             'items' => 'array',
         ]);
             $validated['user_id'] = Auth::id();
@@ -101,7 +104,78 @@ public function store(Request $request)
     /**
      * UPDATE
      */
+
     public function update(Request $request, $id)
+    {
+        $evento = CalendarioIsomax::findOrFail($id);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'DataInizio' => 'required|date',
+            'DataFine' => 'nullable|date',
+            'DataConsegna' => 'nullable|date',
+            'status' => 'nullable|string',
+            'StatoMagazzino' => 'nullable|string',
+            'Nordine' => 'nullable|integer',
+            'Riferimento' => 'nullable|string',
+            'Annotazioni' => 'nullable|string',
+            'description' => 'nullable|string',
+
+            // 🔥 VALIDAZIONE ITEMS
+            'items' => 'array',
+            'items.*.Prodotto' => 'nullable|string',
+            'items.*.Pezzi' => 'nullable|integer',
+            'items.*.Lotto' => 'nullable|string',
+            'items.*.Descrizione' => 'nullable|string',
+            'items.*.Modello' => 'nullable|string',
+            'items.*.Colore' => 'nullable|string',
+
+        ]);
+
+        $validated['user_id'] = Auth::id();
+
+        $items = $validated['items'] ?? [];
+        unset($validated['items']);
+
+        DB::transaction(function () use ($evento, $validated, $items) {
+
+            $evento->update($validated);
+
+            $this->syncItems($evento, $items);
+        });
+
+        return back();
+    }
+    private function syncItems($evento, $items)
+    {
+        // cancella vecchi
+        $evento->items()->delete();
+
+        $cleanItems = collect($items)
+            ->filter(fn($it) => !empty($it['Prodotto']))
+            ->map(function ($it) use ($evento) {
+                return [
+                    'calendario_id' => $evento->id,
+                    'Prodotto' => $it['Prodotto'],
+                    'Pezzi' => (int) ($it['Pezzi'] ?? 0),
+                    'Lotto' => $it['Lotto'] ?? null,
+                    'Descrizione' => $it['Descrizione'] ?? null,
+                    'Modello' => $it['Modello'] ?? null,
+                    'Colore' => $it['Colore'] ?? null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            })->values();
+
+        if ($cleanItems->isNotEmpty()) {
+            DB::table('calendario_prodotti')->insert($cleanItems->toArray());
+        }
+
+        // aggiorna totale pezzi
+        $tot = $cleanItems->sum('Pezzi');
+        $evento->update(['Pezzi' => $tot]);
+    }
+    public function update1(Request $request, $id)
 {
     $evento = CalendarioIsomax::findOrFail($id);
 
@@ -116,6 +190,7 @@ public function store(Request $request)
         'Riferimento' => 'nullable|string',
         'Annotazioni' => 'nullable|string',
         'description' => 'nullable|string',
+         'Modello' => 'nullable|string',
         'items' => 'array',
     ]);
  $validated['user_id'] = Auth::id();
@@ -147,7 +222,7 @@ public function store(Request $request)
     /**
      * 🔥 SYNC ITEMS (CUORE DEL SISTEMA)
      */
-    private function syncItems($evento, $items)
+    private function syncItems1($evento, $items)
     {
         // ✅ cancella TUTTI i vecchi
         $evento->items()->delete();

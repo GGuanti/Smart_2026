@@ -13,5 +13,7 @@ class CalendarioProdotti extends Model
         'calendario_id',
         'Prodotto',
         'Pezzi',
+        'Modello',
+        'Colore',
     ];
 }
