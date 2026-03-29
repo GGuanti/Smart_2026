@@ -1547,15 +1547,6 @@ onMounted(() => {
                     class="border px-3 py-2 rounded w-full"
                 />
 
-                <select
-                    v-model="SceltaProdotto"
-                    class="border px-3 py-2 rounded"
-                >
-                    <option value="Tutti">Tutti</option>
-                    <option value="PLC">Porte Laccate</option>
-                    <option value="PLA">Porte Laminate</option>
-                    <option value="VA">Varie</option>
-                </select>
 
                 <select
                     v-model="selectedStatus"
