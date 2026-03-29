@@ -117,9 +117,11 @@ Route::get('/login', [AuthenticatedSessionController::class, 'create'])
 |--------------------------------------------------------------------------
 */
 
+
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'usersSummary'])
-        ->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('dashboard');
 });
 
 /*

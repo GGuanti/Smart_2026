@@ -21,6 +21,12 @@ const props = defineProps({
             <h2 class="text-2xl font-semibold mb-4">👥 Riepilogo Utenti</h2>
             <p>Numero totale di utenti registrati: <strong>{{ totalUsers }}</strong></p>
           </div>
+          <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+        <div class="bg-white shadow-sm sm:rounded-lg p-6">
+          <h2 class="text-2xl font-semibold mb-4">📊 Ordini per Tipologia</h2>
+          <canvas ref="chartRef"></canvas>
+        </div>
+      </div>
         </div>
       </div>
     </div>
