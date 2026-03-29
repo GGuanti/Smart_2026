@@ -184,7 +184,7 @@ public function store(Request $request)
 
         DB::transaction(function () use ($evento) {
             DB::table('calendario_prodotti')
-                ->where('Nordine', $evento->Nordine)
+                ->where('calendario_id', $evento->id)
                 ->delete();
 
             $evento->delete();
