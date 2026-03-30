@@ -213,17 +213,14 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                                         </template>
                                         <template #content>
                                          <DropdownLink
-                                         v-if="
-                                                    $page.props.auth.user
-                                                        .profilo === 'admin'
-                                                "
-                                                :href="
-                                                    route(
-                                                        'Isomax.CalendarIsomax',
-                                                    )
-                                                "
-                                                >📅 Calendario</DropdownLink
-                                            >
+    v-if="
+        ['gguanti@gmail.com', 'm.mecca@isomaporte.com', 'giuseppe.mecca@isomaporte.com', 'info@isomaporte.com']
+            .includes($page.props.auth.user.email)
+    "
+    :href="route('Isomax.CalendarIsomax')"
+>
+    📅 Calendario
+</DropdownLink>
                                             <DropdownLink
                                                 :href="route('ordini.index')"
                                                 >📄 Ordini</DropdownLink
