@@ -153,7 +153,7 @@ Route::middleware(['auth', 'isomax'])->group(function () {
         ->except(['show']);
 
 Route::put('/Calendario/{id}/move', [CalendarioControllerIsomax::class, 'move']);
-
+Route::get('/ordini-data', [OrdineController::class, 'data']);
     Route::resource('ordini', OrdineController::class);
     Route::post('/ordini/{id}/copia', [OrdineController::class, 'copia'])
         ->name('ordini.copia');

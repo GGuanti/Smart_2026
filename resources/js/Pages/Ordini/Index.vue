@@ -18,14 +18,23 @@ const statiOrdine = ["Preventivo", "Ordine", "Ordine inviato", "Consegnato"];
 
 const q = ref(props.filters?.q ?? "");
 const user_id = ref("");
+const perPage = ref(props.filters?.per_page ?? 15);
 
-function search() {
+function search(page = 1) {
     router.get(
         route("ordini.index"),
-
-        { q: q.value, stato: stato.value, user_id: user_id.value || null },
-
-        { preserveState: true, replace: true, preserveScroll: true },
+        {
+            q: q.value,
+            stato: stato.value,
+            user_id: user_id.value || null,
+            per_page: perPage.value,
+            page: page,
+        },
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+        },
     );
 }
 
@@ -289,7 +298,7 @@ function docPillClass(tipo) {
                                                     route('ordini.edit', o.ID)
                                                 "
                                                 class="px-3 py-2 hover:bg-blue-50 text-blue-700"
-                                                 title="Modifca Ordine"
+                                                title="Modifca Ordine"
                                                 >✏️</Link
                                             >
 
@@ -309,7 +318,7 @@ function docPillClass(tipo) {
                                             <button
                                                 class="px-3 py-2 hover:bg-red-50 text-red-700"
                                                 @click="destroy(o.ID)"
-                                                 title="Cancella Ordine"
+                                                title="Cancella Ordine"
                                             >
                                                 {{
                                                     confirmDeleteId === o.ID
@@ -331,6 +340,72 @@ function docPillClass(tipo) {
                                 </tr>
                             </tbody>
                         </table>
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-4 mt-4 p-3 bg-white border rounded-xl shadow-sm"
+                        >
+                            <!-- ⬅️ PAGINAZIONE -->
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="px-3 py-2 rounded-lg border bg-white hover:bg-slate-50 disabled:opacity-40"
+                                    :disabled="!ordini.prev_page_url"
+                                    @click="search(ordini.current_page - 1)"
+                                >
+                                    ←
+                                </button>
+
+                                <div
+                                    class="px-3 py-2 text-sm font-semibold text-slate-700"
+                                >
+                                    Pagina {{ ordini.current_page }}
+                                    <span class="text-slate-400"
+                                        >/ {{ ordini.last_page }}</span
+                                    >
+                                </div>
+
+                                <button
+                                    class="px-3 py-2 rounded-lg border bg-white hover:bg-slate-50 disabled:opacity-40"
+                                    :disabled="!ordini.next_page_url"
+                                    @click="search(ordini.current_page + 1)"
+                                >
+                                    →
+                                </button>
+                            </div>
+
+                            <!-- 📊 INFO RECORD -->
+                            <div class="text-sm text-slate-500">
+                                Mostrati
+                                <span class="font-semibold">{{
+                                    stats.from
+                                }}</span
+                                >–
+                                <span class="font-semibold">{{
+                                    stats.to
+                                }}</span>
+                                di
+                                <span class="font-semibold">{{
+                                    stats.total
+                                }}</span>
+                            </div>
+
+                            <!-- 🔢 RECORD PER PAGINA -->
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-slate-500"
+                                    >Record:</span
+                                >
+
+                                <select
+                                    v-model="perPage"
+                                    @change="search(1)"
+                                    class="rounded-lg border px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-blue-100"
+                                >
+                                    <option :value="10">10</option>
+                                    <option :value="15">15</option>
+                                    <option :value="25">25</option>
+                                    <option :value="50">50</option>
+                                    <option :value="100">100</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

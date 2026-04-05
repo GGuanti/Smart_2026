@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
 use App\Models\Ordine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,11 +13,50 @@ use function Laravel\Prompts\alert;
 class OrdineController extends Controller
 {
     // app/Http/Controllers/OrdineController.php
+public function data(Request $request)
+{
+    $query = DB::table('crm_03.tab_ordine as o')
+        ->leftJoin('users as u', 'o.user_id', '=', 'u.id')
+        ->select(
+            'o.ID',
+            'o.Nordine',
+            'o.TipoDoc',
+            'o.CognomeNome',
+            'o.Telefono',
+            'o.IdCitta',
+            'o.DataOrdine',
+            'o.DataCons',
+            'u.name as Utente'
+        );
 
+    // 🔍 SEARCH
+    if ($request->q) {
+        $q = $request->q;
+        $query->where(function ($sub) use ($q) {
+            $sub->where('o.Nordine', 'like', "%$q%")
+                ->orWhere('o.CognomeNome', 'like', "%$q%")
+                ->orWhere('o.Telefono', 'like', "%$q%");
+        });
+    }
+
+    // 🔽 FILTRI
+    if ($request->stato) {
+        $query->where('o.TipoDoc', $request->stato);
+    }
+
+    if ($request->user_id) {
+        $query->where('o.user_id', $request->user_id);
+    }
+
+    return response()->json(
+        $query->orderByDesc('o.DataOrdine')
+              ->paginate(20)
+    );
+}
     public function copia($id)
     {
         $old = TabOrdine::findOrFail($id);
-        abort_if($old->user_id !== auth()->id(), 403);
+        abort_if($old->user_id !== Auth::user()->id(), 403);
 
         return DB::transaction(function () use ($old) {
 
@@ -31,7 +71,7 @@ class OrdineController extends Controller
             ]);
 
             $new->Nordine = $newNordine;
-            $new->user_id = auth()->id(); // sicurezza
+            $new->user_id = Auth::user()->id(); // sicurezza
 
             // opzionale: reset campi “stato”
             $new->TipoDoc = 'Preventivo';
@@ -72,9 +112,9 @@ class OrdineController extends Controller
     {
         $q = $request->string('q')->toString();
         $stato = $request->string('stato')->toString(); // ✅ nuovo
-
+$perPage = $request->integer('per_page') ?: 15;
         $ordini = TabOrdine::query()
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::user()->id())
             ->when($q, function ($query) use ($q) {
                 $query->where(function ($qq) use ($q) {
                     $qq->where('Nordine', 'like', "%{$q}%")
@@ -88,7 +128,7 @@ class OrdineController extends Controller
                 $query->where('TipoDoc', $stato); // ✅ filtro stato
             })
             ->orderByDesc('Nordine')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         return inertia('Ordini/Index', [
@@ -105,10 +145,10 @@ class OrdineController extends Controller
     $stato = $request->string('stato')->toString();
     $userFilter = $request->integer('user_id');
 
-    $user = auth()->user();
+    $user = Auth::user();
     $isAdmin = strtolower((string)$user->profilo) === 'admin';
 
-
+$perPage = $request->input('per_page', 15);
 
 
 
@@ -127,7 +167,7 @@ class OrdineController extends Controller
         })
         ->when($stato, fn ($query) => $query->where('TipoDoc', $stato))
         ->orderByDesc('Nordine')
-        ->paginate(15)
+        ->paginate($perPage)
         ->withQueryString();
 
     return inertia('Ordini/Index', [
@@ -164,7 +204,7 @@ class OrdineController extends Controller
             'mode'        => 'create',
             'ivaList' => $ivaList,
             'trasportiList' => $Trasp,
-            'regioneUtente' => (string) (auth()->user()->trasporto ?? ''),
+            'regioneUtente' => (string) (Auth::user()->trasporto ?? ''),
             'tariffeTrasporto' => DB::table('tab_costo_trasporto')
                 ->select('regione', 'costo', 'min_tass')
                 ->get(),
@@ -197,7 +237,7 @@ class OrdineController extends Controller
             'ivaList' => $ivaList,
             'trasportiList' => $Trasp,
             'QtaTotRighe' => (float)$QtaTotRighe,
-            'regioneUtente' => (string) (auth()->user()->trasporto ?? ''),
+            'regioneUtente' => (string) (Auth::user()->trasporto ?? ''),
             'tariffeTrasporto' => DB::table('tab_costo_trasporto')
                 ->select('regione', 'costo', 'min_tass')
                 ->get(),
@@ -236,8 +276,8 @@ class OrdineController extends Controller
         $data['DataCons'] = $data['DataCons'] ?? now();
 
         // ✅ QUESTA È LA RIGA CHE TI MANCAVA (MA AL POSTO GIUSTO)
-        $data['user_id'] = auth()->id();
-        $data['Utente'] = auth()->user()->name;
+        $data['user_id'] = Auth::user()->id();
+        $data['Utente'] = Auth::user()->name;
 
         if (empty($data['IdIva'])) {
             $iva22 = DB::table('tab_iva')
@@ -286,7 +326,7 @@ class OrdineController extends Controller
         ]);
 
 
-        abort_if($ordini->user_id !== auth()->id(), 403);
+        abort_if($ordini->user_id !== Auth::user()->id(), 403);
         if (empty($data['IdIva'])) {
             $iva22 = DB::table('tab_iva')
                 ->where('valore', 22)
@@ -303,7 +343,7 @@ class OrdineController extends Controller
     public function destroy($id)
     {
         $ordine = TabOrdine::findOrFail($id);
-        abort_if($ordine->user_id !== auth()->id(), 403);
+        abort_if($ordine->user_id !== Auth::user()->id(), 403);
 
         DB::transaction(function () use ($ordine) {
             // 1) cancella tutte le righe collegate (via Nordine)

@@ -9,12 +9,10 @@ use Carbon\Carbon;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
-
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-
         $user = Auth::user();
 
         $allowed = [
@@ -25,35 +23,54 @@ class DashboardController extends Controller
         ];
 
         $isAdmin = in_array($user->email, $allowed);
-        // 🔥 DEFAULT SETTIMANA SE NON PASSATA
+
+        // 🔥 DEFAULT SETTIMANA
         if (!$request->from || !$request->to) {
-        $start = Carbon::now()->startOfWeek(1); // lunedì
-$end = Carbon::now()->endOfWeek(0);     // domenica
+            $start = Carbon::now()->startOfWeek(1);
+            $end   = Carbon::now()->endOfWeek(0);
+
             return redirect()->route('dashboard', [
                 'from' => $start->format('Y-m-d'),
-                'to' => $end->format('Y-m-d'),
+                'to'   => $end->format('Y-m-d'),
             ]);
         }
 
         $from = $request->from;
-        $to = $request->to;
+        $to   = $request->to;
 
-        // 🔥 BASE QUERY
+        // =========================
+        // 🔥 BASE QUERY (SETTIMANA)
+        // =========================
+
         $base = DB::table('crm_03.tab_ordine as o')
             ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
             ->whereNotNull('o.DataOrdine')
-            ->whereRaw("DATE(o.DataOrdine) BETWEEN ? AND ?", [$from, $to]);
+            ->whereBetween('o.DataOrdine', [
+                Carbon::parse($from)->startOfDay(),
+                Carbon::parse($to)->endOfDay()
+            ]);
 
         // =========================
         // ✅ KPI
         // =========================
 
         $totaleFatturato = (clone $base)
-            ->sum(DB::raw('e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))'));
+         ->where('o.TipoDoc', 'Consegnato')
+            ->selectRaw('
+                SUM(
+                    e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+                    * (1 - IFNULL(o.Sconto1,0)/100)
+                    * (1 - IFNULL(o.Sconto2,0)/100)
+                ) as totale
+            ')
+            ->value('totale');
 
         $totaleOrdini = DB::table('crm_03.tab_ordine')
             ->whereNotNull('DataOrdine')
-            ->whereRaw("DATE(DataOrdine) BETWEEN ? AND ?", [$from, $to])
+            ->whereBetween('DataOrdine', [
+                Carbon::parse($from)->startOfDay(),
+                Carbon::parse($to)->endOfDay()
+            ])
             ->count();
 
         $totaleUtenti = User::count();
@@ -65,40 +82,103 @@ $end = Carbon::now()->endOfWeek(0);     // domenica
         $ordiniPerTipo = (clone $base)
             ->select(
                 'o.TipoDoc',
-                DB::raw('SUM(e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))) as totale')
+                DB::raw('
+                    SUM(
+                        e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+                        * (1 - IFNULL(o.Sconto1,0)/100)
+                        * (1 - IFNULL(o.Sconto2,0)/100)
+                    ) as totale
+                ')
             )
             ->groupBy('o.TipoDoc')
             ->orderByDesc('totale')
             ->get();
 
         // =========================
-        // ✅ CONFRONTO MENSILE
+        // ✅ ANDAMENTO DA INIZIO ANNO (🔥 FIX)
         // =========================
 
-        $startCurrent = Carbon::now()->startOfMonth();
-        $endCurrent = Carbon::now()->endOfMonth();
+        $startYear = Carbon::now()->startOfYear();
+        $today     = Carbon::now();
+$andamentoMensileTipo = DB::table('crm_03.tab_ordine as o')
+    ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
+    ->whereNotNull('o.DataOrdine')
+    ->whereBetween('o.DataOrdine', [
+        $startYear->startOfDay(),
+        $today->endOfDay()
+    ])
+    ->selectRaw('
+        DATE_FORMAT(o.DataOrdine, "%Y-%m") as mese,
+        o.TipoDoc,
+        SUM(
+            e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+            * (1 - IFNULL(o.Sconto1,0)/100)
+            * (1 - IFNULL(o.Sconto2,0)/100)
+        ) as totale
+    ')
+    ->groupBy(DB::raw('DATE_FORMAT(o.DataOrdine, "%Y-%m"), o.TipoDoc'))
+    ->orderBy('mese')
+    ->get();
 
-        $startPrev = Carbon::now()->subMonth()->startOfMonth();
-        $endPrev = Carbon::now()->subMonth()->endOfMonth();
+        $andamentoMensile = DB::table('crm_03.tab_ordine as o')
+            ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
+            ->whereNotNull('o.DataOrdine')
+            ->whereBetween('o.DataOrdine', [
+                $startYear->startOfDay(),
+                $today->endOfDay()
+            ])
+            ->selectRaw('
+                DATE_FORMAT(o.DataOrdine, "%Y-%m") as mese,
+                SUM(
+                    e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+                    * (1 - IFNULL(o.Sconto1,0)/100)
+                    * (1 - IFNULL(o.Sconto2,0)/100)
+                ) as totale
+            ')
+            ->groupBy(DB::raw('DATE_FORMAT(o.DataOrdine, "%Y-%m")'))
+            ->orderBy('mese')
+            ->get();
+
+        // =========================
+        // ✅ CONFRONTO MENSILE
+        // =========================
 
         $baseMensile = DB::table('crm_03.tab_ordine as o')
             ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
             ->whereNotNull('o.DataOrdine');
 
+        $startMonth = Carbon::now()->startOfMonth();
+        $endMonth   = Carbon::now()->endOfMonth();
+
         $corrente = (clone $baseMensile)
-            ->whereRaw("DATE(o.DataOrdine) BETWEEN ? AND ?", [
-                $startCurrent->format('Y-m-d'),
-                $endCurrent->format('Y-m-d')
+            ->whereBetween('o.DataOrdine', [
+                $startMonth->startOfDay(),
+                $endMonth->endOfDay()
             ])
-            ->select(DB::raw('SUM(e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))) as totale'))
+            ->selectRaw('
+                SUM(
+                    e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+                    * (1 - IFNULL(o.Sconto1,0)/100)
+                    * (1 - IFNULL(o.Sconto2,0)/100)
+                ) as totale
+            ')
             ->value('totale');
 
+        $startPrev = Carbon::now()->subMonth()->startOfMonth();
+        $endPrev   = Carbon::now()->subMonth()->endOfMonth();
+
         $precedente = (clone $baseMensile)
-            ->whereRaw("DATE(o.DataOrdine) BETWEEN ? AND ?", [
-                $startPrev->format('Y-m-d'),
-                $endPrev->format('Y-m-d')
+            ->whereBetween('o.DataOrdine', [
+                $startPrev->startOfDay(),
+                $endPrev->endOfDay()
             ])
-            ->select(DB::raw('SUM(e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))) as totale'))
+            ->selectRaw('
+                SUM(
+                    e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+                    * (1 - IFNULL(o.Sconto1,0)/100)
+                    * (1 - IFNULL(o.Sconto2,0)/100)
+                ) as totale
+            ')
             ->value('totale');
 
         // =========================
@@ -108,17 +188,19 @@ $end = Carbon::now()->endOfWeek(0);     // domenica
         return Inertia::render('Dashboard', [
             'kpi' => [
                 'fatturato' => $totaleFatturato ?? 0,
-                'ordini' => $totaleOrdini,
-                'utenti' => $totaleUtenti,
+                'ordini'    => $totaleOrdini,
+                'utenti'    => $totaleUtenti,
             ],
             'ordiniPerTipo' => $ordiniPerTipo,
+            'andamentoMensile' => $andamentoMensile,
+            'andamentoMensileTipo' => $andamentoMensileTipo,
             'confrontoMensile' => [
-                'corrente' => $corrente ?? 0,
+                'corrente'   => $corrente ?? 0,
                 'precedente' => $precedente ?? 0,
             ],
             'filters' => [
                 'from' => $from,
-                'to' => $to,
+                'to'   => $to,
             ],
             'isAdmin' => $isAdmin,
         ]);

@@ -9,6 +9,7 @@ const props = defineProps({
     ordiniPerTipo: Array,
     filters: Object,
     andamentoMensile: Array,
+    andamentoMensileTipo: Array,
     isAdmin: Boolean,
 });
 
@@ -67,9 +68,15 @@ function filtra() {
         },
     );
 }
+
 const chartTrend = ref(null);
 let chartTrendInstance = null;
-
+const coloriTipoDoc = {
+    "Preventivo": "#94a3b8",      // grigio
+    "Ordine": "#3b82f6",          // blu
+    "Ordine inviato": "#f59e0b",  // arancione
+    "Consegnato": "#10b981",      // verde
+};
 function renderTrend() {
     if (!chartTrend.value) return;
 
@@ -77,37 +84,51 @@ function renderTrend() {
         chartTrendInstance.destroy();
     }
 
-    const labels = props.andamentoMensile.map((i) => i.giorno.slice(8)); // giorno (01,02...)
-    const data = props.andamentoMensile.map((i) => Number(i.totale || 0));
+    const raw = props.andamentoMensileTipo || [];
+
+    if (!raw.length) {
+        console.warn("vuoto");
+        return;
+    }
+
+    // 🔥 mesi unici
+    const mesi = [...new Set(raw.map(r => r.mese))];
+
+    // 🔥 tipi documento
+    const tipi = [...new Set(raw.map(r => r.TipoDoc))];
+
+    // 🔥 dataset per ogni tipo
+    const datasets = tipi.map(tipo => {
+    const color = coloriTipoDoc[tipo] || "#6366f1"; // fallback
+
+    return {
+        label: tipo,
+        data: mesi.map(mese => {
+            const row = raw.find(r => r.mese === mese && r.TipoDoc === tipo);
+            return row ? Number(row.totale) : 0;
+        }),
+        borderColor: color,
+        backgroundColor: color + "33", // trasparenza
+        tension: 0.4,
+        fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2,
+    };
+});
 
     chartTrendInstance = new Chart(chartTrend.value, {
         type: "line",
         data: {
-            labels,
-            datasets: [
-                {
-                    label: "Fatturato giornaliero",
-                    data,
-                    tension: 0.3,
-                    fill: true,
-                },
-            ],
+            labels: mesi,
+            datasets,
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
             plugins: {
                 tooltip: {
                     callbacks: {
                         label: (ctx) => euro(ctx.raw),
-                    },
-                },
-                legend: { display: false },
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: (value) => euro(value),
                     },
                 },
             },
@@ -181,7 +202,7 @@ function renderChart() {
 onMounted(async () => {
     await nextTick();
     renderChart();
-    renderChartMensile();
+
     renderTrend();
 });
 
@@ -191,7 +212,7 @@ watch(
     async () => {
         await nextTick();
         renderChart();
-        renderChartMensile();
+
         renderTrend();
     },
 );
@@ -210,7 +231,7 @@ watch(
                 </div>
 
                 <div v-if="isAdmin" class="bg-white p-4 rounded shadow">
-                    <h3 class="text-gray-500">Fatturato</h3>
+                    <h3 class="text-gray-500">Fatturato Trasporto Escluso</h3>
                     <p class="text-2xl font-bold">
                         {{ euro(kpi?.fatturato) }}
                     </p>
@@ -253,24 +274,30 @@ watch(
                 </button>
             </div>
             <div v-if="isAdmin" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- GRAFICO -->
-                <div class="bg-white p-6 rounded shadow">
-                    <h2 class="text-xl mb-4">
-                        📊 Fatturato per Tipologia Documento
-                    </h2>
 
-                    <div class="w-[300px] h-[300px] mx-auto">
-                        <canvas ref="chartRef"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded shadow">
-                    <h2 class="text-xl mb-4">📈 Andamento Mensile</h2>
+    <!-- 📈 ANDAMENTO MENSILE (PRIMO) -->
+    <div class="bg-white p-6 rounded shadow border-l-4 border-blue-500">
+        <h2 class="text-xl mb-4 flex items-center gap-2">
+            📈 Andamento Mensile
+        </h2>
 
-                    <div class="w-full h-[300px]">
-                        <canvas ref="chartTrend"></canvas>
-                    </div>
-                </div>
-            </div>
+        <div class="w-full h-[300px]">
+            <canvas ref="chartTrend"></canvas>
+        </div>
+    </div>
+
+    <!-- 📊 FATTURATO PER TIPO (DOPO) -->
+    <div class="bg-white p-6 rounded shadow border-l-4 border-emerald-500">
+        <h2 class="text-xl mb-4 flex items-center gap-2">
+            📊 Fatturato per Tipologia Documento
+        </h2>
+
+        <div class="w-[300px] h-[300px] mx-auto">
+            <canvas ref="chartRef"></canvas>
+        </div>
+    </div>
+
+</div>
         </div>
     </AuthenticatedLayout>
 </template>
