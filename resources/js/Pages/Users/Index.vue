@@ -70,7 +70,7 @@ const DEFAULTS = {
     profilo: "Isomax",
     listino: "1",
     azienda: "Isomax",
-    trasporto: props.regioniTrasporto?.[0] ?? "",
+    IdCostoTrasporto: null,
     datiazienda: "",
 };
 
@@ -81,7 +81,7 @@ function resetForm() {
     form.clearErrors();
     form.defaults({
         ...DEFAULTS,
-        trasporto: props.regioniTrasporto?.[0] ?? "",
+        IdCostoTrasporto: props.regioniTrasporto?.[0]?.id ?? null,
     });
     form.reset();
 
@@ -100,7 +100,8 @@ function editRow(row) {
     form.profilo = row.profilo ?? "Isomax";
     form.listino = row.listino ?? "1";
     form.azienda = row.azienda ?? "Isomax";
-    form.trasporto = row.trasporto ?? props.regioniTrasporto?.[0] ?? "";
+    form.IdCostoTrasporto = row.IdCostoTrasporto ?? null;
+
     form.datiazienda = row.datiazienda ?? "";
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -149,7 +150,7 @@ function submit() {
     fd.append("password", form.password ?? "");
     fd.append("azienda", form.azienda ?? "");
     fd.append("listino", form.listino ?? "");
-    fd.append("trasporto", form.trasporto ?? "");
+    fd.append("IdCostoTrasporto", form.IdCostoTrasporto ?? "");
     fd.append("datiazienda", form.datiazienda ?? "");
 
     // logo
@@ -190,7 +191,7 @@ const availableFields = [
     { label: "Email", value: "email", type: "string" },
     { label: "Profilo", value: "profilo", type: "string" },
     { label: "Azienda", value: "azienda", type: "string" },
-    { label: "Regione", value: "trasporto", type: "string" },
+    { label: "Regione", value: "IdCostoTrasporto", type: "string" },
     { label: "Listino", value: "listino", type: "string" },
 ];
 
@@ -230,20 +231,67 @@ function resetColumnLayout() {
     localStorage.removeItem("TBL-users");
     window.location.reload();
 }
+let isFiltering = false;
 
 function applyQuickSearch() {
-    if (!tableInstance) return;
-    const q = String(quickSearch.value ?? "").trim();
+    if (!tableInstance || isFiltering) return;
+
+    isFiltering = true;
+
+    const q = String(quickSearch.value ?? "").toLowerCase().trim();
 
     tableInstance.setFilter((data) => {
         if (!q) return true;
-        const hay = `${data.name ?? ""} ${data.email ?? ""} ${
-            data.profilo ?? ""
-        } ${data.azienda ?? ""} ${data.trasporto ?? ""} ${
-            data.listino ?? ""
-        }`.toLowerCase();
 
-        return hay.includes(q.toLowerCase());
+        const regioneObj = props.regioniTrasporto.find(
+            (r) => Number(r.id) === Number(data.IdCostoTrasporto)
+        );
+
+        const regione = regioneObj?.regione ?? "";
+
+        const hay = `
+            ${data.name ?? ""}
+            ${data.email ?? ""}
+            ${data.profilo ?? ""}
+            ${data.azienda ?? ""}
+            ${regione}
+            ${data.listino ?? ""}
+        `.toLowerCase();
+
+        return hay.includes(q);
+    });
+
+    setTimeout(() => {
+        isFiltering = false;
+    }, 0);
+}
+function applyQuickSearch1() {
+    if (!tableInstance) return;
+
+    const q = String(quickSearch.value ?? "")
+        .toLowerCase()
+        .trim();
+
+    tableInstance.setFilter((data) => {
+        if (!q) return true;
+
+        // 🔥 recupero nome regione da id
+        const regioneObj = props.regioniTrasporto.find(
+            (r) => Number(r.id) === Number(data.IdCostoTrasporto),
+        );
+
+        const regione = regioneObj?.regione ?? "";
+
+        const hay = `
+            ${data.name ?? ""}
+            ${data.email ?? ""}
+            ${data.profilo ?? ""}
+            ${data.azienda ?? ""}
+            ${regione}
+            ${data.listino ?? ""}
+        `.toLowerCase();
+
+        return hay.includes(q);
     });
 }
 
@@ -251,6 +299,7 @@ onMounted(() => {
     pivotInstance = new Tabulator(pivotRef.value, {
         data: props.preventiviPivot,
         layout: "fitColumns",
+        height: "500px",
         reactiveData: true,
         movableColumns: true,
         resizableColumns: true,
@@ -263,6 +312,7 @@ onMounted(() => {
     tableInstance = new Tabulator(tableRef.value, {
         data: props.users,
         layout: "fitColumns",
+        height: "500px",
         reactiveData: true,
         movableColumns: true,
         resizableColumns: true,
@@ -271,7 +321,7 @@ onMounted(() => {
         paginationSizeSelector: [10, 20, 50, 100],
         placeholder: "Nessun utente trovato",
         persistence: { columns: true },
-        persistenceID: "TBL-users",
+        persistenceID: "TBL-users3",
         persistenceMode: "local",
 
         columns: [
@@ -321,10 +371,16 @@ onMounted(() => {
                 hozAlign: "center",
             },
             {
-                title: "Trasporto",
-                field: "trasporto",
-                width: 150,
-                sorter: "string",
+                title: "Regione",
+                field: "IdCostoTrasporto",
+                width: 180,
+                formatter: (cell) => {
+                    const id = cell.getValue();
+                    const r = props.regioniTrasporto.find(
+                        (x) => Number(x.id) === Number(id),
+                    );
+                    return r ? r.regione : "-";
+                },
             },
             {
                 title: "Azioni",
@@ -357,10 +413,15 @@ watch(
     () => props.users,
     (newData) => {
         if (!tableInstance) return;
-        tableInstance.replaceData(newData ?? []);
-        applyDynamicFilters();
-        applyQuickSearch();
-    },
+
+        tableInstance.setData(newData ?? []);
+
+        // ⚠️ NON chiamare subito filtri → crea loop
+        setTimeout(() => {
+            applyDynamicFilters();
+            applyQuickSearch();
+        }, 0);
+    }
 );
 
 watch(quickSearch, () => applyQuickSearch());
@@ -738,16 +799,17 @@ function buildPivotColumns() {
                                     >Regione trasporto</label
                                 >
                                 <select
-                                    v-model="form.trasporto"
+                                    v-model.number="form.IdCostoTrasporto"
                                     class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
                                 >
-                                    <option value="">— Seleziona —</option>
+                                    <option :value="null">— Seleziona —</option>
+
                                     <option
                                         v-for="r in regioniTrasporto"
-                                        :key="r"
-                                        :value="r"
+                                        :key="r.id"
+                                        :value="r.id"
                                     >
-                                        {{ r }}
+                                        {{ r.regione }}
                                     </option>
                                 </select>
                             </div>

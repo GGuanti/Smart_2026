@@ -55,7 +55,8 @@ class TabOrdine extends Model
         'KmMontaggio'   => 'integer',
         'IdIva'         => 'integer',
         'IdTrasporto'   => 'integer',
-        'IdTipoDoc'     => 'integer',
+        'IdCostoTrasporto'   => 'integer',
+                'IdTipoDoc'     => 'integer',
         'Nordine'       => 'integer',
     ];
 
@@ -133,6 +134,7 @@ class TabOrdine extends Model
         'Prodotto',
 
         'IdTrasporto',
+        'IdCostoTrasporto',
         'Utente',
         'DataProduzione',
         'DataProdotto',

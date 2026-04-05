@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Ordini/Form.vue -->
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, Link, useForm, router } from "@inertiajs/vue3";
+import { Head, usePage, Link, useForm, router } from "@inertiajs/vue3";
 import { computed, reactive, ref, onMounted, watch } from "vue";
 import { useToast } from "vue-toastification";
 import axios from "axios";
@@ -17,6 +17,7 @@ import {
     StickyNote,
     Euro,
 } from "lucide-vue-next";
+const page = usePage();
 const toast = useToast();
 const today = new Date().toISOString().slice(0, 10);
 const confirmDelete = ref(false);
@@ -29,7 +30,9 @@ const cstTrasportoCurrency = computed(() => {
         maximumFractionDigits: 2,
     }).format(v);
 });
-
+const userEmail = computed(() => {
+    return page.props.auth.user?.email || "";
+});
 const props = defineProps({
     ordine: { type: Object, default: null }, // per edit
     elementi: { type: Array, default: () => [] },
@@ -38,9 +41,12 @@ const props = defineProps({
     ivaList: { type: Array, default: () => [] },
     trasportiList: { type: Array, default: () => [] },
     QtaTotRighe: { type: Number, default: 0 },
-    regioneUtente: { type: String, default: "" },
+    idregioneUtente: { type: Number, default: null },
+    regioni: { type: Array, default: () => [] },
+
     tariffeTrasporto: { type: Array, default: () => [] },
 });
+
 const ivaPerc = computed(() => {
     const sel = props.ivaList.find((i) => Number(i.id) === Number(form.IdIva));
     return Number(sel?.valore ?? 0);
@@ -48,6 +54,12 @@ const ivaPerc = computed(() => {
 
 const costoTrasporto = computed(() => Number(form.CstTrasporto ?? 0));
 
+
+const canSeeTrasporto = computed(() => {
+    return ["gguanti@gmail.com", "info@isomaxporte.com"].includes(
+        userEmail.value,
+    );
+});
 const imponibile = computed(() => {
     // ✅ imponibile = totale scontato + trasporto
     return totaleScontato.value + costoTrasporto.value;
@@ -99,9 +111,10 @@ const form = useForm({
     Sconto2: props.ordine?.Sconto2 ?? 0,
     TxtModPagamento: props.ordine?.TxtModPagamento ?? "",
     Annotazioni: props.ordine?.Annotazioni ?? "",
-    regioneUtente: props.regioneUtente || props.ordine?.regioneUtente || "",
+    IdCostoTrasporto:
+        props.ordine?.IdCostoTrasporto ?? props.idregioneUtente ?? null,
 });
-console.log("Regione", props.regioneUtente);
+
 const totaleProdotti = computed(() => {
     const righe = Array.isArray(form.righe) ? form.righe : [];
     return righe.reduce((sum, r) => {
@@ -135,10 +148,10 @@ async function generaEInviaEmail() {
 
         if (!to)
             return toast.error(
-                "Inserisci l'email del cliente prima di inviare."
+                "Inserisci l'email del cliente prima di inviare.",
             );
 
-        await axios.post(route("ordini.email.conferma", { id}), { to, tipo  });
+        await axios.post(route("ordini.email.conferma", { id }), { to, tipo });
 
         toast.success("✅ Email inviata con PDF allegato!", {
             position: "top-center",
@@ -170,7 +183,7 @@ function focusNext(e) {
     if (tag === "textarea") return;
 
     const elements = Array.from(
-        formEl.querySelectorAll("input, select, textarea, button")
+        formEl.querySelectorAll("input, select, textarea, button"),
     ).filter((el) => {
         const type = (el.type || "").toLowerCase();
         return (
@@ -195,7 +208,7 @@ function submit() {
                 isEdit.value
                     ? "✅ Ordine aggiornato con successo!"
                     : "✅ Ordine creato con successo!",
-                { position: "top-center", timeout: 2500 }
+                { position: "top-center", timeout: 2500 },
             );
         },
         onError: () => {
@@ -279,7 +292,7 @@ function copiaOrdine() {
                 onStart: () => toast.info("📄 Copia ordine in corso…"),
                 onSuccess: () => toast.success("✅ Ordine copiato"),
                 onError: () => toast.error("❌ Errore copia ordine"),
-            }
+            },
         );
     }, "copia");
 }
@@ -381,46 +394,45 @@ onMounted(() => {
     if (form.IdTrasporto == null || form.IdTrasporto === "") {
         form.IdTrasporto = 2;
     }
+
+    if (!isEdit.value && form.IdCostoTrasporto == null) {
+        if (props.idregioneUtente != null) {
+            form.IdCostoTrasporto = props.idregioneUtente;
+        } else if (props.regioni.length) {
+            form.IdCostoTrasporto = props.regioni[0].id;
+        }
+    }
+
+
 });
 watch(
     () => [
-        form.regioneUtente,
+        form.IdCostoTrasporto,
         props.QtaTotRighe,
         form.IdTrasporto,
         props.tariffeTrasporto,
     ],
     () => {
-        // Trasporto escluso -> 0
         if (Number(form.IdTrasporto) === 1 || Number(form.IdTrasporto) === 4) {
             form.CstTrasporto = 0;
             return;
         }
 
-        const regione = String(form.regioneUtente || "")
-            .toUpperCase()
-            .trim();
-        const qta = Number(props.QtaTotRighe) || 0;
-
-        // cerca tariffa
         const t = (props.tariffeTrasporto || []).find(
-            (x) =>
-                String(x.regione || "")
-                    .toUpperCase()
-                    .trim() === regione
+            (x) => Number(x.id) === Number(form.IdCostoTrasporto),
         );
 
-        if (!t) {
-            // se non trovo tariffa: NON forzo (lascia valore attuale)
-            return;
-        }
+        if (!t) return;
 
+        const qta = Number(props.QtaTotRighe) || 0;
         const costo = Number(t.costo) || 0;
-        const minTass = Number.isFinite(+t.min_tass) ? +t.min_tass : 0;
+        const minTass = Number(t.min_tass) || 0;
 
-        form.CstTrasporto = Math.max(qta * costo, minTass)+25;
+        form.CstTrasporto = Math.max(qta * costo, minTass) + 25;
     },
-    { immediate: true }
+    { immediate: true },
 );
+
 </script>
 
 <template>
@@ -455,7 +467,6 @@ watch(
                         >
                             ⬅️ Elenco
                         </Link>
-
 
                         <button
                             type="button"
@@ -802,7 +813,11 @@ watch(
                                             >Costo Trasporto
                                             <span class="ml-1 text-gray-500">
                                                 ({{
-                                                    form.regioneUtente || "—"
+                                                    props.regioni.find(
+                                                        (r) =>
+                                                            r.id ===
+                                                            form.IdCostoTrasporto,
+                                                    )?.regione || "—"
                                                 }})
                                             </span></label
                                         >
@@ -813,6 +828,26 @@ watch(
                                             class="input bg-green-50 font-extrabold text-lg disabled:bg-gray-100 disabled:text-gray-400"
                                             disabled
                                         />
+                                    </div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="label"
+                                            >Regione Consegna</label
+                                        >
+
+                                      <select
+    v-model.number="form.IdCostoTrasporto"
+    class="input"
+    :class="{ 'bg-gray-100 text-gray-400 cursor-not-allowed': !canSeeTrasporto }"
+    :disabled="!canSeeTrasporto"
+>
+                                            <option
+                                                v-for="r in props.regioni"
+                                                :key="r.id"
+                                                :value="r.id"
+                                            >
+                                                {{ r.regione }}
+                                            </option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -838,7 +873,7 @@ watch(
                                             type="text"
                                             class="input bg-slate-100 font-bold text-lg"
                                             :value="`€ ${totaleProdotti.toFixed(
-                                                2
+                                                2,
                                             )}`"
                                             disabled
                                         />
@@ -889,7 +924,7 @@ watch(
                                             type="text"
                                             class="input bg-green-50 font-extrabold text-lg"
                                             :value="`€ ${totaleScontato.toFixed(
-                                                2
+                                                2,
                                             )}`"
                                             disabled
                                         />
@@ -929,7 +964,7 @@ watch(
                                                         >€
                                                         {{
                                                             totaleScontato.toFixed(
-                                                                2
+                                                                2,
                                                             )
                                                         }}</span
                                                     >
@@ -943,7 +978,7 @@ watch(
                                                         {{
                                                             Number(
                                                                 form.CstTrasporto ??
-                                                                    0
+                                                                    0,
                                                             ).toFixed(2)
                                                         }}</span
                                                     >
@@ -983,32 +1018,37 @@ watch(
                                                 <option value="Ord">
                                                     Ordine
                                                 </option>
-                                            <!--    <option value="ConfOrd">
+                                                <!--    <option value="ConfOrd">
                                                     Conferma Ordine
                                                 </option> -->
                                             </select>
                                         </div>
 
-                                                                <button
-                            type="button"
-                            class="btn btn-primary"
-                            :disabled="busy.print || form.processing"
-                            @click="generaReport"
-                        >
-                            🖨️ Stampa
-                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-primary"
+                                            :disabled="
+                                                busy.print || form.processing
+                                            "
+                                            @click="generaReport"
+                                        >
+                                            🖨️ Stampa
+                                        </button>
 
-                        <button
-                            v-if="isEdit && (props.ordine?.ID || form.ID)"
-                            type="button"
-                            class="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow transition font-extrabold flex items-center gap-1"
-                            :disabled="busy.email || form.processing"
-                            @click="generaEInviaEmail"
-                        >
-                            ✉️ Invia Email
-                        </button>
-
-
+                                        <button
+                                            v-if="
+                                                isEdit &&
+                                                (props.ordine?.ID || form.ID)
+                                            "
+                                            type="button"
+                                            class="px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow transition font-extrabold flex items-center gap-1"
+                                            :disabled="
+                                                busy.email || form.processing
+                                            "
+                                            @click="generaEInviaEmail"
+                                        >
+                                            ✉️ Invia Email
+                                        </button>
                                     </div>
                                 </div>
                             </div>

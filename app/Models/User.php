@@ -25,7 +25,7 @@ class User extends Authenticatable
         'table_preferences',
         'azienda',
         'listino',
-        'trasporto',
+        'IdCostoTrasporto',
         'datiazienda',
         // opzionale: se vuoi poter fare fill() anche dei token
         // 'dropbox_refresh_token',
