@@ -11,28 +11,31 @@ use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
-
-   public function ordiniPerRegione(Request $request)
+    public function ordiniPerRegione(Request $request)
     {
         $from = $request->input('from');
-        $to   = $request->input('to');
+        $to = $request->input('to');
+        $tipoDoc = $request->input('TipoDoc');
 
-        $query = DB::table('tab_ordine')
+        if (!$from || !$to) {
+            $from = Carbon::now()->startOfWeek(1)->format('Y-m-d');
+            $to   = Carbon::now()->endOfWeek(0)->format('Y-m-d');
+        }
+
+        $baseQuery = DB::table('tab_ordine')
             ->join('tab_costo_trasporto', 'tab_ordine.IdCostoTrasporto', '=', 'tab_costo_trasporto.id')
-            ->selectRaw('TRIM(tab_costo_trasporto.regione) as regione, COUNT(*) as totale')
             ->whereNotNull('tab_costo_trasporto.regione')
             ->whereRaw("TRIM(tab_costo_trasporto.regione) <> ''");
 
-        // cambia DataOrdine col tuo campo data reale
-        if ($from) {
-            $query->whereDate('tab_ordine.DataOrdine', '>=', $from);
+        $baseQuery->whereDate('tab_ordine.DataOrdine', '>=', $from);
+        $baseQuery->whereDate('tab_ordine.DataOrdine', '<=', $to);
+
+        if ($tipoDoc && $tipoDoc !== 'Tutti') {
+            $baseQuery->where('tab_ordine.TipoDoc', $tipoDoc);
         }
 
-        if ($to) {
-            $query->whereDate('tab_ordine.DataOrdine', '<=', $to);
-        }
-
-        $ordiniPerRegione = $query
+        $ordiniPerRegione = (clone $baseQuery)
+            ->selectRaw('TRIM(tab_costo_trasporto.regione) as regione, COUNT(*) as totale')
             ->groupBy(DB::raw('TRIM(tab_costo_trasporto.regione)'))
             ->orderByDesc('totale')
             ->get()
@@ -43,11 +46,44 @@ class DashboardController extends Controller
             })
             ->values();
 
+        $dettaglioPerRegioneTipoDoc = (clone $baseQuery)
+            ->selectRaw('TRIM(tab_costo_trasporto.regione) as regione, tab_ordine.TipoDoc, COUNT(*) as totale')
+            ->groupBy(DB::raw('TRIM(tab_costo_trasporto.regione)'), 'tab_ordine.TipoDoc')
+            ->orderBy('regione')
+            ->orderBy('tab_ordine.TipoDoc')
+            ->get()
+            ->map(function ($row) {
+                $row->regione = $this->normalizzaNomeRegione($row->regione);
+                $row->TipoDoc = $row->TipoDoc ?: 'Senza TipoDoc';
+                $row->totale = (int) $row->totale;
+                return $row;
+            })
+            ->groupBy('regione')
+            ->map(function ($items) {
+                return $items->map(function ($x) {
+                    return [
+                        'tipoDoc' => $x->TipoDoc,
+                        'totale' => $x->totale,
+                    ];
+                })->values();
+            });
+
+        $tipiDoc = DB::table('tab_ordine')
+            ->select('TipoDoc')
+            ->whereNotNull('TipoDoc')
+            ->where('TipoDoc', '<>', '')
+            ->distinct()
+            ->orderBy('TipoDoc')
+            ->pluck('TipoDoc')
+            ->values();
+
         $totaleOrdini = $ordiniPerRegione->sum('totale');
         $regioneTop = $ordiniPerRegione->first();
 
         return Inertia::render('Dashboard/OrdiniPerRegione', [
             'ordiniPerRegione' => $ordiniPerRegione,
+            'dettaglioPerRegioneTipoDoc' => $dettaglioPerRegioneTipoDoc,
+            'tipiDoc' => $tipiDoc,
             'totaleOrdini' => $totaleOrdini,
             'totaleRegioniAttive' => $ordiniPerRegione->count(),
             'regioneTop' => $regioneTop?->regione,
@@ -55,6 +91,96 @@ class DashboardController extends Controller
             'filters' => [
                 'from' => $from,
                 'to' => $to,
+                'TipoDoc' => $tipoDoc ?: 'Tutti',
+            ],
+        ]);
+    }
+    public function ordiniPerRegione1(Request $request)
+    {
+        $from = $request->input('from');
+        $to = $request->input('to');
+
+        $tipoDoc = $request->input('TipoDoc');
+        if (!$from || !$to) {
+            $from = Carbon::now()->startOfWeek(1)->format('Y-m-d');
+            $to   = Carbon::now()->endOfWeek(0)->format('Y-m-d');
+        }
+
+        $baseQuery = DB::table('tab_ordine')
+            ->join('tab_costo_trasporto', 'tab_ordine.IdCostoTrasporto', '=', 'tab_costo_trasporto.id')
+            ->whereNotNull('tab_costo_trasporto.regione')
+            ->whereRaw("TRIM(tab_costo_trasporto.regione) <> ''");
+
+        if ($from) {
+            $baseQuery->whereDate('tab_ordine.DataOrdine', '>=', $from);
+        }
+
+        if ($to) {
+            $baseQuery->whereDate('tab_ordine.DataOrdine', '<=', $to);
+        }
+
+        if ($tipoDoc && $tipoDoc !== 'Tutti') {
+            $baseQuery->where('tab_ordine.TipoDoc', $tipoDoc);
+        }
+
+        $ordiniPerRegione = (clone $baseQuery)
+            ->selectRaw('TRIM(tab_costo_trasporto.regione) as regione, COUNT(*) as totale')
+            ->groupBy(DB::raw('TRIM(tab_costo_trasporto.regione)'))
+            ->orderByDesc('totale')
+            ->get()
+            ->map(function ($row) {
+                $row->regione = $this->normalizzaNomeRegione($row->regione);
+                $row->totale = (int) $row->totale;
+                return $row;
+            })
+            ->values();
+
+        $dettaglioPerRegioneTipoDoc = (clone $baseQuery)
+            ->selectRaw('TRIM(tab_costo_trasporto.regione) as regione, tab_ordine.TipoDoc, COUNT(*) as totale')
+            ->groupBy(DB::raw('TRIM(tab_costo_trasporto.regione)'), 'tab_ordine.TipoDoc')
+            ->orderBy('regione')
+            ->orderBy('tab_ordine.TipoDoc')
+            ->get()
+            ->map(function ($row) {
+                $row->regione = $this->normalizzaNomeRegione($row->regione);
+                $row->TipoDoc = $row->TipoDoc ?: 'Senza TipoDoc';
+                $row->totale = (int) $row->totale;
+                return $row;
+            })
+            ->groupBy('regione')
+            ->map(function ($items) {
+                return $items->map(function ($x) {
+                    return [
+                        'tipoDoc' => $x->TipoDoc,
+                        'totale' => $x->totale,
+                    ];
+                })->values();
+            });
+
+        $tipiDoc = DB::table('tab_ordine')
+            ->select('TipoDoc')
+            ->whereNotNull('TipoDoc')
+            ->where('TipoDoc', '<>', '')
+            ->distinct()
+            ->orderBy('TipoDoc')
+            ->pluck('TipoDoc')
+            ->values();
+
+        $totaleOrdini = $ordiniPerRegione->sum('totale');
+        $regioneTop = $ordiniPerRegione->first();
+
+        return Inertia::render('Dashboard/OrdiniPerRegione', [
+            'ordiniPerRegione' => $ordiniPerRegione,
+            'dettaglioPerRegioneTipoDoc' => $dettaglioPerRegioneTipoDoc,
+            'tipiDoc' => $tipiDoc,
+            'totaleOrdini' => $totaleOrdini,
+            'totaleRegioniAttive' => $ordiniPerRegione->count(),
+            'regioneTop' => $regioneTop?->regione,
+            'maxOrdini' => $ordiniPerRegione->max('totale') ?? 0,
+            'filters' => [
+                'from' => $from,
+                'to' => $to,
+                'TipoDoc' => $tipoDoc ?: 'Tutti',
             ],
         ]);
     }
@@ -74,13 +200,6 @@ class DashboardController extends Controller
         return $mappa[$nome] ?? $nome;
     }
 
-
-
-
-
-
-
-
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -94,7 +213,6 @@ class DashboardController extends Controller
 
         $isAdmin = in_array($user->email, $allowed);
 
-        // 🔥 DEFAULT SETTIMANA
         if (!$request->from || !$request->to) {
             $start = Carbon::now()->startOfWeek(1);
             $end   = Carbon::now()->endOfWeek(0);
@@ -108,10 +226,6 @@ class DashboardController extends Controller
         $from = $request->from;
         $to   = $request->to;
 
-        // =========================
-        // 🔥 BASE QUERY (SETTIMANA)
-        // =========================
-
         $base = DB::table('crm_03.tab_ordine as o')
             ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
             ->whereNotNull('o.DataOrdine')
@@ -119,10 +233,6 @@ class DashboardController extends Controller
                 Carbon::parse($from)->startOfDay(),
                 Carbon::parse($to)->endOfDay()
             ]);
-
-        // =========================
-        // ✅ KPI
-        // =========================
 
         $totaleFatturato = (clone $base)
             ->where('o.TipoDoc', 'Consegnato')
@@ -145,10 +255,6 @@ class DashboardController extends Controller
 
         $totaleUtenti = User::count();
 
-        // =========================
-        // ✅ GRAFICO TORTA
-        // =========================
-
         $ordiniPerTipo = (clone $base)
             ->select(
                 'o.TipoDoc',
@@ -164,12 +270,9 @@ class DashboardController extends Controller
             ->orderByDesc('totale')
             ->get();
 
-        // =========================
-        // ✅ ANDAMENTO DA INIZIO ANNO (🔥 FIX)
-        // =========================
-
         $startYear = Carbon::now()->startOfYear();
-        $today     = Carbon::now();
+        $today = Carbon::now();
+
         $andamentoMensileTipo = DB::table('crm_03.tab_ordine as o')
             ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
             ->whereNotNull('o.DataOrdine')
@@ -178,14 +281,14 @@ class DashboardController extends Controller
                 $today->endOfDay()
             ])
             ->selectRaw('
-        DATE_FORMAT(o.DataOrdine, "%Y-%m") as mese,
-        o.TipoDoc,
-        SUM(
-            e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
-            * (1 - IFNULL(o.Sconto1,0)/100)
-            * (1 - IFNULL(o.Sconto2,0)/100)
-        ) as totale
-    ')
+                DATE_FORMAT(o.DataOrdine, "%Y-%m") as mese,
+                o.TipoDoc,
+                SUM(
+                    e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
+                    * (1 - IFNULL(o.Sconto1,0)/100)
+                    * (1 - IFNULL(o.Sconto2,0)/100)
+                ) as totale
+            ')
             ->groupBy(DB::raw('DATE_FORMAT(o.DataOrdine, "%Y-%m"), o.TipoDoc'))
             ->orderBy('mese')
             ->get();
@@ -208,10 +311,6 @@ class DashboardController extends Controller
             ->groupBy(DB::raw('DATE_FORMAT(o.DataOrdine, "%Y-%m")'))
             ->orderBy('mese')
             ->get();
-
-        // =========================
-        // ✅ CONFRONTO MENSILE
-        // =========================
 
         $baseMensile = DB::table('crm_03.tab_ordine as o')
             ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
@@ -250,10 +349,6 @@ class DashboardController extends Controller
                 ) as totale
             ')
             ->value('totale');
-
-        // =========================
-        // 🚀 RETURN
-        // =========================
 
         return Inertia::render('Dashboard', [
             'kpi' => [

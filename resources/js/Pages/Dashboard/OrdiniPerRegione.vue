@@ -13,7 +13,6 @@ import {
     LegendComponent,
 } from "echarts/components";
 import * as echarts from "echarts/core";
-
 import italyRegionsRaw from "@/geo/limits_IT_regions.geojson?raw";
 
 const italyRegions = JSON.parse(italyRegionsRaw);
@@ -30,6 +29,8 @@ use([
 
 const props = defineProps({
     ordiniPerRegione: { type: Array, default: () => [] },
+    dettaglioPerRegioneTipoDoc: { type: Object, default: () => ({}) },
+    tipiDoc: { type: Array, default: () => [] },
     totaleOrdini: { type: Number, default: 0 },
     totaleRegioniAttive: { type: Number, default: 0 },
     regioneTop: { type: String, default: "" },
@@ -39,6 +40,7 @@ const props = defineProps({
         default: () => ({
             from: "",
             to: "",
+            TipoDoc: "Tutti",
         }),
     },
 });
@@ -66,7 +68,6 @@ const topTable = computed(() =>
         })),
 );
 
-// normalizza nomi per confronto robusto
 const normalizeName = (v) =>
     String(v ?? "")
         .trim()
@@ -140,7 +141,6 @@ const featureIndex = computed(() => {
     return map;
 });
 
-// punti badge numerici leggibili
 const badgeData = computed(() =>
     props.ordiniPerRegione
         .map((r) => {
@@ -158,44 +158,36 @@ const badgeData = computed(() =>
         .filter(Boolean),
 );
 
-// focus automatico sulla zona con dati
-const focus = computed(() => {
-    if (!badgeData.value.length) {
-        return {
-            center: [12.5, 42.5],
-            zoom: 1.1,
-        };
+function getBreakdownHtml(regione) {
+    const dettaglio = props.dettaglioPerRegioneTipoDoc?.[regione] ?? [];
+    if (!dettaglio.length) {
+        return `<div style="margin-top:6px;color:#6b7280;">Nessun dettaglio TipoDoc</div>`;
     }
 
-    const xs = badgeData.value.map((d) => d.value[0]);
-    const ys = badgeData.value.map((d) => d.value[1]);
+    const rows = dettaglio
+        .map(
+            (item) => `
+                <div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;">
+                    <span>${item.tipoDoc}</span>
+                    <b>${item.totale}</b>
+                </div>
+            `,
+        )
+        .join("");
 
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-
-    const center = [(minX + maxX) / 2, (minY + maxY) / 2];
-
-    const spanX = Math.max(0.8, maxX - minX);
-    const spanY = Math.max(0.8, maxY - minY);
-    const span = Math.max(spanX, spanY);
-
-    let zoom = 1.8;
-    if (span <= 2) zoom = 4.5;
-    else if (span <= 3.5) zoom = 3.6;
-    else if (span <= 5) zoom = 3.0;
-    else if (span <= 7) zoom = 2.5;
-    else if (span <= 9) zoom = 2.1;
-
-    return { center, zoom };
-});
+    return `
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
+            <div style="font-weight:700;margin-bottom:4px;">N. tot x TipoDoc</div>
+            ${rows}
+        </div>
+    `;
+}
 
 const option = computed(() => ({
     title: {
         text: "Numero ordini per regione",
         left: "center",
-        top: 10,
+        top: 5,
         textStyle: {
             fontSize: 20,
             fontWeight: "bold",
@@ -205,24 +197,19 @@ const option = computed(() => ({
     tooltip: {
         trigger: "item",
         formatter: (params) => {
-            if (params.seriesType === "scatter") {
-                return `
-                    <div style="min-width:160px">
-                        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">
-                            ${params.name}
-                        </div>
-                        <div><b>Ordini:</b> ${params.value?.[2] ?? 0}</div>
-                    </div>
-                `;
-            }
+            const regione = params.name;
+            const totale =
+                params.seriesType === "scatter"
+                    ? (params.value?.[2] ?? 0)
+                    : (params.value ?? 0);
 
-            const value = params.value ?? 0;
             return `
-                <div style="min-width:160px">
+                <div style="min-width:220px">
                     <div style="font-weight:700;font-size:14px;margin-bottom:4px;">
-                        ${params.name}
+                        ${regione}
                     </div>
-                    <div><b>Ordini:</b> ${value}</div>
+                    <div><b>Totale ordini:</b> ${totale}</div>
+                    ${getBreakdownHtml(regione)}
                 </div>
             `;
         },
@@ -311,11 +298,27 @@ const option = computed(() => ({
     },
 }));
 
+function applyFilters(partial = {}) {
+    router.get(
+        route("dashboard.ordini-regioni"),
+        {
+            from: partial.from ?? props.filters?.from ?? "",
+            to: partial.to ?? props.filters?.to ?? "",
+            TipoDoc: partial.TipoDoc ?? props.filters?.TipoDoc ?? "Tutti",
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        },
+    );
+}
+
 function onMapClick(params) {
     if (!params?.name) return;
 
     router.get(route("ordini.index"), {
         regione: params.name,
+        TipoDoc: props.filters?.TipoDoc ?? "Tutti",
     });
 }
 </script>
@@ -332,35 +335,91 @@ function onMapClick(params) {
 
         <div class="py-6">
             <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div class="rounded-2xl bg-white p-5 shadow-sm">
-                        <div class="text-sm text-gray-500">Totale ordini</div>
-                        <div class="mt-2 text-4xl font-bold text-blue-600">
-                            {{ totaleOrdini }}
-                        </div>
-                    </div>
+                <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <!-- FILTRI -->
+        <div class="flex flex-col gap-3 md:flex-row md:items-center">
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    Dal
+                </label>
+                <input
+                    type="date"
+                    :value="filters.from"
+                    @change="applyFilters({ from: $event.target.value })"
+                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm"
+                />
+            </div>
 
-                    <div class="rounded-2xl bg-white p-5 shadow-sm">
-                        <div class="text-sm text-gray-500">Regioni attive</div>
-                        <div class="mt-2 text-4xl font-bold text-green-600">
-                            {{ totaleRegioniAttive }}
-                        </div>
-                    </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    Al
+                </label>
+                <input
+                    type="date"
+                    :value="filters.to"
+                    @change="applyFilters({ to: $event.target.value })"
+                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm"
+                />
+            </div>
 
-                    <div class="rounded-2xl bg-white p-5 shadow-sm">
-                        <div class="text-sm text-gray-500">Regione top</div>
-                        <div class="mt-2 text-3xl font-bold text-amber-600">
-                            {{ regioneTop || "-" }}
-                        </div>
-                    </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    TipoDoc
+                </label>
+                <select
+                    :value="filters.TipoDoc || 'Tutti'"
+                    @change="applyFilters({ TipoDoc: $event.target.value })"
+                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm"
+                >
+                    <option value="Tutti">Tutti</option>
+                    <option
+                        v-for="tipo in tipiDoc"
+                        :key="tipo"
+                        :value="tipo"
+                    >
+                        {{ tipo }}
+                    </option>
+                </select>
+            </div>
+        </div>
+
+        <!-- KPI COMPATTI -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:min-w-[520px]">
+            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+                <div class="text-xs text-gray-500">Totale ordini</div>
+                <div class="text-2xl font-bold text-blue-600">
+                    {{ totaleOrdini }}
                 </div>
+            </div>
+
+            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+                <div class="text-xs text-gray-500">Regioni attive</div>
+                <div class="text-2xl font-bold text-green-600">
+                    {{ totaleRegioniAttive }}
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+                <div class="text-xs text-gray-500">Regione top</div>
+                <div class="text-xl font-bold text-amber-600 truncate">
+                    {{ regioneTop || "-" }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 
                 <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                    <div class="rounded-2xl bg-white p-5 shadow-sm xl:col-span-2">
+                    <div
+                        class="rounded-2xl bg-white p-5 shadow-sm xl:col-span-2"
+                    >
                         <VChart
                             :option="option"
                             autoresize
-                            style="height: 760px"
+                            style="height: 560px"
                             @click="onMapClick"
                         />
                     </div>
@@ -370,20 +429,30 @@ function onMapClick(params) {
                             Ordini per Regione
                         </div>
 
-                        <div class="overflow-hidden rounded-xl border border-gray-200">
+                        <div
+                            class="overflow-hidden rounded-xl border border-gray-200"
+                        >
                             <table class="min-w-full">
                                 <thead class="bg-slate-100">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                                        <th
+                                            class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
+                                        >
                                             #
                                         </th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                                        <th
+                                            class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
+                                        >
                                             Regione
                                         </th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">
+                                        <th
+                                            class="px-4 py-3 text-right text-sm font-semibold text-gray-700"
+                                        >
                                             Ordini
                                         </th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">
+                                        <th
+                                            class="px-4 py-3 text-right text-sm font-semibold text-gray-700"
+                                        >
                                             %
                                         </th>
                                     </tr>
@@ -394,22 +463,33 @@ function onMapClick(params) {
                                         :key="row.regione"
                                         class="border-t border-gray-200"
                                     >
-                                        <td class="px-4 py-3 text-sm text-gray-500">
+                                        <td
+                                            class="px-4 py-3 text-sm text-gray-500"
+                                        >
                                             {{ row.posizione }}
                                         </td>
-                                        <td class="px-4 py-3 text-sm font-medium text-gray-800">
+                                        <td
+                                            class="px-4 py-3 text-sm font-medium text-gray-800"
+                                        >
                                             {{ row.regione }}
                                         </td>
-                                        <td class="px-4 py-3 text-right text-sm font-bold text-gray-900">
+                                        <td
+                                            class="px-4 py-3 text-right text-sm font-bold text-gray-900"
+                                        >
                                             {{ row.totale }}
                                         </td>
-                                        <td class="px-4 py-3 text-right text-sm text-gray-600">
+                                        <td
+                                            class="px-4 py-3 text-right text-sm text-gray-600"
+                                        >
                                             {{ row.percentuale }}%
                                         </td>
                                     </tr>
 
                                     <tr v-if="!topTable.length">
-                                        <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td
+                                            colspan="4"
+                                            class="px-4 py-6 text-center text-sm text-gray-500"
+                                        >
                                             Nessun dato disponibile
                                         </td>
                                     </tr>

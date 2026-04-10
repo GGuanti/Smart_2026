@@ -153,6 +153,7 @@ Route::middleware(['auth', 'isomax'])->group(function () {
         ->except(['show']);
 Route::get('/dashboard/ordini-regioni', [DashboardController::class, 'ordiniPerRegione'])
     ->name('dashboard.ordini-regioni');
+
 Route::put('/Calendario/{id}/move', [CalendarioControllerIsomax::class, 'move']);
 Route::get('/ordini-data', [OrdineController::class, 'data']);
     Route::resource('ordini', OrdineController::class);
