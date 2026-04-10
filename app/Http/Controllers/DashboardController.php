@@ -11,6 +11,76 @@ use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+
+   public function ordiniPerRegione(Request $request)
+    {
+        $from = $request->input('from');
+        $to   = $request->input('to');
+
+        $query = DB::table('tab_ordine')
+            ->join('tab_costo_trasporto', 'tab_ordine.IdCostoTrasporto', '=', 'tab_costo_trasporto.id')
+            ->selectRaw('TRIM(tab_costo_trasporto.regione) as regione, COUNT(*) as totale')
+            ->whereNotNull('tab_costo_trasporto.regione')
+            ->whereRaw("TRIM(tab_costo_trasporto.regione) <> ''");
+
+        // cambia DataOrdine col tuo campo data reale
+        if ($from) {
+            $query->whereDate('tab_ordine.DataOrdine', '>=', $from);
+        }
+
+        if ($to) {
+            $query->whereDate('tab_ordine.DataOrdine', '<=', $to);
+        }
+
+        $ordiniPerRegione = $query
+            ->groupBy(DB::raw('TRIM(tab_costo_trasporto.regione)'))
+            ->orderByDesc('totale')
+            ->get()
+            ->map(function ($row) {
+                $row->regione = $this->normalizzaNomeRegione($row->regione);
+                $row->totale = (int) $row->totale;
+                return $row;
+            })
+            ->values();
+
+        $totaleOrdini = $ordiniPerRegione->sum('totale');
+        $regioneTop = $ordiniPerRegione->first();
+
+        return Inertia::render('Dashboard/OrdiniPerRegione', [
+            'ordiniPerRegione' => $ordiniPerRegione,
+            'totaleOrdini' => $totaleOrdini,
+            'totaleRegioniAttive' => $ordiniPerRegione->count(),
+            'regioneTop' => $regioneTop?->regione,
+            'maxOrdini' => $ordiniPerRegione->max('totale') ?? 0,
+            'filters' => [
+                'from' => $from,
+                'to' => $to,
+            ],
+        ]);
+    }
+
+    private function normalizzaNomeRegione(?string $nome): string
+    {
+        $nome = trim((string) $nome);
+        $nome = mb_convert_case($nome, MB_CASE_TITLE, 'UTF-8');
+
+        $mappa = [
+            "Valle D'Aosta" => "Valle d'Aosta",
+            "Trentino Alto Adige" => "Trentino-Alto Adige",
+            "Friuli Venezia Giulia" => "Friuli-Venezia Giulia",
+            "Emilia Romagna" => "Emilia-Romagna",
+        ];
+
+        return $mappa[$nome] ?? $nome;
+    }
+
+
+
+
+
+
+
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -55,7 +125,7 @@ class DashboardController extends Controller
         // =========================
 
         $totaleFatturato = (clone $base)
-         ->where('o.TipoDoc', 'Consegnato')
+            ->where('o.TipoDoc', 'Consegnato')
             ->selectRaw('
                 SUM(
                     e.Qta * (IFNULL(e.PrezzoCad,0) + IFNULL(e.PrezzoMan,0))
@@ -100,14 +170,14 @@ class DashboardController extends Controller
 
         $startYear = Carbon::now()->startOfYear();
         $today     = Carbon::now();
-$andamentoMensileTipo = DB::table('crm_03.tab_ordine as o')
-    ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
-    ->whereNotNull('o.DataOrdine')
-    ->whereBetween('o.DataOrdine', [
-        $startYear->startOfDay(),
-        $today->endOfDay()
-    ])
-    ->selectRaw('
+        $andamentoMensileTipo = DB::table('crm_03.tab_ordine as o')
+            ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')
+            ->whereNotNull('o.DataOrdine')
+            ->whereBetween('o.DataOrdine', [
+                $startYear->startOfDay(),
+                $today->endOfDay()
+            ])
+            ->selectRaw('
         DATE_FORMAT(o.DataOrdine, "%Y-%m") as mese,
         o.TipoDoc,
         SUM(
@@ -116,9 +186,9 @@ $andamentoMensileTipo = DB::table('crm_03.tab_ordine as o')
             * (1 - IFNULL(o.Sconto2,0)/100)
         ) as totale
     ')
-    ->groupBy(DB::raw('DATE_FORMAT(o.DataOrdine, "%Y-%m"), o.TipoDoc'))
-    ->orderBy('mese')
-    ->get();
+            ->groupBy(DB::raw('DATE_FORMAT(o.DataOrdine, "%Y-%m"), o.TipoDoc'))
+            ->orderBy('mese')
+            ->get();
 
         $andamentoMensile = DB::table('crm_03.tab_ordine as o')
             ->join('crm_03.tab_elementi_ordine as e', 'o.Nordine', '=', 'e.Nordine')

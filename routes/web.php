@@ -151,7 +151,8 @@ Route::middleware(['auth', 'isomax'])->group(function () {
     Route::get('/Calendario/{evento}/edit', [CalendarioControllerIsomax::class, 'edit'])->name('Calendario.edit');
     Route::resource('Calendario', CalendarioControllerIsomax::class)
         ->except(['show']);
-
+Route::get('/dashboard/ordini-regioni', [DashboardController::class, 'ordiniPerRegione'])
+    ->name('dashboard.ordini-regioni');
 Route::put('/Calendario/{id}/move', [CalendarioControllerIsomax::class, 'move']);
 Route::get('/ordini-data', [OrdineController::class, 'data']);
     Route::resource('ordini', OrdineController::class);
