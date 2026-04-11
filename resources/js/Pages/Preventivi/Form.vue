@@ -2045,7 +2045,7 @@ function MaggVetro(riga) {
         .trim()
         .toLowerCase();
 
-    //  console.log("MaggVetro col =", col);
+
 
     if (!col) return 0;
 
@@ -2062,10 +2062,10 @@ function MaggVetro(riga) {
     const map = Object.fromEntries(
         Object.entries(vt).map(([k, v]) => [String(k).toLowerCase(), v]),
     );
-
+ const nAnte = nAntePerRiga(riga);
     const val = Number(map[col] ?? 0);
 
-    return val || 0;
+    return val*nAnte || 0;
 }
 
 function isDimLExtra(riga) {
