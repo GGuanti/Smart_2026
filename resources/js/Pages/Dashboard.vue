@@ -72,10 +72,10 @@ function filtra() {
 const chartTrend = ref(null);
 let chartTrendInstance = null;
 const coloriTipoDoc = {
-    "Preventivo": "#94a3b8",      // grigio
-    "Ordine": "#3b82f6",          // blu
-    "Ordine inviato": "#f59e0b",  // arancione
-    "Consegnato": "#10b981",      // verde
+    Preventivo: "#94a3b8", // grigio
+    Ordine: "#3b82f6", // blu
+    "Ordine inviato": "#f59e0b", // arancione
+    Consegnato: "#10b981", // verde
 };
 function renderTrend() {
     if (!chartTrend.value) return;
@@ -92,30 +92,32 @@ function renderTrend() {
     }
 
     // 🔥 mesi unici
-    const mesi = [...new Set(raw.map(r => r.mese))];
+    const mesi = [...new Set(raw.map((r) => r.mese))];
 
     // 🔥 tipi documento
-    const tipi = [...new Set(raw.map(r => r.TipoDoc))];
+    const tipi = [...new Set(raw.map((r) => r.TipoDoc))];
 
     // 🔥 dataset per ogni tipo
-    const datasets = tipi.map(tipo => {
-    const color = coloriTipoDoc[tipo] || "#6366f1"; // fallback
+    const datasets = tipi.map((tipo) => {
+        const color = coloriTipoDoc[tipo] || "#6366f1"; // fallback
 
-    return {
-        label: tipo,
-        data: mesi.map(mese => {
-            const row = raw.find(r => r.mese === mese && r.TipoDoc === tipo);
-            return row ? Number(row.totale) : 0;
-        }),
-        borderColor: color,
-        backgroundColor: color + "33", // trasparenza
-        tension: 0.4,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        borderWidth: 2,
-    };
-});
+        return {
+            label: tipo,
+            data: mesi.map((mese) => {
+                const row = raw.find(
+                    (r) => r.mese === mese && r.TipoDoc === tipo,
+                );
+                return row ? Number(row.totale) : 0;
+            }),
+            borderColor: color,
+            backgroundColor: color + "33", // trasparenza
+            tension: 0.4,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2,
+        };
+    });
 
     chartTrendInstance = new Chart(chartTrend.value, {
         type: "line",
@@ -274,30 +276,32 @@ watch(
                 </button>
             </div>
             <div v-if="isAdmin" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 📈 ANDAMENTO MENSILE (PRIMO) -->
+                <div
+                    class="bg-white p-6 rounded shadow border-l-4 border-blue-500"
+                >
+                    <h2 class="text-xl mb-4 flex items-center gap-2">
+                        📈 Andamento Mensile
+                    </h2>
 
-    <!-- 📈 ANDAMENTO MENSILE (PRIMO) -->
-    <div class="bg-white p-6 rounded shadow border-l-4 border-blue-500">
-        <h2 class="text-xl mb-4 flex items-center gap-2">
-            📈 Andamento Mensile
-        </h2>
+                    <div class="w-full h-[300px]">
+                        <canvas ref="chartTrend"></canvas>
+                    </div>
+                </div>
 
-        <div class="w-full h-[300px]">
-            <canvas ref="chartTrend"></canvas>
-        </div>
-    </div>
+                <!-- 📊 FATTURATO PER TIPO (DOPO) -->
+                <div
+                    class="bg-white p-6 rounded shadow border-l-4 border-emerald-500"
+                >
+                    <h2 class="text-xl mb-4 flex items-center gap-2">
+                        📊 Fatturato per Tipologia Documento
+                    </h2>
 
-    <!-- 📊 FATTURATO PER TIPO (DOPO) -->
-    <div class="bg-white p-6 rounded shadow border-l-4 border-emerald-500">
-        <h2 class="text-xl mb-4 flex items-center gap-2">
-            📊 Fatturato per Tipologia Documento
-        </h2>
-
-        <div class="w-[300px] h-[300px] mx-auto">
-            <canvas ref="chartRef"></canvas>
-        </div>
-    </div>
-
-</div>
+                    <div class="w-[300px] h-[300px] mx-auto">
+                        <canvas ref="chartRef"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
     </AuthenticatedLayout>
 </template>

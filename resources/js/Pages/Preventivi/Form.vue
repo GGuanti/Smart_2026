@@ -1999,6 +1999,23 @@ function MaggColAnta(riga) {
 
     return Number(fa.MaggAnta) * nAnte || 0;
 }
+function ColTelaioById(IdColTelaio) {
+
+    return (
+        props.colTelaio.find(
+            (ft) => Number(ft.IdFinTelaio) === Number(IdColTelaio),
+        ) || null
+    );
+}
+
+function MaggColTelaio(riga) {
+    const ft = ColTelaioById(riga.IdColTelaio);
+    console.log("FT",ft);
+    if (!ft) return 0;
+
+    return Number(ft.Campo1) || 0;
+}
+
 function MaggMan(riga) {
     const ma =
         props.maniglie.find(
@@ -2242,6 +2259,7 @@ function totaleRigaD(riga) {
         MaggLarghezza90(riga) +
         MaggLarghezza100(riga) +
         MaggTelaio(riga) +
+        MaggColTelaio(riga) +
         MaggAltezza(riga) +
         MaggManuale(riga) +
         MaggKitScFM(riga) +
@@ -2261,6 +2279,7 @@ function totaleRigaGG(riga) {
         MaggLarghezza90(riga) +
         MaggLarghezza100(riga) +
         MaggTelaio(riga) +
+        MaggColTelaio(riga) +
         MaggAltezza(riga) +
         MaggKitScFM(riga) +
         MaggCstTelP(riga) +
@@ -4284,10 +4303,10 @@ onBeforeUnmount(() => {
                                             <div
                                                 class="text-lg font-extrabold text-slate-900 text-right"
                                             >
-                                                €
-                                                {{
-                                                    MaggTelaio(riga).toFixed(2)
-                                                }}
+
+                                               € {{
+    (Number(MaggTelaio(riga)) + Number(MaggColTelaio(riga))).toFixed(2)
+}}
                                             </div>
                                             <div class="text-xs text-slate-600">
                                                 Magg. Vetro
