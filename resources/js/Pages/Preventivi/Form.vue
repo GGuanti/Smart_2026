@@ -125,7 +125,7 @@ const savedMsg = ref(false);
 const savedErr = ref(false);
 const savedText = ref("");
 let savedT = null;
-const DEFAULT_ID_MODELLO = 99;
+const DEFAULT_ID_MODELLO = "";
 const isHydrating = ref(true);
 onMounted(() => queueMicrotask(() => (isHydrating.value = false)));
 
@@ -235,7 +235,7 @@ function newRigaFromElemento(el = null) {
         PercFile: el?.PercFile ?? "",
         TxtCassMet: el?.TxtCassMet ?? "",
 
-        IdModello: el?.IdModello ?? 299,
+        IdModello: el?.IdModello ?? "",
         IdSoluzione: el?.IdSoluzione ?? "",
         IdColAnta: el?.IdColAnta ?? "",
         IdColTelaio: el?.IdColTelaio ?? "",
@@ -338,8 +338,9 @@ function modelloNome(m) {
 }
 function ensureDefaultModello(riga) {
     // Non toccare righe già valorizzate o caricate dal DB
+    console.log("pippo",riga?.IdModello);
     if (riga?.IdModello) return false;
-
+ console.log("pippo1",DEFAULT_ID_MODELLO);
     riga.IdModello = DEFAULT_ID_MODELLO;
 
     // allinea tutto correttamente
@@ -1018,7 +1019,6 @@ function imbottePerRiga(riga) {
     const fil1 = String(filtro1 ?? "");
     const fil2 = String(filtro2 ?? "");
     const res = calcolaFiltroImbotte(soluzione, fil1, fil2, dimSp);
-    console.log("res", res);
 
     const isBase = (i) =>
         Number(i.importo ?? 0) === 0 &&
@@ -2010,7 +2010,6 @@ function ColTelaioById(IdColTelaio) {
 
 function MaggColTelaio(riga) {
     const ft = ColTelaioById(riga.IdColTelaio);
-    console.log("FT",ft);
     if (!ft) return 0;
 
     return Number(ft.Campo1) || 0;
@@ -2460,12 +2459,13 @@ function saveValPredForModel(riga) {
 }
 
 function applyValPredFromModel(riga) {
+
     const m = listinoById(riga.IdModello);
     if (!m) return;
 
     const raw = m.ValPred ?? m.valpred ?? m.val_pred ?? null;
     const vp = normalizeValPred(raw);
-    console.log("raw", raw);
+
     // ✅ se non c'è ValPred: NON applico nulla (lascia la cascata normale)
     if (!vp) return;
 
