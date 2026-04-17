@@ -1996,6 +1996,7 @@ function MaggColAnta(riga) {
     const nAnte = nAntePerRiga(riga);
 
     return Number(fa.MaggAnta) * nAnte || 0;
+
 }
 function ColTelaioById(IdColTelaio) {
 
@@ -2250,6 +2251,9 @@ function validateDimAOnBlur(riga) {
 }
 
 function totaleRigaD(riga) {
+
+
+
     return (
         listinoPorta(riga) +
         MaggLarghezza(riga) +
@@ -2270,6 +2274,10 @@ function totaleRigaD(riga) {
     );
 }
 function totaleRigaGG(riga) {
+console.log("MaggColAnta",MaggColAnta(riga));
+                                            console.log("MaggLarghezza",MaggLarghezza(riga));
+                                            console.log("MaggLarghezza90",MaggLarghezza90(riga));
+                                            console.log("MaggAltezza",MaggAltezza(riga));
     return (
         listinoPorta(riga) +
         MaggLarghezza(riga) +
@@ -2934,6 +2942,7 @@ onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
     clearTimeout(savedT);
 });
+
 </script>
 
 <template>
@@ -4287,6 +4296,7 @@ onBeforeUnmount(() => {
                                             <div class="text-xs text-slate-600">
                                                 Magg. Anta
                                             </div>
+
                                             <div
                                                 class="text-lg font-extrabold text-slate-900 text-right"
                                             >
