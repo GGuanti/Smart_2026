@@ -542,6 +542,13 @@
         ? $r->accessori_sel
         : json_decode($r->accessori_sel, true);
         }
+
+        if (!empty($r->accessori_sel)) {
+        $accessori = is_array($r->accessori_sel)
+        ? $r->accessori_sel
+        : json_decode($r->accessori_sel, true);
+        }
+
         $isAccessorio = strtoupper($r->nome_modello ?? '') === 'ACC';
 
         // Path reali per file_exists + Dompdf (Windows safe)
@@ -621,6 +628,11 @@
                         </div>
                         @endif
 
+                        @if(!empty($r->Maniglia))
+                        <div class="kv">
+                            <span class="k">Maniglia:</span> {{ $r->Maniglia }}
+                        </div>
+                        @endif
 
 
                         @if(!empty($r->Serratura))
@@ -634,6 +646,7 @@
                             <span class="k">Cerniere:</span> {{ $r->Cerniere }}
                         </div>
                         @endif
+
                         @endif
                         @if(!empty($accessori))
                         @if(!$isAccessorio)
@@ -645,7 +658,7 @@
 
                         @foreach($accessori as $acc)
 
-                     <div class="kv" style="margin-left:0mm;">
+                        <div class="kv" style="margin-left:0mm;">
 
                             @if(!empty($acc['qta']))
                             Pz. {{ $acc['qta'] }}

@@ -40,6 +40,7 @@ class OrdineReportController extends Controller
             ->leftJoin('tab_soluzioni as s', 's.id_tab_soluzioni', '=', 'e.IdSoluzione')
             ->leftJoin('tipo_telaio as tt', 'tt.id_tipo_telaio', '=', 'e.IdTipTelaio')
             ->leftJoin('tab_serratura as se', 'se.id_serratura', '=', 'e.IdSerratura')
+             ->leftJoin('tab_maniglie as m', 'm.IdManiglia', '=', 'e.IdManiglia')
             ->leftJoin('tab_cerniere as ce', 'ce.id_col_ferr', '=', 'e.IdColFerr')
             ->leftJoin('tab_aperture as ap', 'ap.IdApertura', '=', 'e.IdApertura')
             ->leftJoin('tab_vetri as v', 'v.id_vetro', '=', 'e.IdVetro')
@@ -57,6 +58,7 @@ class OrdineReportController extends Controller
                 's.ass_collistino as ass_collistino',
                 'tt.stipite as TipoTelaio',
                 'se.des_serratura as Serratura',
+                    'm.DesMan as Maniglia',
                 'ce.des_cernira as Cerniere',
                 'ap.des as Verso',
                 'v.des_vetro as Vetro',
@@ -121,6 +123,7 @@ class OrdineReportController extends Controller
             ->leftJoin('tab_soluzioni as s', 's.id_tab_soluzioni', '=', 'e.IdSoluzione')
             ->leftJoin('tipo_telaio as tt', 'tt.id_tipo_telaio', '=', 'e.IdTipTelaio')
             ->leftJoin('tab_serratura as se', 'se.id_serratura', '=', 'e.IdSerratura')
+            ->leftJoin('tab_maniglie as m', 'm.IdManiglia', '=', 'e.IdManiglia')
             ->leftJoin('tab_cerniere as ce', 'ce.id_col_ferr', '=', 'e.IdColFerr')
             ->leftJoin('tab_aperture as ap', 'ap.IdApertura', '=', 'e.IdApertura')
             ->leftJoin('tab_vetri as v', 'v.id_vetro', '=', 'e.IdVetro')
@@ -135,6 +138,7 @@ class OrdineReportController extends Controller
                 's.ass_collistino as ass_collistino',
                 'tt.stipite as TipoTelaio',
                 'se.des_serratura as Serratura',
+                'm.DesMan as Maniglia',
                 'ce.des_cernira as Cerniere',
                 'ap.des as Verso',
                 'v.des_vetro as Vetro',

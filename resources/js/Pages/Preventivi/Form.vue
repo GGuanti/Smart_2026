@@ -338,9 +338,7 @@ function modelloNome(m) {
 }
 function ensureDefaultModello(riga) {
     // Non toccare righe già valorizzate o caricate dal DB
-    console.log("pippo",riga?.IdModello);
     if (riga?.IdModello) return false;
- console.log("pippo1",DEFAULT_ID_MODELLO);
     riga.IdModello = DEFAULT_ID_MODELLO;
 
     // allinea tutto correttamente
@@ -2905,6 +2903,9 @@ function MaggTelaio(riga) {
         if (col === "LIBA") return 20;
         if (col === "LIBS") return 20;
         if (col === "RT") return 20;
+        if (col === "TELP") return 20;
+        if (col === "TELBT") return 20;
+        if (col === "TELSI") return 20;
 
         if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 20;
         if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 20;
@@ -2918,6 +2919,9 @@ function MaggTelaio(riga) {
         if (col === "LIBA") return 20;
         if (col === "LIBS") return 20;
         if (col === "RT") return 20;
+        if (col === "TELP") return 20;
+        if (col === "TELBT") return 20;
+        if (col === "TELSI") return 20;
 
         if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 20;
         if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 20;

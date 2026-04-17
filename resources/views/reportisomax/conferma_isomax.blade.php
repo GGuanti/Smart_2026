@@ -784,7 +784,11 @@
                         </div>
                         @endif
 
-
+  @if(!empty($r->Maniglia))
+                        <div class="kv">
+                            <span class="k">Maniglia:</span> {{ $r->Maniglia }}
+                        </div>
+                        @endif
 
                         @if(!empty($r->Serratura))
                         <div class="kv">
