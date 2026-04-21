@@ -158,7 +158,7 @@ const badgeData = computed(() =>
         .filter(Boolean),
 );
 
-function getBreakdownHtml(regione) {
+function getBreakdownHtml1(regione) {
     const dettaglio = props.dettaglioPerRegioneTipoDoc?.[regione] ?? [];
     if (!dettaglio.length) {
         return `<div style="margin-top:6px;color:#6b7280;">Nessun dettaglio TipoDoc</div>`;
@@ -182,18 +182,36 @@ function getBreakdownHtml(regione) {
         </div>
     `;
 }
+function getBreakdownHtml(regione) {
+    const dettaglio = props.dettaglioPerRegioneTipoDoc?.[regione] ?? [];
 
+    if (!dettaglio.length) return "";
+
+    return dettaglio
+        .map(
+            (d) => `
+        <div style="display:flex;justify-content:space-between">
+            <span>${d.tipoDoc}</span>
+            <b>${d.totale}</b>
+        </div>
+    `,
+        )
+        .join("");
+}
 const option = computed(() => ({
+    backgroundColor: "#ffffff",
+
     title: {
-        text: "Numero ordini per regione",
+        text: "Distribuzione Ordini per Regione",
         left: "center",
-        top: 5,
+        top: 10,
         textStyle: {
-            fontSize: 20,
-            fontWeight: "bold",
-            color: "#111827",
+            fontSize: 18,
+            fontWeight: "600",
+            color: "#1f2937",
         },
     },
+
     tooltip: {
         trigger: "item",
         formatter: (params) => {
@@ -214,90 +232,103 @@ const option = computed(() => ({
             `;
         },
     },
+
     visualMap: {
         min: 0,
         max: props.maxOrdini || 10,
         left: 20,
         bottom: 20,
-        text: ["Alto", "Basso"],
+        text: ["Molti", "Pochi"],
         calculable: true,
+        inRange: {
+            color: [
+                "#e0f2fe", // chiaro
+                "#60a5fa",
+                "#2563eb",
+                "#1e3a8a", // scuro
+            ],
+        },
         textStyle: {
             color: "#374151",
         },
     },
+
+    geo: {
+        map: "italy-regions",
+        roam: true,
+        zoom: 1.15,
+        center: [12.5, 42.5],
+
+        itemStyle: {
+            borderColor: "#ffffff",
+            borderWidth: 1.2,
+            areaColor: "#f3f4f6",
+        },
+
+        emphasis: {
+            itemStyle: {
+                areaColor: "#93c5fd",
+            },
+        },
+    },
+
     series: [
+        // 🔵 MAPPA BASE
         {
             name: "Ordini",
             type: "map",
             map: "italy-regions",
-            roam: true,
-            center: [12.5, 42.5],
-            zoom: 1.1,
-            selectedMode: false,
-            itemStyle: {
-                borderColor: "#ffffff",
-                borderWidth: 1.2,
-                areaColor: "#e5e7eb",
-            },
-            emphasis: {
-                itemStyle: {
-                    areaColor: "#60a5fa",
-                },
-                label: {
-                    show: false,
-                },
-            },
-            label: {
-                show: false,
-            },
+            geoIndex: 0,
             data: mapData.value,
         },
+
+        // 🔥 BADGE NUMERICI
         {
-            name: "Badge ordini",
+            name: "Badge",
             type: "scatter",
             coordinateSystem: "geo",
             geoIndex: 0,
             data: badgeData.value,
+
             symbol: "circle",
+
             symbolSize: (val) => {
-                const n = Number(val?.[2] ?? 0);
-                if (n >= 100) return 36;
-                if (n >= 10) return 32;
+                const n = val[2];
+                if (n > 100) return 40;
+                if (n > 20) return 34;
                 return 28;
             },
+
             itemStyle: {
                 color: "#ffffff",
-                borderColor: "#1f2937",
+                borderColor: "#111827",
                 borderWidth: 1.5,
-                shadowBlur: 8,
-                shadowColor: "rgba(0,0,0,0.18)",
+                shadowBlur: 6,
+                shadowColor: "rgba(0,0,0,0.2)",
             },
+
             label: {
                 show: true,
-                formatter: ({ value }) => `${value?.[2] ?? ""}`,
+                formatter: (p) => p.value[2],
                 color: "#111827",
-                fontSize: 12,
                 fontWeight: "bold",
             },
-            emphasis: {
-                scale: true,
-                itemStyle: {
-                    borderColor: "#2563eb",
-                    borderWidth: 2,
-                },
-            },
+
             zlevel: 3,
         },
     ],
-    geo: {
-        map: "italy-regions",
-        roam: true,
-        center: [12.5, 42.5],
-        zoom: 1.1,
-        silent: true,
-    },
 }));
 
+function onMapClick(params) {
+    if (!params?.name) return;
+
+    router.get(route("ordini.index"), {
+        regione: params.name,
+        TipoDoc: props.filters?.TipoDoc ?? "Tutti",
+        from: props.filters?.from,
+        to: props.filters?.to,
+    });
+}
 function applyFilters(partial = {}) {
     router.get(
         route("dashboard.ordini-regioni"),
@@ -313,14 +344,7 @@ function applyFilters(partial = {}) {
     );
 }
 
-function onMapClick(params) {
-    if (!params?.name) return;
 
-    router.get(route("ordini.index"), {
-        regione: params.name,
-        TipoDoc: props.filters?.TipoDoc ?? "Tutti",
-    });
-}
 </script>
 
 <template>

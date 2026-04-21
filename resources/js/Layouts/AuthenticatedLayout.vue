@@ -41,6 +41,7 @@ const triggerBase =
 const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 8l4 4 4-4" />
      </svg>`;
+     const today = new Date().toISOString().slice(0, 10);
 </script>
 
 <template>
@@ -220,6 +221,21 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
     :href="route('Isomax.CalendarIsomax')"
 >
     📅 Calendario
+</DropdownLink>
+
+<DropdownLink
+    v-if="
+        ['gguanti@gmail.com', 'm.mecca@isomaxporte.com', 'giuseppe.mecca@isomaxporte.com', 'info@isomaxporte.com']
+            .includes($page.props.auth.user.email)
+    "
+    :href="route('dashboard.ordini-regioni', {
+        TipoDoc: 'Tutti',
+        from: '2026-01-01',
+        to: today
+    })"
+     class="whitespace-nowrap"
+>
+      🗺️ Ordini per Regione
 </DropdownLink>
                                             <DropdownLink
                                                 :href="route('ordini.index')"
