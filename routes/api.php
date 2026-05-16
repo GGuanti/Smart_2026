@@ -8,7 +8,9 @@ use Illuminate\Support\Str;
 Route::get('/clienti/search', [ClientiSearchController::class,'__invoke'])->name('api.clienti.search');
 
 
+use App\Http\Controllers\CalendarioController;
 
+Route::put('/appointments/{Nordine}', [CalendarioController::class, 'updateByOrdine']);
 
 Route::post('/upload-plain', function (Request $request) {
     $request->validate([

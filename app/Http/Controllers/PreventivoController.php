@@ -24,8 +24,15 @@ class PreventivoController extends Controller
             ->where('Nordine', $ordine->Nordine)
             ->orderBy('Id') // se la PK è diversa, cambiala (es. ID)
             ->get();
+// dd(Auth::user()->listino);
+$listinoUtente = Auth::user()->listino ?? '';
 
-        $modelli = DB::table('listini')->get();
+$modelli = DB::table('listini')
+    ->where('listinicol', $listinoUtente)
+    ->get();
+
+        // $modelli = DB::table('listini')->get();
+       // $modelli = DB::table('listini')->where('listinicol', Auth::user()->listino)->get();
         $soluzioni = DB::table('tab_soluzioni')
             ->orderBy('soluzione')
             ->get();
@@ -41,9 +48,9 @@ class PreventivoController extends Controller
         $assModVetri = DB::table('ass_mod_vetri')->get();
         $imbotte = DB::table('tab_imbotte')->get();
 
-$accessori = DB::table('accessori')
-    ->orderBy('des_accessori')
-    ->get();
+        $accessori = DB::table('accessori')
+            ->orderBy('des_accessori')
+            ->get();
 
 
         return Inertia::render('Preventivi/Form', [
@@ -98,7 +105,7 @@ $accessori = DB::table('accessori')
             'righe.*.AccessoriSel.*.qta' => 'nullable|integer|min:1',
             'righe.*.AccessoriSel.*.prezzo' => 'nullable|numeric|min:0',
             'righe.*.AccessoriSel.*.prezzo_man' => 'nullable|numeric',
-            'righe.*.AccessoriSel.*.note' => ['nullable','string','max:255'],
+            'righe.*.AccessoriSel.*.note' => ['nullable', 'string', 'max:255'],
         ]);
 
         DB::transaction(function () use ($data, $ordine) {
@@ -126,8 +133,8 @@ $accessori = DB::table('accessori')
                         $prezzo = isset($it['prezzo']) ? (float)$it['prezzo'] : 0;
                         $prezzoMan = isset($it['prezzo_man']) ? (float)$it['prezzo_man'] : 0;
 
-                    $note = isset($it['note']) ? trim((string)$it['note']) : '';
-                    $note = $note !== '' ? mb_substr($note, 0, 255) : null;
+                        $note = isset($it['note']) ? trim((string)$it['note']) : '';
+                        $note = $note !== '' ? mb_substr($note, 0, 255) : null;
 
                         $acc[] = [
                             'id'         => $id,

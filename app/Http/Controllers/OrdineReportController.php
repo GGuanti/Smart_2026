@@ -45,6 +45,7 @@ class OrdineReportController extends Controller
             ->leftJoin('tab_aperture as ap', 'ap.IdApertura', '=', 'e.IdApertura')
             ->leftJoin('tab_vetri as v', 'v.id_vetro', '=', 'e.IdVetro')
             ->where('e.Nordine', $ordine->Nordine)
+            ->where('l.listinicol', Auth::user()->listino)
             ->select([
                 'e.*',
 
