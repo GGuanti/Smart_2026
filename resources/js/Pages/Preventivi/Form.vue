@@ -2905,34 +2905,34 @@ function MaggTelaio(riga) {
 
     if (doppia) {
         // VBA: FinoA = 160 (se ti serve lo gestiamo dopo)
-        if (col === "BT" && mod !== "PVC") return 20;
-        if (col === "BT2A") return 20;
-        if (col === "BT2S") return 20;
-        if (col === "LIBA") return 20;
-        if (col === "LIBS") return 20;
-        if (col === "RT") return 20;
-        if (col === "TELP") return 20;
-        if (col === "TELBT") return 20;
-        if (col === "TELSI") return 20;
+        if (col === "BT" && mod !== "PVC") return 21;
+        if (col === "BT2A") return 21;
+        if (col === "BT2S") return 21;
+        if (col === "LIBA") return 21;
+        if (col === "LIBS") return 21;
+        if (col === "RT") return 21;
+        if (col === "TELP") return 21;
+        if (col === "TELBT") return 21;
+        if (col === "TELSI") return 21;
 
-        if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 20;
-        if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 20;
+        if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 21;
+        if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 21;
 
         return 0;
     } else {
         // VBA: FinoA = 150
-        if (col === "BT") return 20;
-        if (col === "BT2A") return 20;
-        if (col === "BT2S") return 19; // ✅ differenza ramo FALSE
-        if (col === "LIBA") return 20;
-        if (col === "LIBS") return 20;
-        if (col === "RT") return 20;
-        if (col === "TELP") return 20;
-        if (col === "TELBT") return 20;
-        if (col === "TELSI") return 20;
+        if (col === "BT") return 21;
+        if (col === "BT2A") return 21;
+        if (col === "BT2S") return 21; // ✅ differenza ramo FALSE
+        if (col === "LIBA") return 21;
+        if (col === "LIBS") return 21;
+        if (col === "RT") return 21;
+        if (col === "TELP") return 21;
+        if (col === "TELBT") return 21;
+        if (col === "TELSI") return 21;
 
-        if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 20;
-        if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 20;
+        if (col === "SE" || col === "SES") return isSvmOrSvt ? 0 : 21;
+        if (col === "SE2M" || col === "SE2S") return isSvmOrSvt ? 0 : 21;
 
         return 0;
     }
