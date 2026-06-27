@@ -65,6 +65,7 @@ class OrdineReportController extends Controller
                 'v.des_vetro as Vetro',
 
             ])
+            ->orderBy('e.Id', 'asc')
             ->get();
             $mapAccessori = DB::table('accessori')
     ->pluck('des_accessori', 'id')
