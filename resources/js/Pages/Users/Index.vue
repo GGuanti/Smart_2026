@@ -1,8 +1,16 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { ref, onMounted, watch, computed } from "vue";
+import SmartGrid from "@/Components/SmartGrid.vue";
+import { ref, computed } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
-import { TabulatorFull as Tabulator } from "tabulator-tables";
+
+/* -------------------- Stile campi (riuso) -------------------- */
+const labelClass =
+    "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500";
+const fieldClass =
+    "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none";
+
+const showPwd = ref(false);
 
 /* -------------------- Logo upload -------------------- */
 const logoFile = ref(null);
@@ -11,16 +19,16 @@ const removeLogo = ref(false);
 
 function onPickLogo(e) {
     const file = e.target.files?.[0] ?? null;
-    if (file && file.size > 2 * 1024 * 1024) {
-        form.setError("logo", "Il logo non può superare 2MB");
-        e.target.value = "";
-        return;
-    }
-    form.clearErrors("logo");
     logoFile.value = file;
     removeLogo.value = false;
-    logoPreview.value = file ? URL.createObjectURL(file) : null;
+
+    if (!file) {
+        logoPreview.value = null;
+        return;
+    }
+    logoPreview.value = URL.createObjectURL(file);
 }
+
 function removeLogoNow() {
     logoFile.value = null;
     logoPreview.value = null;
@@ -31,14 +39,10 @@ function removeLogoNow() {
 const props = defineProps({
     users: { type: Array, default: () => [] },
     regioniTrasporto: { type: Array, default: () => [] },
-
     tipiDoc: { type: Array, default: () => [] },
     preventiviPivot: { type: Array, default: () => [] },
+    savedLayout: { type: [Array, Object], default: null },
 });
-
-/* -------------------- UI state -------------------- */
-const showFilters = ref(false);
-const quickSearch = ref("");
 
 /* -------------------- KPIs -------------------- */
 const totalUsers = computed(() => props.users?.length ?? 0);
@@ -61,6 +65,66 @@ const totalNurith = computed(
         ).length,
 );
 
+/* -------------------- SmartGrid utenti -------------------- */
+const regioneById = computed(() =>
+    Object.fromEntries(
+        (props.regioniTrasporto ?? []).map((r) => [Number(r.id), r.regione]),
+    ),
+);
+
+const gridRows = computed(() =>
+    (props.users ?? []).map((u) => ({
+        id: u.id,
+        logo_path: u.logo_path ?? "",
+        name: u.name ?? "",
+        email: u.email ?? "",
+        profilo: u.profilo ?? "",
+        azienda: u.azienda ?? "",
+        listino: u.listino ?? "",
+        regione: regioneById.value[Number(u.IdCostoTrasporto)] ?? "-",
+        azioni: u.id,
+    })),
+);
+
+const gridLabels = {
+    id: "ID",
+    logo_path: "Logo",
+    name: "Nome",
+    email: "Email",
+    profilo: "Profilo",
+    azienda: "Azienda",
+    listino: "Listino",
+    regione: "Regione",
+    azioni: "Azioni",
+};
+
+function editRowById(id) {
+    const full = (props.users ?? []).find((u) => Number(u.id) === Number(id));
+    if (full) editRow(full);
+}
+
+function logoSrc(p) {
+    if (!p) return "";
+    p = String(p).trim().replaceAll("\\", "/");
+    if (/^https?:\/\//i.test(p)) return p;
+    return p.startsWith("/") ? p : "/" + p;
+}
+function onLogoError(e) {
+    e.target.onerror = null;
+    e.target.src = "/Foto/placeholder.jpg";
+}
+
+/* -------------------- SmartGrid pivot preventivi -------------------- */
+const pivotLabels = computed(() => {
+    const m = { name: "Utente", Totale: "Totale" };
+    for (const td of props.tipiDoc ?? []) m[String(td)] = String(td);
+    return m;
+});
+const pivotSumColumns = computed(() => [
+    ...(props.tipiDoc ?? []).map(String),
+    "Totale",
+]);
+
 /* -------------------- Form (Inertia useForm) -------------------- */
 const DEFAULTS = {
     id: null,
@@ -77,19 +141,21 @@ const DEFAULTS = {
 const form = useForm({ ...DEFAULTS });
 
 function resetForm() {
+    form.reset();
+    form.clearErrors();
     form.defaults({
         ...DEFAULTS,
         IdCostoTrasporto: props.regioniTrasporto?.[0]?.id ?? null,
     });
     form.reset();
-    form.clearErrors();
+
     logoFile.value = null;
     logoPreview.value = null;
     removeLogo.value = false;
+    showPwd.value = false;
 }
 
 function editRow(row) {
-    // password SEMPRE vuota in edit (si cambia solo se digitata)
     form.clearErrors();
     form.id = row.id ?? null;
     form.name = row.name ?? "";
@@ -99,12 +165,10 @@ function editRow(row) {
     form.listino = row.listino ?? "1";
     form.azienda = row.azienda ?? "Isomax";
     form.IdCostoTrasporto = row.IdCostoTrasporto ?? null;
-
     form.datiazienda = row.datiazienda ?? "";
 
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    // preview logo esistente
     logoFile.value = null;
 
     let p = row.logo_path
@@ -114,47 +178,48 @@ function editRow(row) {
     if (!p) {
         logoPreview.value = null;
     } else if (/^https?:\/\//i.test(p)) {
-        // URL assoluto
         logoPreview.value = p;
     } else if (p.startsWith("/")) {
-        // già assoluto
         logoPreview.value = p;
     } else if (p.startsWith("storage/") || p.startsWith("public/")) {
-        // file dentro storage/app/public (se mai lo usassi)
         logoPreview.value = "/" + p.replace(/^public\//, "storage/");
     } else {
-        // ✅ file dentro public/ (il tuo caso: Foto/Utente/..)
         logoPreview.value = "/" + p;
     }
 
     removeLogo.value = false;
 }
+
 function submit() {
-    form.clearErrors();
+    const isEdit = !!form.id;
 
-    // validazioni rapide (il server resta la fonte di verità)
-    if (!form.name?.trim())
-        return form.setError("name", "Il nome è obbligatorio");
-    if (!form.email?.trim())
-        return form.setError("email", "L'email è obbligatoria");
-    if (!form.id && !form.password)
-        return form.setError(
-            "password",
-            "La password è obbligatoria in creazione",
-        );
+    if (!form.name?.trim()) return alert("Il nome è obbligatorio");
+    if (!form.email?.trim()) return alert("L'email è obbligatoria");
+    if (!form.profilo?.trim()) return alert("Il profilo è obbligatorio");
+    if (!isEdit && !form.password)
+        return alert("La password è obbligatoria in creazione");
 
-    form.transform((data) => ({
-        ...data,
-        logo: logoFile.value || null,
-        remove_logo: removeLogo.value ? 1 : 0,
-        ...(form.id ? { _method: "put" } : {}),
-    }));
+    const fd = new FormData();
+    fd.append("name", form.name ?? "");
+    fd.append("email", form.email ?? "");
+    fd.append("profilo", form.profilo ?? "");
+    fd.append("password", form.password ?? "");
+    fd.append("azienda", form.azienda ?? "");
+    fd.append("listino", form.listino ?? "");
+    fd.append("IdCostoTrasporto", form.IdCostoTrasporto ?? "");
+    fd.append("datiazienda", form.datiazienda ?? "");
 
-    form.post(form.id ? `/users/${form.id}` : "/users", {
-        preserveScroll: true,
-        forceFormData: true, // multipart anche senza file (per lo spoofing _method)
-        onSuccess: () => resetForm(),
-    });
+    if (logoFile.value) fd.append("logo", logoFile.value);
+    if (removeLogo.value) fd.append("remove_logo", "1");
+
+    const url = isEdit ? `/users/${form.id}` : "/users";
+
+    if (isEdit) {
+        fd.append("_method", "PUT");
+        router.post(url, fd, { preserveScroll: true, onSuccess: () => resetForm() });
+    } else {
+        router.post(url, fd, { preserveScroll: true, onSuccess: () => resetForm() });
+    }
 }
 
 function delRow(id) {
@@ -163,811 +228,221 @@ function delRow(id) {
         router.delete(`/users/${id}`, { preserveScroll: true });
     }
 }
-
-/* -------------------- Tabulator -------------------- */
-const tableRef = ref(null);
-let tableInstance = null;
-
-const dynamicFilters = ref([{ field: "name", type: "like", value: "" }]);
-
-const availableFields = [
-    { label: "Nome", value: "name", type: "string" },
-    { label: "Email", value: "email", type: "string" },
-    { label: "Profilo", value: "profilo", type: "string" },
-    { label: "Azienda", value: "azienda", type: "string" },
-    { label: "Regione", value: "IdCostoTrasporto", type: "string" },
-    { label: "Listino", value: "listino", type: "string" },
-];
-
-const operatorsByType = {
-    string: ["like", "="],
-};
-
-function getFieldType(field) {
-    return availableFields.find((f) => f.value === field)?.type ?? "string";
-}
-
-function addFilterRow() {
-    dynamicFilters.value.push({ field: "name", type: "like", value: "" });
-}
-
-function removeFilterRow(index) {
-    dynamicFilters.value.splice(index, 1);
-    applyDynamicFilters();
-}
-
-function applyDynamicFilters() {
-    if (!tableInstance) return;
-
-    const filters = dynamicFilters.value
-        .filter((f) => String(f.value ?? "").trim() !== "")
-        .map((f) => ({
-            field: f.field,
-            type: f.type,
-            value: String(f.value),
-        }));
-
-    tableInstance.clearFilter(true);
-    if (filters.length) tableInstance.setFilter(filters);
-}
-
-function resetColumnLayout() {
-    localStorage.removeItem("TBL-users");
-    window.location.reload();
-}
-let isFiltering = false;
-
-function applyQuickSearch() {
-    if (!tableInstance || isFiltering) return;
-
-    isFiltering = true;
-
-    const q = String(quickSearch.value ?? "")
-        .toLowerCase()
-        .trim();
-
-    tableInstance.setFilter((data) => {
-        if (!q) return true;
-
-        const regioneObj = props.regioniTrasporto.find(
-            (r) => Number(r.id) === Number(data.IdCostoTrasporto),
-        );
-
-        const regione = regioneObj?.regione ?? "";
-
-        const hay = `
-            ${data.name ?? ""}
-            ${data.email ?? ""}
-            ${data.profilo ?? ""}
-            ${data.azienda ?? ""}
-            ${regione}
-            ${data.listino ?? ""}
-        `.toLowerCase();
-
-        return hay.includes(q);
-    });
-
-    setTimeout(() => {
-        isFiltering = false;
-    }, 0);
-}
-function applyQuickSearch1() {
-    if (!tableInstance) return;
-
-    const q = String(quickSearch.value ?? "")
-        .toLowerCase()
-        .trim();
-
-    tableInstance.setFilter((data) => {
-        if (!q) return true;
-
-        // 🔥 recupero nome regione da id
-        const regioneObj = props.regioniTrasporto.find(
-            (r) => Number(r.id) === Number(data.IdCostoTrasporto),
-        );
-
-        const regione = regioneObj?.regione ?? "";
-
-        const hay = `
-            ${data.name ?? ""}
-            ${data.email ?? ""}
-            ${data.profilo ?? ""}
-            ${data.azienda ?? ""}
-            ${regione}
-            ${data.listino ?? ""}
-        `.toLowerCase();
-
-        return hay.includes(q);
-    });
-}
-
-onMounted(() => {
-    pivotInstance = new Tabulator(pivotRef.value, {
-        data: props.preventiviPivot,
-        layout: "fitColumns",
-        height: "500px",
-        reactiveData: true,
-        movableColumns: true,
-        resizableColumns: true,
-        pagination: true,
-        paginationSize: 10,
-        paginationSizeSelector: [10, 20, 50, 100],
-        placeholder: "Nessun dato preventivi",
-        columns: buildPivotColumns(),
-    });
-    tableInstance = new Tabulator(tableRef.value, {
-        data: props.users,
-        layout: "fitColumns",
-        height: "500px",
-        reactiveData: true,
-        movableColumns: true,
-        resizableColumns: true,
-        pagination: true,
-        paginationSize: 10,
-        paginationSizeSelector: [10, 20, 50, 100],
-        placeholder: "Nessun utente trovato",
-        persistence: { columns: true },
-        persistenceID: "TBL-users3",
-        persistenceMode: "local",
-
-        columns: [
-            { title: "ID", field: "id", width: 70, hozAlign: "center" },
-            {
-                title: "Logo",
-                field: "logo_path",
-                width: 80,
-                headerSort: false,
-                hozAlign: "center",
-                formatter: (cell) => {
-                    let p = cell.getValue();
-                    if (!p) return "";
-                    p = String(p).trim().replaceAll("\\", "/");
-
-                    let src = p;
-                    if (!/^https?:\/\//i.test(src)) {
-                        src = src.startsWith("/") ? src : `/${src}`;
-                    }
-
-                    return `
-                        <img src="${src}"
-                            style="width:34px;height:34px;border-radius:10px;object-fit:cover;border:1px solid #e2e8f0"
-                            onerror="this.onerror=null; this.src='/Foto/placeholder.jpg';"
-                        />
-                    `;
-                },
-            },
-            { title: "Nome", field: "name", minWidth: 180, sorter: "string" },
-            { title: "Email", field: "email", minWidth: 220, sorter: "string" },
-            {
-                title: "Profilo",
-                field: "profilo",
-                width: 120,
-                sorter: "string",
-            },
-            {
-                title: "Azienda",
-                field: "azienda",
-                width: 120,
-                sorter: "string",
-            },
-            {
-                title: "Listino",
-                field: "listino",
-                width: 90,
-                hozAlign: "center",
-            },
-            {
-                title: "Regione",
-                field: "IdCostoTrasporto",
-                width: 180,
-                formatter: (cell) => {
-                    const id = cell.getValue();
-                    const r = props.regioniTrasporto.find(
-                        (x) => Number(x.id) === Number(id),
-                    );
-                    return r ? r.regione : "-";
-                },
-            },
-            {
-                title: "Azioni",
-                field: "azioni",
-                width: 140,
-                headerSort: false,
-                hozAlign: "center",
-                formatter: () => `
-                    <div class="flex justify-center gap-2">
-                        <button type="button" data-action="edit" class="tb-btn tb-edit" title="Modifica">✏️</button>
-                        <button type="button" data-action="del" class="tb-btn tb-del" title="Elimina">🗑️</button>
-                    </div>
-                `,
-                cellClick: (e, cell) => {
-                    const action = e.target?.getAttribute?.("data-action");
-                    const row = cell.getRow().getData();
-                    if (action === "edit") editRow(row);
-                    if (action === "del") delRow(row.id);
-                },
-            },
-        ],
-    });
-
-    applyDynamicFilters();
-    applyQuickSearch();
-});
-
-/* -------------------- React to props changes -------------------- */
-watch(
-    () => props.users,
-    (newData) => {
-        if (!tableInstance) return;
-
-        tableInstance.setData(newData ?? []);
-
-        // ⚠️ NON chiamare subito filtri → crea loop
-        setTimeout(() => {
-            applyDynamicFilters();
-            applyQuickSearch();
-        }, 0);
-    },
-);
-
-watch(quickSearch, () => applyQuickSearch());
-const pivotRef = ref(null);
-let pivotInstance = null;
-
-function buildPivotColumns() {
-    const cols = [
-        {
-            title: "Utente",
-            field: "name",
-            minWidth: 220,
-            sorter: "string",
-            bottomCalc: () => "TOTALE",
-        },
-    ];
-
-    for (const td of props.tipiDoc ?? []) {
-        cols.push({
-            title: String(td),
-            field: String(td),
-            hozAlign: "center",
-            sorter: "number",
-            width: 120,
-
-            // ✅ totale colonna
-            bottomCalc: "sum",
-            bottomCalcFormatter: "money",
-            bottomCalcFormatterParams: {
-                precision: 0,
-            },
-        });
-    }
-
-    cols.push({
-        title: "Totale",
-        field: "Totale",
-        hozAlign: "center",
-        sorter: "number",
-        width: 120,
-
-        // ✅ totale colonna Totale
-        bottomCalc: "sum",
-        bottomCalcFormatter: "money",
-        bottomCalcFormatterParams: {
-            precision: 0,
-        },
-    });
-
-    return cols;
-}
 </script>
 
 <template>
     <AuthenticatedLayout>
-        <div class="p-4 md:p-6 space-y-6">
+        <div class="p-4 md:p-5 space-y-4">
             <!-- Header -->
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <div class="text-2xl font-bold text-slate-900">Utenti</div>
-                    <div class="text-sm text-slate-500">
-                        Gestione profili, listini e trasporto
-                    </div>
-                </div>
 
-                <div class="flex items-center gap-2">
-                    <button
-                        type="button"
-                        class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                        @click="showFilters = !showFilters"
-                    >
-                        {{ showFilters ? "Nascondi filtri" : "Filtri" }}
-                    </button>
 
-                    <button
-                        type="button"
-                        class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                        @click="resetColumnLayout"
-                    >
-                        Reset colonne
-                    </button>
-                </div>
-            </div>
-
-            <!-- KPI -->
-            <div class="grid grid-cols-12 gap-4">
-                <div
-                    class="col-span-12 md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm"
-                >
-                    <div class="text-sm text-slate-500">Totale</div>
-                    <div class="text-2xl font-bold text-slate-900">
-                        {{ totalUsers }}
-                    </div>
-                </div>
-                <div
-                    class="col-span-12 md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm"
-                >
-                    <div class="text-sm text-slate-500">Admin</div>
-                    <div class="text-2xl font-bold text-slate-900">
-                        {{ totalAdmin }}
-                    </div>
-                </div>
-                <div
-                    class="col-span-12 md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm"
-                >
-                    <div class="text-sm text-slate-500">Isomax</div>
-                    <div class="text-2xl font-bold text-slate-900">
-                        {{ totalIsomax }}
-                    </div>
-                </div>
-                <div
-                    class="col-span-12 md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm"
-                >
-                    <div class="text-sm text-slate-500">Nurith</div>
-                    <div class="text-2xl font-bold text-slate-900">
-                        {{ totalNurith }}
-                    </div>
-                </div>
-            </div>
-            <div class="rounded-2xl border bg-white shadow-sm p-4 md:p-5">
-                <div class="text-lg font-semibold text-slate-900">
-                    Preventivi / Documenti per utente
-                </div>
-                <div class="text-sm text-slate-500 mb-3">
-                    Conteggio per TipoDoc (pivot)
-                </div>
-                <div ref="pivotRef"></div>
-            </div>
-            <!-- Filtri + Quick search -->
-            <div
-                v-if="showFilters"
-                class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
-            >
-                <div
-                    class="flex flex-wrap items-center justify-between gap-3 mb-4"
-                >
-                    <div>
-                        <div class="text-lg font-semibold text-slate-900">
-                            Filtri
-                        </div>
-                        <div class="text-sm text-slate-500">
-                            Ricerca rapida + filtri combinati
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <input
-                            v-model="quickSearch"
-                            placeholder="Cerca (nome, email, profilo, azienda, trasporto)…"
-                            class="w-full md:w-[420px] rounded-xl border px-3 py-2 text-sm shadow-sm"
-                        />
-                        <button
-                            type="button"
-                            class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                            @click="
-                                () => {
-                                    quickSearch = '';
-                                    dynamicFilters = [
-                                        {
-                                            field: 'name',
-                                            type: 'like',
-                                            value: '',
-                                        },
-                                    ];
-                                    applyDynamicFilters();
-                                }
-                            "
+            <!-- ============ RIGA: SmartGrid (sx) + Form (dx) ============ -->
+            <div class="grid grid-cols-12 gap-4 items-start">
+                <!-- SINISTRA: tabella utenti -->
+                <div class="col-span-12 xl:col-span-7 rounded-2xl border bg-white shadow-sm p-2">
+                    <div class="h-[680px]">
+                        <SmartGrid
+                            query-name="users"
+                            :rows="gridRows"
+                            :column-labels="gridLabels"
+                            :saved-layout="savedLayout"
                         >
-                            Pulisci
-                        </button>
+                            <template #cell-logo_path="{ value }">
+                                <img
+                                    v-if="value"
+                                    :src="logoSrc(value)"
+                                    class="h-20 w-40 rounded-lg object-cover border border-slate-200"
+                                    @error="onLogoError"
+                                    alt=""
+                                />
+                                <span v-else class="text-slate-300">—</span>
+                            </template>
+
+                            <template #cell-azioni="{ row }">
+                                <div class="flex justify-center gap-2">
+                                    <button type="button" @click="editRowById(row.id)" title="Modifica" class="rounded-lg border border-slate-200 bg-white px-2 py-1 leading-none hover:bg-slate-50">✏️</button>
+                                    <button type="button" @click="delRow(row.id)" title="Elimina" class="rounded-lg border border-slate-200 bg-white px-2 py-1 leading-none hover:bg-red-50">🗑️</button>
+                                </div>
+                            </template>
+                        </SmartGrid>
                     </div>
                 </div>
 
-                <div class="space-y-3">
-                    <div
-                        v-for="(filter, index) in dynamicFilters"
-                        :key="index"
-                        class="grid grid-cols-12 gap-2 items-center"
-                    >
-                        <div class="col-span-12 md:col-span-4">
-                            <select
-                                v-model="filter.field"
-                                class="w-full rounded-xl border px-3 py-2 text-sm"
-                                @change="
-                                    filter.type =
-                                        operatorsByType[
-                                            getFieldType(filter.field)
-                                        ][0]
-                                "
-                            >
-                                <option
-                                    v-for="f in availableFields"
-                                    :key="f.value"
-                                    :value="f.value"
-                                >
-                                    {{ f.label }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="col-span-12 md:col-span-2">
-                            <select
-                                v-model="filter.type"
-                                class="w-full rounded-xl border px-3 py-2 text-sm"
-                            >
-                                <option
-                                    v-for="op in operatorsByType[
-                                        getFieldType(filter.field)
-                                    ]"
-                                    :key="op"
-                                    :value="op"
-                                >
-                                    {{ op }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="col-span-12 md:col-span-5">
-                            <input
-                                v-model="filter.value"
-                                class="w-full rounded-xl border px-3 py-2 text-sm"
-                                type="text"
-                                placeholder="valore…"
-                                @keyup.enter="applyDynamicFilters"
-                            />
-                        </div>
-
-                        <div class="col-span-12 md:col-span-1 flex justify-end">
-                            <button
-                                type="button"
-                                @click="removeFilterRow(index)"
-                                class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                                title="Rimuovi"
-                            >
-                                ✖
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            @click="addFilterRow"
-                            class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                        >
-                            ➕ Filtro
-                        </button>
-                        <button
-                            type="button"
-                            @click="applyDynamicFilters"
-                            class="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-sm"
-                        >
-                            Applica
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Form -->
-            <form
-                @submit.prevent="submit"
-                class="rounded-2xl border bg-white shadow-sm p-4 md:p-5"
-            >
-                <!-- GRIGLIA MASTER: sinistra (titolo+campi) | destra (azioni+logo) -->
-                <div class="grid grid-cols-12 gap-4 items-start">
-                    <!-- SINISTRA: titolo + campi (partono subito in alto) -->
-                    <div class="col-span-12 lg:col-span-9">
-                        <!-- Header sinistro (compatto) -->
-                        <div class="mb-4">
-                            <div class="text-lg font-semibold text-slate-900">
-                                {{
-                                    form.id ? "Modifica utente" : "Nuovo utente"
-                                }}
+                <!-- DESTRA: form nuovo utente (compatto) -->
+                <form
+                    @submit.prevent="submit"
+                    class="col-span-12 xl:col-span-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
+                    <!-- Header form -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             </div>
-                            <div class="text-sm text-slate-500">
-                                {{
-                                    form.id
-                                        ? `ID #${form.id}`
-                                        : "Compila i campi e salva"
-                                }}
+                            <div>
+                                <div class="text-sm font-bold text-slate-900">{{ form.id ? "Modifica utente" : "Nuovo utente" }}</div>
+                                <div class="text-[11px] text-slate-500">{{ form.id ? `ID #${form.id}` : "Compila i campi e salva" }}</div>
                             </div>
                         </div>
-
-                        <!-- Campi -->
-                        <div class="grid grid-cols-12 gap-4">
-                            <!-- Riga 1 -->
-                            <div class="col-span-12 md:col-span-4">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Nome</label
-                                >
-                                <input
-                                    v-model="form.name"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                />
-                                <div
-                                    v-if="form.errors.name"
-                                    class="mt-1 text-xs text-red-600"
-                                >
-                                    {{ form.errors.name }}
-                                </div>
-                            </div>
-
-                            <div class="col-span-12 md:col-span-4">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Email</label
-                                >
-                                <input
-                                    type="email"
-                                    v-model="form.email"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                />
-                                <div
-                                    v-if="form.errors.email"
-                                    class="mt-1 text-xs text-red-600"
-                                >
-                                    {{ form.errors.email }}
-                                </div>
-                            </div>
-
-                            <div class="col-span-12 md:col-span-4">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Password</label
-                                >
-                                <input
-                                    type="password"
-                                    v-model="form.password"
-                                    autocomplete="new-password"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                />
-                                <div class="mt-1 text-xs text-slate-500">
-                                    {{
-                                        form.id
-                                            ? "Lascia vuoto per non cambiarla"
-                                            : "Obbligatoria in creazione"
-                                    }}
-                                </div>
-                                <div
-                                    v-if="form.errors.password"
-                                    class="mt-1 text-xs text-red-600"
-                                >
-                                    {{ form.errors.password }}
-                                </div>
-                            </div>
-
-                            <!-- Riga 2 -->
-                            <div class="col-span-12 md:col-span-4">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Azienda</label
-                                >
-                                <input
-                                    v-model="form.azienda"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                />
-                            </div>
-
-                            <div class="col-span-12 md:col-span-2">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Listino</label
-                                >
-                                <input
-                                    v-model="form.listino"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm text-center"
-                                    inputmode="numeric"
-                                />
-                            </div>
-
-                            <div class="col-span-12 md:col-span-4">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Regione trasporto</label
-                                >
-                                <select
-                                    v-model.number="form.IdCostoTrasporto"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                >
-                                    <option :value="null">— Seleziona —</option>
-
-                                    <option
-                                        v-for="r in regioniTrasporto"
-                                        :key="r.id"
-                                        :value="r.id"
-                                    >
-                                        {{ r.regione }}
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="col-span-12 md:col-span-2">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Profilo</label
-                                >
-                                <select
-                                    v-model="form.profilo"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                >
-                                    <option value="admin">Admin</option>
-                                    <option value="Isomax">Isomax</option>
-                                    <option value="Nurith">Nurith</option>
-                                    <option value="user">User</option>
-                                </select>
-                                <div
-                                    v-if="form.errors.profilo"
-                                    class="mt-1 text-xs text-red-600"
-                                >
-                                    {{ form.errors.profilo }}
-                                </div>
-                            </div>
-
-                            <!-- Dati azienda -->
-                            <div class="col-span-12">
-                                <label
-                                    class="text-sm font-semibold text-slate-800"
-                                    >Dati azienda</label
-                                >
-                                <textarea
-                                    v-model="form.datiazienda"
-                                    rows="4"
-                                    class="mt-1 w-full rounded-xl border px-3 py-2 shadow-sm"
-                                    placeholder="Note, intestazione, riferimenti..."
-                                ></textarea>
-                            </div>
-
-                            <div class="col-span-12">
-                                <div class="text-xs text-slate-500">
-                                    Tip: puoi trascinare le colonne,
-                                    ridimensionarle e la vista si salva.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- DESTRA: bottoni + logo (in alto a destra) -->
-                    <div
-                        class="col-span-12 lg:col-span-3 flex flex-col items-end gap-3"
-                    >
-                        <!-- bottoni -->
                         <div class="flex items-center gap-2">
-                            <button
-                                v-if="form.id"
-                                type="button"
-                                class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                                @click="resetForm"
-                            >
-                                Annulla
-                            </button>
-
-                            <button
-                                type="submit"
-                                :disabled="form.processing"
-                                class="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 text-sm font-semibold shadow"
-                            >
-                                {{
-                                    form.processing
-                                        ? "Salvataggio…"
-                                        : form.id
-                                          ? "Salva"
-                                          : "Aggiungi"
-                                }}
+                            <button v-if="form.id" type="button" @click="resetForm" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Annulla</button>
+                            <button type="submit" class="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:shadow-lg hover:brightness-110">
+                                {{ form.id ? "Salva" : "Aggiungi" }}
                             </button>
                         </div>
+                    </div>
 
-                        <!-- logo -->
-                        <div class="w-full">
-                            <label class="text-sm font-semibold text-slate-800"
-                                >Logo utente</label
-                            >
-
-                            <div
-                                class="mt-1 rounded-2xl border bg-white shadow-sm p-3 w-full"
-                            >
-                                <div
-                                    class="logoBox rounded-2xl border bg-slate-50 overflow-hidden flex items-center justify-center"
-                                >
-                                    <img
-                                        v-if="logoPreview"
-                                        :src="logoPreview"
-                                        class="h-full w-full object-contain"
-                                        alt="logo"
-                                        @error="logoPreview = null"
-                                    />
-                                    <div
-                                        v-else
-                                        class="text-xs text-slate-400 px-3 text-center"
-                                    >
-                                        Nessun logo
-                                    </div>
-                                    <div
-                                        v-if="form.errors.logo"
-                                        class="mt-1 text-xs text-red-600"
-                                    >
-                                        {{ form.errors.logo }}
-                                    </div>
-                                    <div
-                                        v-if="form.progress"
-                                        class="mt-2 h-1.5 w-full rounded bg-slate-200 overflow-hidden"
-                                    >
-                                        <div
-                                            class="h-full bg-blue-600 transition-all"
-                                            :style="{
-                                                width:
-                                                    form.progress.percentage +
-                                                    '%',
-                                            }"
-                                        ></div>
-                                    </div>
+                    <!-- Corpo form compatto -->
+                    <div class="space-y-5 p-4">
+                        <!-- Account -->
+                        <section>
+                            <div class="mb-2 flex items-center gap-3">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Account</span>
+                                <span class="h-px flex-1 bg-slate-100"></span>
+                            </div>
+                            <div class="grid grid-cols-12 gap-3">
+                                <div class="col-span-12 sm:col-span-6">
+                                    <label :class="labelClass">Nome</label>
+                                    <input v-model="form.name" :class="fieldClass" placeholder="Mario Rossi" />
+                                    <div v-if="form.errors.name" class="mt-1 text-xs text-red-600">{{ form.errors.name }}</div>
                                 </div>
-
-                                <div class="mt-3 space-y-2">
-                                    <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp"
-                                        @change="onPickLogo"
-                                        class="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-white hover:file:bg-slate-800"
-                                    />
-
-                                    <div
-                                        class="flex items-center justify-between gap-2"
-                                    >
-                                        <div class="text-xs text-slate-500">
-                                            PNG/JPG/WEBP • max 2MB
-                                        </div>
-
-                                        <button
-                                            v-if="logoPreview"
-                                            type="button"
-                                            class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                                            @click="removeLogoNow"
-                                        >
-                                            Rimuovi
+                                <div class="col-span-12 sm:col-span-6">
+                                    <label :class="labelClass">Email</label>
+                                    <input type="email" v-model="form.email" :class="fieldClass" placeholder="nome@azienda.com" />
+                                    <div v-if="form.errors.email" class="mt-1 text-xs text-red-600">{{ form.errors.email }}</div>
+                                </div>
+                                <div class="col-span-12">
+                                    <label :class="labelClass">Password</label>
+                                    <div class="relative">
+                                        <input
+                                            :type="showPwd ? 'text' : 'password'"
+                                            v-model="form.password"
+                                            autocomplete="new-password"
+                                            :class="fieldClass"
+                                            class="pr-10"
+                                            :placeholder="form.id ? '••••••• (invariata)' : 'Imposta una password'"
+                                        />
+                                        <button type="button" tabindex="-1" @click="showPwd = !showPwd" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700">
+                                            <svg v-if="!showPwd" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                            <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                                         </button>
                                     </div>
+                                    <div class="mt-1 text-[11px] text-slate-400">{{ form.id ? "Lascia vuoto per non cambiarla" : "Obbligatoria in creazione" }}</div>
+                                    <div v-if="form.errors.password" class="mt-1 text-xs text-red-600">{{ form.errors.password }}</div>
                                 </div>
                             </div>
-                        </div>
-                        <!-- /logo -->
+                        </section>
+
+                        <!-- Configurazione -->
+                        <section>
+                            <div class="mb-2 flex items-center gap-3">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Configurazione</span>
+                                <span class="h-px flex-1 bg-slate-100"></span>
+                            </div>
+                            <div class="grid grid-cols-12 gap-3">
+                                <div class="col-span-12 sm:col-span-6">
+                                    <label :class="labelClass">Azienda</label>
+                                    <input v-model="form.azienda" :class="fieldClass" placeholder="Isomax" />
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label :class="labelClass">Listino</label>
+                                    <input v-model="form.listino" :class="fieldClass" class="text-center" inputmode="numeric" />
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label :class="labelClass">Profilo</label>
+                                    <select v-model="form.profilo" :class="fieldClass">
+                                        <option value="admin">Admin</option>
+                                        <option value="Isomax">Isomax</option>
+                                        <option value="Nurith">Nurith</option>
+                                        <option value="user">User</option>
+                                    </select>
+                                    <div v-if="form.errors.profilo" class="mt-1 text-xs text-red-600">{{ form.errors.profilo }}</div>
+                                </div>
+                                <div class="col-span-12">
+                                    <label :class="labelClass">Regione trasporto</label>
+                                    <select v-model.number="form.IdCostoTrasporto" :class="fieldClass">
+                                        <option :value="null">— Seleziona —</option>
+                                        <option v-for="r in regioniTrasporto" :key="r.id" :value="r.id">{{ r.regione }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Logo compatto + Note -->
+                        <section>
+                            <div class="mb-2 flex items-center gap-3">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Logo &amp; Note</span>
+                                <span class="h-px flex-1 bg-slate-100"></span>
+                            </div>
+
+                            <!-- Logo orizzontale compatto -->
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                                <div class="relative shrink-0">
+                                    <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-200 bg-white">
+                                        <img v-if="logoPreview" :src="logoPreview" class="h-full w-full object-contain" alt="logo" @error="logoPreview = null" />
+                                        <svg v-else width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></svg>
+                                    </div>
+                                    <button v-if="logoPreview" type="button" @click="removeLogoNow" title="Rimuovi" class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-400 shadow ring-1 ring-slate-200 transition hover:text-red-500">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                                    </button>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <label class="block cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-sm font-medium text-slate-600 transition hover:border-blue-400 hover:text-blue-600">
+                                        {{ logoPreview ? "Cambia immagine" : "Scegli immagine" }}
+                                        <input type="file" accept="image/png,image/jpeg,image/webp" @change="onPickLogo" class="hidden" />
+                                    </label>
+                                    <div class="mt-1.5 text-[11px] text-slate-400">PNG / JPG / WEBP • max 2MB</div>
+                                </div>
+                            </div>
+
+                            <!-- Note -->
+                            <div class="mt-3">
+                                <label :class="labelClass">Dati azienda</label>
+                                <textarea v-model="form.datiazienda" rows="3" :class="fieldClass" placeholder="Note, intestazione, riferimenti..."></textarea>
+                            </div>
+                        </section>
+                    </div>
+                </form>
+            </div>
+             <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <div class="text-xl font-bold text-slate-900">Utenti</div>
+                    <div class="text-sm text-slate-500">Gestione profili, listini e trasporto</div>
+                </div>
+
+                <!-- KPI compatti inline -->
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
+                        <span class="text-xs text-slate-500">Totale</span>
+                        <span class="text-base font-bold text-slate-900">{{ totalUsers }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
+                        <span class="text-xs text-slate-500">Admin</span>
+                        <span class="text-base font-bold text-red-600">{{ totalAdmin }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
+                        <span class="text-xs text-slate-500">Isomax</span>
+                        <span class="text-base font-bold text-indigo-600">{{ totalIsomax }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
+                        <span class="text-xs text-slate-500">Nurith</span>
+                        <span class="text-base font-bold text-emerald-600">{{ totalNurith }}</span>
                     </div>
                 </div>
-            </form>
+            </div>
 
-            <!-- Tabella -->
-            <div class="rounded-2xl border bg-white shadow-sm">
-                <div
-                    class="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2"
-                >
-                    <div class="font-semibold text-slate-900">Elenco</div>
-                    <div class="text-sm text-slate-500">
-                        {{ totalUsers }} utenti
-                    </div>
-                </div>
-
-                <div class="w-full overflow-x-auto">
-                    <div class="min-w-[900px] p-2">
-                        <div ref="tableRef"></div>
-                    </div>
+            <!-- Pivot preventivi (full width) -->
+            <div class="rounded-2xl border bg-white shadow-sm p-4">
+                <div class="text-base font-semibold text-slate-900">Preventivi / Documenti per utente</div>
+                <div class="text-xs text-slate-500 mb-2">Conteggio per TipoDoc (pivot)</div>
+                <div class="h-[440px]">
+                    <SmartGrid
+                        query-name="preventivi-pivot"
+                        :rows="preventiviPivot"
+                        :column-labels="pivotLabels"
+                        :sum-columns="pivotSumColumns"
+                        totals-label="TOTALE"
+                    />
                 </div>
             </div>
         </div>
@@ -975,41 +450,8 @@ function buildPivotColumns() {
 </template>
 
 <style>
-@import "tabulator-tables/dist/css/tabulator.min.css";
-
-/* Preview logo coerente */
 .logoBox {
     width: 100%;
     height: 220px;
-}
-
-/* Tabulator “più moderno” senza stravolgere */
-.tabulator {
-    border: 0 !important;
-    background: transparent !important;
-    font-size: 13px;
-}
-.tabulator .tabulator-header {
-    background: #f8fafc !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-}
-.tabulator .tabulator-row {
-    border-bottom: 1px solid #eef2f7 !important;
-}
-.tabulator .tabulator-row.tabulator-row-even {
-    background: #fcfdff !important;
-}
-.tabulator .tabulator-cell {
-    padding: 10px 10px !important;
-}
-.tb-btn {
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 6px 8px;
-    line-height: 1;
-    background: white;
-}
-.tb-btn:hover {
-    background: #f8fafc;
 }
 </style>

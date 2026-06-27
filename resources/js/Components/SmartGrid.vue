@@ -104,6 +104,17 @@
             <td :colspan="visibleCols.length" class="empty-td">Nessun risultato trovato</td>
           </tr>
         </tbody>
+        <tfoot v-if="columnTotals">
+          <tr class="total-row">
+            <td v-for="(col, ci) in visibleCols" :key="'t'+col.key"
+              class="total-td"
+              :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
+            >
+              <template v-if="col.key in columnTotals">{{ fmtTotal(columnTotals[col.key]) }}</template>
+              <template v-else-if="ci === 0">{{ totalsLabel }}</template>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
@@ -145,6 +156,8 @@ const props = defineProps({
   savedLayout:   { type: Array,   default: null           },
   columnLabels:  { type: Object,  default: () => ({})     }, // label custom per field key
   showHeader:    { type: Boolean, default: true           }, // nascondi header interno se hai un tuo
+  sumColumns:   { type: Array,  default: () => []     }, // colonne numeriche da totalizzare
+  totalsLabel:  { type: String, default: 'TOTALE'      },
 })
 const emit = defineEmits(['layout-saved'])
 
@@ -216,6 +229,15 @@ const paginated  = computed(() => {
   const p = Math.min(page.value, totalPages.value)
   return filtered.value.slice((p - 1) * perPage.value, p * perPage.value)
 })
+const columnTotals = computed(() => {
+  if (!props.sumColumns?.length) return null
+  const t = {}
+  for (const key of props.sumColumns)
+    t[key] = filtered.value.reduce((s, r) => s + (Number(r[key]) || 0), 0)
+  return t
+})
+const nfTotals = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 })
+const fmtTotal = v => nfTotals.format(v ?? 0)
 
 const pageNums = computed(() => {
   const t = totalPages.value, c = page.value, p = []
@@ -485,6 +507,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOut))
 .data-row.even  { background:#ffffff; }
 .data-row:not(.even) { background:#fafafa; }
 .data-row:hover { background:#eff6ff !important; }
+
+.total-row { position: sticky; bottom: 0; z-index: 8; }
+.total-td {
+  padding: 9px 12px; font-size: 13px; font-weight: 800; color: #0f172a;
+  background: #f1f5f9; border-top: 2px solid #e2e8f0; border-right: 1px solid #e5e7eb;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.total-td:last-child { border-right: none; }
 
 .td {
   padding:9px 12px;

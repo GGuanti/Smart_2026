@@ -46,7 +46,7 @@ public function users(Request $request)
 {
     return response()->json(
         User::where('id', '!=', $request->user()->id)
-            ->where('profilo', 'Isomax')
+            ->where('email', 'like', '%@isomaxporte.com')
             ->orderBy('name')
             ->get(['id', 'name', 'email'])
     );
