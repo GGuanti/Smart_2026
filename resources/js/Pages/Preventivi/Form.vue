@@ -55,7 +55,9 @@ function normalizeSelected(riga) {
 }
 function addAccessorio(riga, id) {
     normalizeSelected(riga);
-
+  if (riga.IdModello === null || riga.IdModello === undefined || riga.IdModello === "" || Number.isNaN(Number(riga.IdModello))) {
+        riga.IdModello = 1500;
+    }
     const acc = getAccessorio(id);
     const base = Number(acc?.importo ?? 0);
 
@@ -1543,7 +1545,7 @@ function ensureSerraturaValida(riga) {
 }
 
 function cascadeRiga(riga) {
-    if (!riga.IdModello) {
+     if (riga.IdModello === "1500") {
         riga.IdSoluzione = null;
         riga.IdColAnta = null;
         riga.IdColTelaio = null;
@@ -3681,6 +3683,7 @@ onBeforeUnmount(() => {
                                                     bumpImgKeyOnly(riga);
                                                 "
                                             >
+                                              <option :value="1500">ACC</option>
                                                 <option
                                                     v-for="m in modelliOrdinati"
                                                     :key="m.id_listino"
