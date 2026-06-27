@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GridLayout;
 use App\Models\User;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -66,13 +68,19 @@ class UserController extends Controller
                 ->get();
         }
 
+        $userId = Auth::id();
+
         return Inertia::render('Users/Index', [
             'users' => $users,
             'regioniTrasporto' => $regioni,
 
-            // ✅ nuove props per la tabella pivot
+            // props per la tabella pivot
             'tipiDoc' => $tipiDoc,
             'preventiviPivot' => $preventiviPivot,
+
+            // ✅ layout SmartGrid salvati per l'utente corrente
+            'savedLayout'      => GridLayout::forUser($userId, 'users'),
+            'savedPivotLayout' => GridLayout::forUser($userId, 'preventivi-pivot'),
         ]);
     }
 

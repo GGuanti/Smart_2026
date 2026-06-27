@@ -13,9 +13,9 @@
       </div>
       <div class="sg-right">
         <!-- Salva layout -->
-        <button class="btn-save" :class="{ dirty: layoutDirty, saved: saveStatus==='ok' }"
+        <button class="btn-save" :class="{ dirty: layoutDirty, saved: saveStatus==='ok', err: saveStatus==='err' }"
           :disabled="!layoutDirty" @click="handleSave">
-          {{ saveStatus==='saving' ? '⏳ Salvo...' : saveStatus==='ok' ? '✓ Salvato!' : '💾 Salva layout' }}
+          {{ saveStatus==='saving' ? '⏳ Salvo...' : saveStatus==='ok' ? '✓ Salvato!' : saveStatus==='err' ? '✕ Errore' : '💾 Salva layout' }}
         </button>
 
         <!-- Reset -->
@@ -156,8 +156,8 @@ const props = defineProps({
   savedLayout:   { type: Array,   default: null           },
   columnLabels:  { type: Object,  default: () => ({})     }, // label custom per field key
   showHeader:    { type: Boolean, default: true           }, // nascondi header interno se hai un tuo
-  sumColumns:   { type: Array,  default: () => []     }, // colonne numeriche da totalizzare
-  totalsLabel:  { type: String, default: 'TOTALE'      },
+  sumColumns:    { type: Array,   default: () => []       }, // colonne numeriche da totalizzare
+  totalsLabel:   { type: String,  default: 'TOTALE'       },
 })
 const emit = defineEmits(['layout-saved'])
 
@@ -201,11 +201,21 @@ function buildColumns(rows, saved) {
   return result.sort((a, b) => a.order - b.order)
 }
 
-onMounted(() => {
+// Costruisce/ricostruisce le colonne; gestita anche quando dati o
+// savedLayout arrivano DOPO il mount (caso tipico con Inertia).
+function initColumns() {
+  if (!props.rows?.length) return
   cols.value = buildColumns(props.rows, props.savedLayout)
-  props.rows.forEach((_, i) => {}) // init filters
-  Object.keys(props.rows[0] ?? {}).forEach(k => filters[k] = '')
-})
+  Object.keys(props.rows[0] ?? {}).forEach(k => { if (!(k in filters)) filters[k] = '' })
+  layoutSaved.value = !!props.savedLayout
+}
+
+onMounted(initColumns)
+
+// il layout salvato può arrivare/cambiare dopo il mount
+watch(() => props.savedLayout, () => initColumns())
+// se le righe arrivano dopo, costruisci solo se non l'hai già fatto
+watch(() => props.rows, () => { if (!cols.value.length) initColumns() })
 
 // ── Computed ──────────────────────────────────────────────────
 const visibleCols = computed(() => cols.value.filter(c => c.visible))
@@ -318,7 +328,7 @@ const handleSave = async () => {
 
   } catch (e) {
     saveStatus.value = 'err'
-    console.error(e)
+    console.error('SmartGrid: salvataggio layout fallito', e?.response?.status, e?.response?.data || e)
   }
 }
 
@@ -396,6 +406,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOut))
 }
 .btn-save.dirty  { background:#2563eb; border-color:#2563eb; color:#fff; box-shadow:0 2px 8px rgba(37,99,235,.25); }
 .btn-save.saved  { background:#f0fdf4; border-color:#86efac; color:#16a34a; }
+.btn-save.err    { background:#fef2f2; border-color:#fecaca; color:#dc2626; }
 .btn-save:disabled:not(.saved) { opacity:.4; cursor:default; }
 
 .btn-ghost {

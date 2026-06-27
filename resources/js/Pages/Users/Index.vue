@@ -42,6 +42,7 @@ const props = defineProps({
     tipiDoc: { type: Array, default: () => [] },
     preventiviPivot: { type: Array, default: () => [] },
     savedLayout: { type: [Array, Object], default: null },
+     savedPivotLayout: { type: [Array, Object], default: null },
 });
 
 /* -------------------- KPIs -------------------- */
@@ -436,11 +437,12 @@ function delRow(id) {
                 <div class="text-base font-semibold text-slate-900">Preventivi / Documenti per utente</div>
                 <div class="text-xs text-slate-500 mb-2">Conteggio per TipoDoc (pivot)</div>
                 <div class="h-[440px]">
-                    <SmartGrid
+                      <SmartGrid
                         query-name="preventivi-pivot"
                         :rows="preventiviPivot"
                         :column-labels="pivotLabels"
                         :sum-columns="pivotSumColumns"
+                        :saved-layout="savedPivotLayout"
                         totals-label="TOTALE"
                     />
                 </div>
