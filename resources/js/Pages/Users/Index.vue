@@ -11,16 +11,16 @@ const removeLogo = ref(false);
 
 function onPickLogo(e) {
     const file = e.target.files?.[0] ?? null;
-    logoFile.value = file;
-    removeLogo.value = false;
-
-    if (!file) {
-        logoPreview.value = null;
+    if (file && file.size > 2 * 1024 * 1024) {
+        form.setError("logo", "Il logo non può superare 2MB");
+        e.target.value = "";
         return;
     }
-    logoPreview.value = URL.createObjectURL(file);
+    form.clearErrors("logo");
+    logoFile.value = file;
+    removeLogo.value = false;
+    logoPreview.value = file ? URL.createObjectURL(file) : null;
 }
-
 function removeLogoNow() {
     logoFile.value = null;
     logoPreview.value = null;
@@ -77,14 +77,12 @@ const DEFAULTS = {
 const form = useForm({ ...DEFAULTS });
 
 function resetForm() {
-    form.reset();
-    form.clearErrors();
     form.defaults({
         ...DEFAULTS,
         IdCostoTrasporto: props.regioniTrasporto?.[0]?.id ?? null,
     });
     form.reset();
-
+    form.clearErrors();
     logoFile.value = null;
     logoPreview.value = null;
     removeLogo.value = false;
@@ -131,46 +129,32 @@ function editRow(row) {
 
     removeLogo.value = false;
 }
-
 function submit() {
-    const isEdit = !!form.id;
+    form.clearErrors();
 
-    if (!form.name?.trim()) return alert("Il nome è obbligatorio");
-    if (!form.email?.trim()) return alert("L'email è obbligatoria");
-    if (!form.profilo?.trim()) return alert("Il profilo è obbligatorio");
-    if (!isEdit && !form.password)
-        return alert("La password è obbligatoria in creazione");
+    // validazioni rapide (il server resta la fonte di verità)
+    if (!form.name?.trim())
+        return form.setError("name", "Il nome è obbligatorio");
+    if (!form.email?.trim())
+        return form.setError("email", "L'email è obbligatoria");
+    if (!form.id && !form.password)
+        return form.setError(
+            "password",
+            "La password è obbligatoria in creazione",
+        );
 
-    const fd = new FormData();
+    form.transform((data) => ({
+        ...data,
+        logo: logoFile.value || null,
+        remove_logo: removeLogo.value ? 1 : 0,
+        ...(form.id ? { _method: "put" } : {}),
+    }));
 
-    // campi testo
-    fd.append("name", form.name ?? "");
-    fd.append("email", form.email ?? "");
-    fd.append("profilo", form.profilo ?? "");
-    fd.append("password", form.password ?? "");
-    fd.append("azienda", form.azienda ?? "");
-    fd.append("listino", form.listino ?? "");
-    fd.append("IdCostoTrasporto", form.IdCostoTrasporto ?? "");
-    fd.append("datiazienda", form.datiazienda ?? "");
-
-    // logo
-    if (logoFile.value) fd.append("logo", logoFile.value);
-    if (removeLogo.value) fd.append("remove_logo", "1");
-
-    const url = isEdit ? `/users/${form.id}` : "/users";
-
-    if (isEdit) {
-        fd.append("_method", "PUT");
-        router.post(url, fd, {
-            preserveScroll: true,
-            onSuccess: () => resetForm(),
-        });
-    } else {
-        router.post(url, fd, {
-            preserveScroll: true,
-            onSuccess: () => resetForm(),
-        });
-    }
+    form.post(form.id ? `/users/${form.id}` : "/users", {
+        preserveScroll: true,
+        forceFormData: true, // multipart anche senza file (per lo spoofing _method)
+        onSuccess: () => resetForm(),
+    });
 }
 
 function delRow(id) {
@@ -238,13 +222,15 @@ function applyQuickSearch() {
 
     isFiltering = true;
 
-    const q = String(quickSearch.value ?? "").toLowerCase().trim();
+    const q = String(quickSearch.value ?? "")
+        .toLowerCase()
+        .trim();
 
     tableInstance.setFilter((data) => {
         if (!q) return true;
 
         const regioneObj = props.regioniTrasporto.find(
-            (r) => Number(r.id) === Number(data.IdCostoTrasporto)
+            (r) => Number(r.id) === Number(data.IdCostoTrasporto),
         );
 
         const regione = regioneObj?.regione ?? "";
@@ -421,7 +407,7 @@ watch(
             applyDynamicFilters();
             applyQuickSearch();
         }, 0);
-    }
+    },
 );
 
 watch(quickSearch, () => applyQuickSearch());
@@ -876,9 +862,16 @@ function buildPivotColumns() {
 
                             <button
                                 type="submit"
-                                class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold shadow"
+                                :disabled="form.processing"
+                                class="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 text-sm font-semibold shadow"
                             >
-                                {{ form.id ? "Salva" : "Aggiungi" }}
+                                {{
+                                    form.processing
+                                        ? "Salvataggio…"
+                                        : form.id
+                                          ? "Salva"
+                                          : "Aggiungi"
+                                }}
                             </button>
                         </div>
 
@@ -906,6 +899,25 @@ function buildPivotColumns() {
                                         class="text-xs text-slate-400 px-3 text-center"
                                     >
                                         Nessun logo
+                                    </div>
+                                    <div
+                                        v-if="form.errors.logo"
+                                        class="mt-1 text-xs text-red-600"
+                                    >
+                                        {{ form.errors.logo }}
+                                    </div>
+                                    <div
+                                        v-if="form.progress"
+                                        class="mt-2 h-1.5 w-full rounded bg-slate-200 overflow-hidden"
+                                    >
+                                        <div
+                                            class="h-full bg-blue-600 transition-all"
+                                            :style="{
+                                                width:
+                                                    form.progress.percentage +
+                                                    '%',
+                                            }"
+                                        ></div>
                                     </div>
                                 </div>
 

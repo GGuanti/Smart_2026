@@ -6,6 +6,7 @@ import DropdownLink from "@/Components/DropdownLink.vue";
 import NavLink from "@/Components/NavLink.vue";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink.vue";
 import { Link, usePage } from "@inertiajs/vue3";
+import ChatPanel from '@/Components/Chat/ChatPanel.vue'
 
 const showingNavigationDropdown = ref(false);
 const page = usePage();
@@ -45,9 +46,11 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
 </script>
 
 <template>
-    <div
+     <div
         class="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100"
     >
+        <!-- Chat interna -->
+        <ChatPanel />
         <!-- NAV -->
         <nav class="sticky top-0 z-40 w-full">
             <!-- bordo + blur -->
@@ -55,6 +58,7 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                 <div class="w-full px-4 sm:px-6 lg:px-8">
                     <div class="flex h-16 items-center justify-between">
                         <!-- LEFT -->
+
                         <div class="flex items-center gap-3">
                             <!-- Logo + Brand -->
                             <Link
@@ -68,6 +72,7 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                                         class="h-6 w-6 text-white"
                                     />
                                 </div>
+
                                 <div
                                     v-if="
                                         $page.props.auth.user.profilo ===
@@ -289,7 +294,7 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                         </div>
 
                         <!-- RIGHT -->
-                        <div class="hidden sm:flex items-center gap-3">
+                        <div class="hidden sm:flex items-center gap-3 me-20">
                             <!-- Badge profilo -->
                             <span
                                 class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ring-1"
@@ -455,6 +460,7 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                     </div>
                 </div>
             </div>
+
         </nav>
 
         <!-- Header -->
@@ -471,5 +477,6 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
         <main class="w-full px-0 py-0">
             <slot />
         </main>
+
     </div>
 </template>

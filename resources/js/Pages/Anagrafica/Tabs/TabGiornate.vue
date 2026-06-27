@@ -1,128 +1,67 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { TabulatorFull as Tabulator } from 'tabulator-tables'
-import 'tabulator-tables/dist/css/tabulator.min.css'
+import SmartGrid from "@/Components/SmartGrid.vue";
+import { computed } from "vue";
+import { router } from "@inertiajs/vue3";
 
 const props = defineProps({
-  codCliente: String,
-  giornate: Array,
-})
+    codCliente: { type: String, required: true },
+    giornate:   { type: Array,  default: () => [] },
+    savedLayout:{ type: Array,  default: null },
+});
 
-const filtroDataInizio = ref(null)
-const filtroDataFine = ref(null)
-const pdfUrl = ref(null)
+const queryName = computed(() => `giornate_${props.codCliente}`);
 
-const tableRef = ref(null)
-const tabulatorInstance = ref(null)
+const LABELS = {
+    _azioni:     "Azioni",
+    DataGiornata:"Data",
+    Ore:         "Ore",
+    Progetto:    "Progetto",
+    Note:        "Note",
+    Cliente:     "Cliente",
+    Fatturata:   "Fatturata",
+};
 
-const formatDate = (value) => {
-  if (!value) return ''
-  const d = new Date(value)
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-}
-const formatDDMMYYYY = (value) => {
-  if (!value) return ''
-  const d = new Date(value)
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-}
-const initTable = () => {
-  tabulatorInstance.value = new Tabulator(tableRef.value, {
-    height: '400px',
-    data: props.giornate,
-    layout: 'fitData',
-    columns: [
-      {
-        title: "Data",
-        field: "Data",
-        sorter: (a, b) => {
-          const d1 = a ? new Date(a) : new Date(0)
-          const d2 = b ? new Date(b) : new Date(0)
-          return d1 - d2
-        },
-        hozAlign: "left",
-        headerFilter: "input",
-        formatter: (cell) => formatDDMMYYYY(cell.getValue())
-      },
-      {
-        title: 'Descrizione',
-        field: 'Descrizioneprogetto',
-        headerFilter: 'input',
-      },
-      {
-        title: 'IDContratto',
-        field: 'IDContratto',
-        headerFilter: 'input',
-      },
-      {
-  title: 'Diaria',
-  field: 'Diaria',
-  hozAlign: 'center',
-  sorter: "number", // Usa il valore reale
-  formatter: function (cell) {
-    const val = parseInt(cell.getValue());
-    return val === -1 ? '✅' : '❌';
-  },
-  headerFilter: 'input',
-  headerFilterParams: {
-    values: {
-      '': 'Tutti',
-      '-1': '✅',
-      '0': '❌'
-    }
-  },
-  // 🔥 Essenziale per far funzionare il filtro con valori numerici
-  headerFilterFunc: (headerValue, rowValue) => {
-    return headerValue === '' || String(rowValue) === headerValue;
-  }
-},
+const rows = computed(() =>
+    props.giornate.map(r => ({ _azioni: r.IDGiornata ?? r.id, ...r }))
+);
 
-
-
-      {
-        title: 'Importo',
-        field: 'Retribuzione',
-        sorter: 'number',
-        hozAlign: 'right',
-        headerFilter: 'input',
-        formatter: 'money',
-        formatterParams: {
-          decimal: ',',
-          thousand: '.',
-          symbol: '€',
-          precision: 2,
-        },
-      },
-    ],
-    placeholder: 'Nessun dato disponibile',
-  })
-}
-
-onMounted(() => {
-  initTable()
-})
-
-const generaReport = async () => {
-  if (!filtroDataInizio.value || !filtroDataFine.value) {
-    alert('Inserisci data inizio e data fine')
-    return
-  }
-
-  try {
-    const url = `/giornate/stampa-pdf?codCliente=${encodeURIComponent(props.codCliente)}&data_inizio=${filtroDataInizio.value}&data_fine=${filtroDataFine.value}`
-    pdfUrl.value = url
-    window.open(url, '_blank') // facoltativo: apre in nuova scheda
-  } catch (error) {
-    console.error('Errore generazione PDF:', error)
-  }
-}
+const formatDate = (v) => {
+    if (!v) return "—";
+    const d = new Date(v);
+    if (isNaN(d)) return String(v);
+    return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+};
 </script>
 
 <template>
-
-  <div class="p-2 bg-white rounded shadow overflow-x-auto">
-       <div ref="tableRef"></div>
-         <div v-if="pdfUrl" class="border rounded overflow-hidden mt-4">
-    <iframe :src="pdfUrl" width="100%" height="800px" class="w-full" />
-  </div>
-  </div>
+    <SmartGrid
+        :query-name="queryName"
+        :rows="rows"
+        :saved-layout="savedLayout"
+        :column-labels="LABELS"
+        :show-header="true"
+    >
+        <template #cell-_azioni="{ value }">
+            <div class="flex justify-center gap-1">
+                <button class="act-btn act-edit"
+                    @click.stop="router.visit(`/giornate/${value}/edit`)">✏️</button>
+            </div>
+        </template>
+        <template #cell-DataGiornata="{ value }">
+            <span class="tabular-nums text-xs font-semibold text-slate-700">{{ formatDate(value) }}</span>
+        </template>
+        <template #cell-Fatturata="{ value }">
+            <span :class="value ? 'badge-ok' : 'badge-warn'" class="badge-pill">
+                {{ value ? "Sì" : "No" }}
+            </span>
+        </template>
+    </SmartGrid>
 </template>
+
+<style scoped>
+.act-btn   { @apply px-2 py-1 rounded-lg border text-sm cursor-pointer transition hover:-translate-y-px; }
+.act-edit  { @apply bg-amber-50 border-amber-200 text-amber-800; }
+.badge-pill{ @apply inline-block px-2 py-0.5 rounded-full text-xs font-bold border; }
+.badge-ok  { @apply bg-emerald-50 text-emerald-700 border-emerald-200; }
+.badge-warn{ @apply bg-slate-100 text-slate-500 border-slate-200; }
+</style>

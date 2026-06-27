@@ -1,8 +1,9 @@
 <script setup>
-import { watch, nextTick, ref, onMounted } from "vue";
+import { watch, nextTick, ref } from "vue";
+import axios from "axios";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Tabs from "@/Components/Tabs.vue";
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import { Head } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import TabSicurezza from "./Tabs/TabSicurezza.vue";
@@ -215,7 +216,7 @@ const submit = () => {
         submitError.value = errors[firstKey];
         submitSuccess.value = false;
 
-        scrollToFirstError(errors);
+        scrollToFirstError();
     };
 
     if (id) {
@@ -445,22 +446,7 @@ watch(
                     </div>
 
                     <!-- Nome visualizzato (readonly) -->
-                    <!--     <div class="heroRight">
-                        <label class="label">Cognome e Nome</label>
-                        <input
-                            v-model.trim="form.A_NomeVisualizzato"
-                            type="text"
-                            readonly
-                            class="input input-readonly"
-                            :class="{
-                                'input-danger': form.errors.A_NomeVisualizzato,
-                            }"
-                        />
-                        <p v-if="form.errors.A_NomeVisualizzato" class="err">
-                            {{ form.errors.A_NomeVisualizzato }}
-                        </p>
-                    </div> -->
-                </div>
+</div>
             </div>
 
             <!-- ===== CARD CONTENUTO ===== -->
@@ -1874,15 +1860,7 @@ watch(
                                 :progettiDisponibili="props.progettiDisponibili"
                             />
                         </template>
-
-                        <!--    <template #attivita>
-                            <TabAttivita
-                                :codCliente="form.CodCliente"
-                                :attivita="props.attivita"
-                                :clienti="props.clienti"
-                            />
-                        </template> -->
-                                                <template #notespese>
+<template #notespese>
                             <TabNoteSpese
                                 :codCliente="form.CodCliente"
                                 :noteSpese="props.NoteSpese"
@@ -1981,291 +1959,86 @@ watch(
     </AuthenticatedLayout>
 </template>
 <style scoped>
-.page {
-    @apply w-full min-h-[80vh] px-4 md:px-8 xl:px-12 py-6 bg-slate-50;
-}
+.page { @apply w-full min-h-screen px-4 md:px-8 xl:px-12 py-6 bg-slate-50; }
 
 /* HERO */
-.hero {
-    @apply rounded-3xl border bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg;
-    @apply py-2;                 /* ✅ compatto */
-    padding-bottom: 0.25rem;     /* ✅ ancora più vicino ai tabs */
-}
+.hero        { @apply rounded-3xl border bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg mb-4; padding:.5rem 0 .4rem; }
+.heroInner   { @apply w-full px-6 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between; padding:.35rem 0; }
+.heroTitle   { @apply font-extrabold tracking-tight; }
+.heroSub     { @apply text-xs md:text-sm text-white/80 mt-0.5; }
+.logoPill    { @apply w-10 h-10 grid place-items-center rounded-2xl bg-white/15 border border-white/20 text-lg; }
+.heroRight   { @apply bg-white/10 backdrop-blur rounded-2xl border border-white/20 p-4 w-full lg:w-[420px]; }
 
-.heroInner {
-    @apply w-full px-6 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between;
-    @apply py-2;                 /* ✅ compatto */
-    padding-bottom: 0.15rem;
-}
+/* TOOLBAR */
+.toolbar { @apply sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white/90 backdrop-blur border-b; }
 
-.heroTitle {
-    @apply font-extrabold tracking-tight;
-}
-
-.heroSub {
-    @apply text-xs md:text-sm text-white/80;
-    margin-top: 0.15rem;         /* ✅ meno aria */
-    margin-bottom: 0;            /* ✅ attacca tabs */
-}
-
-.logoPill {
-    @apply w-10 h-10 grid place-items-center rounded-2xl bg-white/15 border border-white/20 text-lg;
-}
-
-.heroRight {
-    @apply bg-white/10 backdrop-blur rounded-2xl border border-white/20 p-4 w-full lg:w-[420px];
-}
-
-/* CONTENT */
-@media (min-width: 1920px) {
-    .contentCard {
-
-        max-width: 1800px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-}
-
-.toolbar {
-    @apply sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white/90 backdrop-blur border-b;
-}
-.cardLite {
-    @apply rounded-2xl border bg-white shadow-sm overflow-hidden;
-}
-.cardLiteHead {
-    @apply flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-slate-50;
-}
+/* CARDS */
+.contentCard  { @apply rounded-2xl; }
+.cardLite     { @apply rounded-2xl border bg-white shadow-sm overflow-hidden; }
+.cardLiteHead { @apply flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-slate-50; }
+.sectionCard  { @apply rounded-2xl border bg-white shadow-sm overflow-hidden; }
+.sectionHead  { @apply px-4 py-3 border-b bg-slate-50; }
+.sectionTitle { @apply flex items-center gap-3 text-slate-900; }
 
 /* BADGE / CHIP */
-.badge {
-    @apply text-[11px] font-extrabold px-2 py-1 rounded-full border;
-}
-.badge-slate {
-    @apply bg-white/15 text-white border-white/25;
-}
-.badge-blue {
-    @apply bg-white text-indigo-700 border-white/40;
-}
-.chip {
-    @apply text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200;
-}
-.chip-amber {
-    @apply bg-amber-50 text-amber-800 border-amber-200;
-}
-.chip-green {
-    @apply bg-emerald-50 text-emerald-800 border-emerald-200;
-}
+.badge       { @apply text-[11px] font-extrabold px-2 py-1 rounded-full border; }
+.badge-slate { @apply bg-white/15 text-white border-white/25; }
+.badge-blue  { @apply bg-white text-indigo-700 border-white/40; }
+.chip        { @apply text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200; }
+.chip-amber  { @apply bg-amber-50 text-amber-800 border-amber-200; }
+.chip-green  { @apply bg-emerald-50 text-emerald-800 border-emerald-200; }
+.chip-red    { @apply bg-red-50 text-red-700 border border-red-200 font-semibold; }
 
-/* INPUT / LABEL / ERROR */
-.label {
-    @apply block text-xs font-bold text-slate-600;
+/* FORM — definiti una sola volta */
+.field       { @apply space-y-1; }
+.label       { @apply block text-xs font-bold text-slate-600; }
+.input       { @apply mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none; }
+.input-readonly { @apply bg-white/80; }
+.input-danger   { @apply border-red-500; }
+.inputIcon   { padding-left: 2.25rem; }
+.inputErr    { @apply border-red-500 focus:border-red-500 focus:ring-red-200; }
+.err         { @apply mt-1 text-xs font-semibold text-red-600; }
+
+/* ICONA INPUT */
+.iconInputWrap { @apply relative; }
+.iconLeft {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none;
+    width:16px; height:16px; transition:color .15s;
 }
-.input {
-    @apply mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm
-    focus:ring-2 focus:ring-blue-100 focus:border-blue-500;
-}
-.input-readonly {
-    @apply bg-white/80;
-}
-.input-danger {
-    @apply border-red-500;
-}
-.err {
-    @apply mt-1 text-xs text-red-600 font-semibold;
-}
+.iconInputWrap:focus-within .iconLeft { filter: brightness(0.8); }
+
+/* Colori icona per sezione */
+.icon-residenza { color:#2563eb; }
+.icon-domicilio { color:#059669; }
+.icon-soggiorno { color:#d97706; }
+.icon-fiscale   { color:#2563eb; }
+.icon-money     { color:#059669; }
+.icon-bank      { color:#7c3aed; }
+
+/* Flatpickr */
+.fpWrap :deep(.flatpickr-wrapper) { width:100%; }
+.iconInputWrap :deep(input.flatpickr-input),
+.iconInputWrap :deep(.flatpickr-wrapper input) { padding-left:2.25rem !important; }
 
 /* BUTTONS */
-.btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl border font-semibold shadow-sm
-    hover:shadow transition disabled:opacity-50 disabled:cursor-not-allowed;
-}
-.btn-ghost {
-    @apply bg-white text-slate-700 border-slate-200 hover:bg-slate-50;
-}
-.btn-primary {
-    @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700;
-}
-.btn-green {
-    @apply bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700;
-}
-.field {
-    @apply space-y-1;
-}
-.label {
-    @apply block text-sm font-medium text-gray-700;
-}
+.btn         { @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl border font-semibold shadow-sm hover:shadow transition disabled:opacity-50 disabled:cursor-not-allowed text-sm; }
+.btn-ghost   { @apply bg-white text-slate-700 border-slate-200 hover:bg-slate-50; }
+.btn-primary { @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700; }
+.btn-green   { @apply bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700; }
 
-.iconInputWrap {
-    @apply relative;
-}
-.iconLeft {
-    @apply absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none;
-}
-.iconInputWrap :deep(input.flatpickr-input) {
-    padding-left: 2.75rem; /* ~pl-11 */
-}
-/* ✅ più spazio reale */
-.inputIcon {
-    @apply pl-11;
-}
+/* COURSE CARDS */
+.courseCard    { @apply flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl border bg-white shadow-sm hover:shadow-md transition; }
+.courseLeft    { @apply flex items-start gap-4; }
+.courseIcon    { @apply w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 text-indigo-600 text-lg; }
+.courseTitle   { @apply font-extrabold text-slate-800; }
+.courseMeta    { @apply text-xs text-slate-500 mt-1 space-x-2; }
+.courseActions { @apply flex gap-2 items-center; }
+.badgeStatus   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border; }
+.badge-ok      { @apply bg-emerald-50 text-emerald-700 border-emerald-200; }
+.badge-warn    { @apply bg-amber-50 text-amber-700 border-amber-200; }
+.btnIcon       { @apply w-9 h-9 flex items-center justify-center rounded-xl border shadow-sm transition hover:scale-105; }
 
-/* Flatpickr wrap: fa sì che il contenuto riempia la riga */
-.fpWrap :deep(.flatpickr-wrapper) {
-    width: 100%;
-}
-.iconInputWrap :deep(input.flatpickr-input),
-.iconInputWrap :deep(input.flatpickr-input.form-control),
-.iconInputWrap :deep(.flatpickr-wrapper input) {
-    padding-left: 2.75rem !important; /* ~pl-11 */
-}
-.err {
-    @apply text-xs text-red-600 font-semibold;
-}
-.inputErr {
-    @apply border-red-500 focus:border-red-500 focus:ring-red-200;
-}
-.chip-red {
-    @apply bg-red-50 text-red-700 border border-red-200 font-semibold;
-}
-.sectionCard {
-    @apply rounded-2xl border bg-white shadow-sm overflow-hidden;
-}
-.sectionHead {
-    @apply px-4 py-3 border-b bg-slate-50;
-}
-.sectionTitle {
-    @apply flex items-center gap-3 text-slate-900;
-}
-.field {
-    @apply space-y-1;
-}
-.iconInputWrap {
-    @apply relative;
-}
-.iconLeft {
-    @apply absolute left-3 top-1/2 -translate-y-1/2 text-slate-400;
-    width: 16px;
-    height: 16px;
-}
-.inputIcon {
-    @apply pl-10; /* spazio per icona */
-}
-.inputErr {
-    @apply border-red-500;
-}
-.err {
-    @apply text-xs font-semibold text-red-600;
-}
-.label {
-    @apply block text-xs font-bold text-slate-600;
-}
-.iconLeft {
-    @apply absolute left-3 top-1/2 -translate-y-1/2;
-    width: 16px;
-    height: 16px;
-    transition: color 0.15s ease;
-}
-
-/* categorie */
-.icon-residenza {
-    color: #2563eb;
-} /* blue-600 */
-.icon-domicilio {
-    color: #059669;
-} /* emerald-600 */
-.icon-soggiorno {
-    color: #d97706;
-} /* amber-600 */
-
-/* focus input → icona più scura */
-.iconInputWrap:focus-within .iconLeft {
-    filter: brightness(0.85);
-}
-
-/* errore → rosso */
-.inputErr + .iconLeft,
-.iconInputWrap .inputErr ~ .iconLeft {
-    color: #dc2626;
-}
-.field {
-    @apply space-y-1;
-}
-
-.fieldGroup {
-    @apply rounded-2xl border bg-slate-50 p-4 space-y-4;
-}
-
-.groupTitle {
-    @apply flex items-center gap-2 text-sm font-extrabold text-slate-700;
-}
-
-.iconWrap {
-    @apply relative;
-}
-
-.iconLeft {
-    @apply absolute left-3 top-1/2 -translate-y-1/2;
-    width: 16px;
-    height: 16px;
-}
-
-.inputIcon {
-    padding-left: 2.25rem;
-}
-
-/* colori */
-.icon-fiscale {
-    color: #2563eb;
-} /* blue */
-.icon-money {
-    color: #059669;
-} /* emerald */
-.icon-bank {
-    color: #7c3aed;
-} /* violet */
-.courseCard {
-    @apply flex flex-col md:flex-row md:items-center justify-between
-         gap-4 p-4 rounded-2xl border bg-white shadow-sm
-         hover:shadow-md transition;
-}
-
-.courseLeft {
-    @apply flex items-start gap-4;
-}
-
-.courseIcon {
-    @apply w-10 h-10 rounded-xl flex items-center justify-center
-         bg-indigo-100 text-indigo-600 text-lg;
-}
-
-.courseTitle {
-    @apply font-extrabold text-slate-800;
-}
-
-.courseMeta {
-    @apply text-xs text-slate-500 mt-1 space-x-2;
-}
-
-.badgeStatus {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full
-         text-xs font-bold border;
-}
-
-.badge-ok {
-    @apply bg-emerald-50 text-emerald-700 border-emerald-200;
-}
-
-.badge-warn {
-    @apply bg-amber-50 text-amber-700 border-amber-200;
-}
-
-.courseActions {
-    @apply flex gap-2 items-center;
-}
-
-.btnIcon {
-    @apply w-9 h-9 flex items-center justify-center
-         rounded-xl border shadow-sm transition
-         hover:scale-105;
+@media (min-width: 1920px) {
+    .contentCard { max-width:1800px; margin-left:auto; margin-right:auto; }
 }
 </style>

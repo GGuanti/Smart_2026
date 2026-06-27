@@ -1,311 +1,136 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from "vue";
-import axios from "axios";
-import { useToast } from "vue-toastification";
-import FlatPickr from "vue-flatpickr-component";
-import "flatpickr/dist/flatpickr.css";
-import { Italian } from "flatpickr/dist/l10n/it.js";
-
-const toast = useToast();
+import SmartGrid from "@/Components/SmartGrid.vue";
+import { computed } from "vue";
+import { router } from "@inertiajs/vue3";
 
 const props = defineProps({
-    codCliente: String,
-    corsi: Array,
-    corsiDisponibili: Array,
+    codCliente:      { type: String, required: true },
+    corsi:           { type: Array,  default: () => [] },
+    corsiDisponibili:{ type: Array,  default: () => [] },
+    savedLayout:     { type: Array,  default: null },
 });
 
-const editingId = ref(null);
-const localCorsi = ref([]);
-const isLoading = ref(false);
+// Layout salvato per utente + persona
+const queryName = computed(() => `sicurezza_${props.codCliente}`);
 
-const newCorso = ref({
-    IdCorso: "",
-    DurataAttestato: "",
-    DataAttestato: "",
-    Note: "",
-    Stato: "",
-});
-
-const inEditing = ref({});
-
-const formatDate = (val) => {
-    if (!val) return "";
-    const date = new Date(val);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+// Label colonne dalla query reale
+const LABELS = {
+    _azioni:         "Azioni",
+    IdTabCorso:      "ID",
+    TipoCorso:       "Corso",
+    DataAttestato:   "Data Attestato",
+    DurataAttestato: "Durata (gg)",
+    Stato:           "Stato",
+    Note:            "Note",
+    UtenteMod:       "Modificato da",
+    DataModifica:    "Data Modifica",
 };
 
-const formatDateForMySQL = (value) => {
-    if (!value) return null;
-    const date = new Date(value);
-    return date.toISOString().split("T")[0];
-};
-
-const fetchCorsi = async () => {
-    try {
-        isLoading.value = true;
-        localCorsi.value = [];
-        await nextTick();
-
-        const { data } = await axios.get("/corsi", {
-            params: { cod: props.codCliente },
-        });
-
-        localCorsi.value = [...data];
-    } catch (err) {
-        console.error("Errore fetch corsi:", err);
-        toast.error("Errore aggiornamento elenco corsi");
-    } finally {
-        isLoading.value = false;
-    }
-};
-
-onMounted(fetchCorsi);
-
-const edit = (corso) => {
-    if (!corso || !corso.IdTabCorso) return;
-    editingId.value = corso.IdTabCorso;
-    const corsoDisponibile = props.corsiDisponibili.find(
-        (c) => c.TipoCorso === corso.TipoCorso
-    );
-    inEditing.value = {
-        IdCorso: corsoDisponibile?.IdCorso ?? "",
-        DurataAttestato: corso.DurataAttestato,
-        DataAttestato: corso.DataAttestato,
-        Note: corso.Note,
-        Stato: corso.Stato,
-        CodCliente: corso.CodCliente,
-        UtenteMod: "",
-        DataModifica: new Date().toISOString().split("T")[0],
-    };
-};
-
-const cancelEdit = () => {
-    editingId.value = null;
-    inEditing.value = {};
-};
-
-const update = async (corsoId) => {
-    const payload = {
-        ...inEditing.value,
-        DataAttestato: formatDateForMySQL(inEditing.value.DataAttestato),
-    };
-
-    try {
-        await axios.put(`/corsi/${corsoId}`, payload);
-        toast.success("Corso aggiornato");
-        cancelEdit();
-        await fetchCorsi();
-    } catch (err) {
-        console.error("Errore update:", err);
-        toast.error("Errore durante il salvataggio");
-    }
-};
-
-const destroy = (corsoId) => {
-    if (confirm("Sei sicuro di voler eliminare questo corso?")) {
-        axios
-            .delete(`/corsi/${corsoId}`)
-            .then(() => {
-                toast.success("Corso eliminato");
-                fetchCorsi();
-            })
-            .catch((err) => {
-                console.error("Errore delete:", err);
-                toast.error("Errore durante l'eliminazione");
-            });
-    }
-};
-
-const addCorso = () => {
-    if (!newCorso.value.IdCorso || !newCorso.value.DataAttestato) {
-        toast.error("Compila almeno tipo corso e data");
-        return;
-    }
-
-    const payload = {
-        ...newCorso.value,
-        DataAttestato: formatDateForMySQL(newCorso.value.DataAttestato),
-        CodCliente: props.codCliente,
-        UtenteMod: "",
-        DataModifica: new Date().toISOString().split("T")[0],
-    };
-
-    axios
-        .post("/corsi", payload)
-        .then(() => {
-            toast.success("Corso creato");
-            newCorso.value = {
-                IdCorso: "",
-                DurataAttestato: "",
-                DataAttestato: "",
-                Note: "",
-                Stato: "",
-            };
-            fetchCorsi();
-        })
-        .catch((err) => {
-            console.error("Errore insert:", err);
-            toast.error("Errore durante la creazione del corso");
-        });
-};
-
-const corsiValidi = computed(() =>
-    localCorsi.value.filter((c) => c && c.IdTabCorso)
+// Aggiunge _azioni come prima colonna (valore = IdTabCorso per navigazione)
+const rows = computed(() =>
+    props.corsi.map(r => ({ _azioni: r.IdTabCorso, ...r }))
 );
+
+// Calcola data scadenza: DataAttestato + DurataAttestato giorni
+const scadenza = (dataAttestato, durata) => {
+    if (!dataAttestato || !durata) return null;
+    const d = new Date(dataAttestato);
+    if (isNaN(d)) return null;
+    d.setDate(d.getDate() + Number(durata));
+    return d;
+};
+
+const isScaduto = (dataAttestato, durata) => {
+    const s = scadenza(dataAttestato, durata);
+    return s ? s < new Date() : false;
+};
+
+const formatDate = (v) => {
+    if (!v) return "—";
+    const d = new Date(v);
+    if (isNaN(d)) return String(v);
+    return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+};
+
+const formatScadenza = (dataAttestato, durata) => {
+    const s = scadenza(dataAttestato, durata);
+    return s ? formatDate(s) : "—";
+};
 </script>
 
 <template>
-    <div class="flex items-center justify-between mb-4">
-        <div>
-            <h2 class="text-lg font-extrabold flex items-center gap-2">
-                🎓 Corsi di Formazione
-            </h2>
-            <p class="text-xs text-slate-500">
-                Gestione attestati e corsi del lavoratore
-            </p>
-        </div>
-    </div>
-    <div class="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-100 text-slate-600">
-                <tr>
-                    <th class="px-3 py-2 text-left">🎓 Corso</th>
-                    <th class="px-3 py-2 text-center">⏱ Durata</th>
-                    <th class="px-3 py-2 text-center">📅 Attestato</th>
-                    <th class="px-3 py-2 text-left">📝 Note</th>
-                    <th class="px-3 py-2 text-center">📌 Stato</th>
-                    <th class="px-3 py-2 text-right">⚙️</th>
-                </tr>
-            </thead>
+    <SmartGrid
+        :query-name="queryName"
+        :rows="rows"
+        :saved-layout="savedLayout"
+        :column-labels="LABELS"
+    >
+        <!-- Azioni -->
+        <template #cell-_azioni="{ value }">
+            <div class="flex justify-center gap-1">
+                <button
+                    class="act-btn act-edit"
+                    title="Modifica"
+                    @click.stop="router.visit(`/corsi-formazione/${value}/edit`)"
+                >✏️</button>
+            </div>
+        </template>
 
-            <tbody>
-                <!-- loading -->
-                <tr v-if="isLoading">
-                    <td colspan="6" class="text-center py-6 text-slate-500">
-                        ⏳ Caricamento corsi…
-                    </td>
-                </tr>
+        <!-- Tipo corso — in grassetto -->
+        <template #cell-TipoCorso="{ value }">
+            <span class="font-semibold text-slate-800 text-xs">{{ value || "—" }}</span>
+        </template>
 
-                <!-- righe corsi -->
-                <tr
-                    v-for="corso in corsiValidi"
-                    :key="corso.IdTabCorso"
-                    class="border-t hover:bg-slate-50 transition"
+        <!-- Data attestato -->
+        <template #cell-DataAttestato="{ value }">
+            <span class="tabular-nums text-xs font-medium text-slate-700">
+                {{ formatDate(value) }}
+            </span>
+        </template>
+
+        <!-- Durata + scadenza calcolata -->
+        <template #cell-DurataAttestato="{ value, row }">
+            <div class="flex flex-col leading-tight">
+                <span class="text-xs text-slate-600">{{ value ? `${value} gg` : "—" }}</span>
+                <span
+                    class="text-[10px] font-semibold"
+                    :class="isScaduto(row.DataAttestato, value)
+                        ? 'text-red-600'
+                        : 'text-emerald-700'"
                 >
-                    <!-- corso -->
-                    <td class="px-3 py-2 font-semibold text-slate-800">
-                        {{
-                            props.corsiDisponibili.find(
-                                (c) => c.IdCorso === corso.IdCorso
-                            )?.TipoCorso ?? corso.TipoCorso
-                        }}
-                    </td>
+                    Scad: {{ formatScadenza(row.DataAttestato, value) }}
+                    <span v-if="isScaduto(row.DataAttestato, value)"> ⚠️</span>
+                </span>
+            </div>
+        </template>
 
-                    <!-- durata -->
-                    <td class="px-3 py-2 text-center">
-                        {{ corso.DurataAttestato }} h
-                    </td>
-
-                    <!-- data -->
-                    <td class="px-3 py-2 text-center">
-                        {{ formatDate(corso.DataAttestato) }}
-                    </td>
-
-                    <!-- note -->
-                    <td class="px-3 py-2 text-slate-600 truncate max-w-[220px]">
-                        {{ corso.Note || "—" }}
-                    </td>
-
-                    <!-- stato -->
-                    <td class="px-3 py-2 text-center">
-                        <span
-                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border"
-                            :class="
-                                corso.Stato
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                            "
-                        >
-                            {{ corso.Stato || "Da completare" }}
-                        </span>
-                    </td>
-
-                    <!-- azioni -->
-                    <td class="px-3 py-2 text-right whitespace-nowrap">
-                        <button
-                            class="text-blue-600 hover:text-blue-800 mr-2"
-                            @click="edit(corso)"
-                            title="Modifica"
-                        >
-                            ✏️
-                        </button>
-                        <button
-                            class="text-red-600 hover:text-red-800"
-                            @click="destroy(corso.IdTabCorso)"
-                            title="Elimina"
-                        >
-                            🗑️
-                        </button>
-                    </td>
-                </tr>
-
-                <!-- nessun corso -->
-                <tr v-if="!isLoading && !corsiValidi.length">
-                    <td colspan="6" class="text-center py-6 text-slate-500">
-                        Nessun corso presente
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="mt-6 rounded-2xl border bg-slate-50 p-4">
-        <div class="font-extrabold mb-3 flex items-center gap-2">
-            ➕ Aggiungi nuovo corso
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <select v-model="newCorso.IdCorso" class="input">
-                <option value="">Tipo corso</option>
-                <option
-                    v-for="op in props.corsiDisponibili"
-                    :key="op.IdCorso"
-                    :value="op.IdCorso"
-                >
-                    {{ op.TipoCorso }}
-                </option>
-            </select>
-
-            <input
-                type="number"
-                v-model="newCorso.DurataAttestato"
-                class="input"
-                placeholder="Durata (h)"
-            />
-
-            <FlatPickr
-                v-model="newCorso.DataAttestato"
-                :config="{
-                    altInput: true,
-                    altFormat: 'd/m/Y',
-                    dateFormat: 'Y-m-d',
-                    locale: Italian,
+        <!-- Stato badge -->
+        <template #cell-Stato="{ value }">
+            <span
+                class="badge-pill"
+                :class="{
+                    'badge-ok':   value === 'Valido'    || value === 'Attivo',
+                    'badge-warn': value === 'In scadenza',
+                    'badge-err':  value === 'Scaduto'   || value === 'Non valido',
+                    'badge-gray': !value,
                 }"
-                class="input"
-            />
+            >{{ value || "—" }}</span>
+        </template>
 
-            <input v-model="newCorso.Note" class="input" placeholder="Note" />
-            <input v-model="newCorso.Stato" class="input" placeholder="Stato" />
-        </div>
-
-        <div class="mt-4 text-right">
-            <button class="btn btn-primary" @click="addCorso">
-                💾 Salva corso
-            </button>
-        </div>
-    </div>
-
+        <!-- Data modifica -->
+        <template #cell-DataModifica="{ value }">
+            <span class="tabular-nums text-xs text-slate-500">{{ formatDate(value) }}</span>
+        </template>
+    </SmartGrid>
 </template>
+
+<style scoped>
+.act-btn  { @apply px-2 py-1 rounded-lg border text-sm cursor-pointer transition hover:-translate-y-px; }
+.act-edit { @apply bg-amber-50 border-amber-200 text-amber-800; }
+
+.badge-pill { @apply inline-block px-2 py-0.5 rounded-full text-xs font-bold border; }
+.badge-ok   { @apply bg-emerald-50 text-emerald-700 border-emerald-200; }
+.badge-warn { @apply bg-amber-50   text-amber-700   border-amber-200;   }
+.badge-err  { @apply bg-red-50     text-red-700     border-red-200;     }
+.badge-gray { @apply bg-slate-100  text-slate-500   border-slate-200;   }
+</style>

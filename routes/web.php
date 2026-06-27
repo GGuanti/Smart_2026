@@ -8,7 +8,7 @@ use Inertia\Inertia;
 | Controllers
 |--------------------------------------------------------------------------
 */
-
+use App\Http\Controllers\GridLayoutController;
 use App\Http\Controllers\{
     ProfileController,
     ProfileTabbedController,
@@ -49,12 +49,42 @@ use App\Http\Controllers\{
 
     Auth\AuthenticatedSessionController,
 };
+use App\Http\Controllers\ChatController;
+
 use App\Http\Controllers\ListinoValPredController;
 use App\Http\Controllers\UserPreferenceControllerN;
 use App\Http\Controllers\DoorConfigController;
 use Illuminate\Support\Facades\Auth;
 
 use App\Http\Controllers\TextureController;
+
+Route::middleware('auth')->prefix('chat')->name('chat.')->group(function () {
+    Route::get('/conversations',                          [ChatController::class, 'conversations'])->name('conversations');
+    Route::get('/users',                                  [ChatController::class, 'users'])->name('users');
+    Route::get('/unread-count',                           [ChatController::class, 'unreadCount'])->name('unread');
+    Route::post('/direct',                                [ChatController::class, 'direct'])->name('direct');
+    Route::get('/conversations/{conversation}/messages',  [ChatController::class, 'messages'])->name('messages');
+    Route::post('/conversations/{conversation}/messages', [ChatController::class, 'store'])->name('store');
+    Route::post('/conversations/{conversation}/read',     [ChatController::class, 'read'])->name('read');
+    Route::delete('/messages/{message}',                  [ChatController::class, 'destroy'])->name('messages.destroy');
+    Route::get('/attachments/{attachment}',               [ChatController::class, 'attachment'])->name('attachment');
+    Route::delete('/conversations/{conversation}', [ChatController::class, 'destroyConversation'])->name('conversations.destroy');
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::resource('anagrafica', AnagraficaController::class);
+    // genera automaticamente:
+    // GET    /anagrafica           → index
+    // GET    /anagrafica/create    → create
+    // POST   /anagrafica           → store      ← quello che mancava
+    // GET    /anagrafica/{id}/edit → edit
+    // PUT    /anagrafica/{id}      → update
+    // DELETE /anagrafica/{id}      → destroy
+});
+Route::middleware(['auth'])->group(function () {
+    Route::post  ('/grid-layouts',            [GridLayoutController::class, 'store'])   ->name('grid-layouts.store');
+    Route::delete('/grid-layouts/{queryName}', [GridLayoutController::class, 'destroy'])->name('grid-layouts.destroy');
+});
 
 Route::middleware(['auth'])->group(function () {
 
