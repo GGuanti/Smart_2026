@@ -107,12 +107,12 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
                                             ></button>
                                         </template>
                                         <template #content>
-                                            <DropdownLink
-                                                :href="route('report.index')"
-                                                >📑 Report</DropdownLink
-                                            >
+                                        <DropdownLink :href="route('report.index')">📑 Report</DropdownLink>
+                                        <DropdownLink :href="route('admin.presenze')">📈 Report presenze</DropdownLink>
                                         </template>
                                     </Dropdown>
+                                    <Dropdown align="left" width="56">
+</Dropdown>
 
                                     <Dropdown align="left" width="64">
                                         <template #trigger>
@@ -242,6 +242,8 @@ const caretSvg = `<svg class="h-4 w-4 opacity-70" xmlns="http://www.w3.org/2000/
 >
       🗺️ Ordini per Regione
 </DropdownLink>
+                                        <DropdownLink :href="route('admin.presenze')">📈 Report presenze</DropdownLink>
+
                                             <DropdownLink
                                                 :href="route('ordini.index')"
                                                 >📄 Ordini</DropdownLink

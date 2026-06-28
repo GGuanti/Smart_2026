@@ -75,9 +75,17 @@ Route::middleware('auth')->prefix('chat')->name('chat.')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::resource('anagrafica', AnagraficaController::class);
         Route::get('/online-count', function () {
-    $count = \App\Models\User::where('last_seen_at', '>=', now()->subMinutes(5))->count();
+    $count = \App\Models\User::where('last_seen_at', '>=', now()->subMinutes(2))->count();
     return response()->json(['online' => $count]);
 })->middleware('auth')->name('online.count');
+
+Route::get('/online-users', function () {
+    $ids = \App\Models\User::where('last_seen_at', '>=', now()->subMinutes(2))
+        ->pluck('id');
+    return response()->json(['ids' => $ids]);
+})->middleware('auth')->name('online.users');
+Route::get('/admin/presenze', [\App\Http\Controllers\PresenceReportController::class, 'index'])
+    ->name('admin.presenze');
     // genera automaticamente:
     // GET    /anagrafica           → index
     // GET    /anagrafica/create    → create

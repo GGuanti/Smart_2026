@@ -1,8 +1,8 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import SmartGrid from "@/Components/SmartGrid.vue";
-import { ref, computed } from "vue";
 import { router, useForm } from "@inertiajs/vue3";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 
 /* -------------------- Stile campi (riuso) -------------------- */
 const labelClass =
@@ -42,7 +42,7 @@ const props = defineProps({
     tipiDoc: { type: Array, default: () => [] },
     preventiviPivot: { type: Array, default: () => [] },
     savedLayout: { type: [Array, Object], default: null },
-     savedPivotLayout: { type: [Array, Object], default: null },
+    savedPivotLayout: { type: [Array, Object], default: null },
 });
 
 /* -------------------- KPIs -------------------- */
@@ -76,6 +76,7 @@ const regioneById = computed(() =>
 const gridRows = computed(() =>
     (props.users ?? []).map((u) => ({
         id: u.id,
+        stato: u.id,
         logo_path: u.logo_path ?? "",
         name: u.name ?? "",
         email: u.email ?? "",
@@ -89,6 +90,7 @@ const gridRows = computed(() =>
 
 const gridLabels = {
     id: "ID",
+    stato: "Stato",
     logo_path: "Logo",
     name: "Nome",
     email: "Email",
@@ -229,13 +231,72 @@ function delRow(id) {
         router.delete(`/users/${id}`, { preserveScroll: true });
     }
 }
+
+/* -------------------- Online utenti -------------------- */
+const onlineIds = ref(new Set());
+let onlineTimer = null;
+
+async function fetchOnlineUsers() {
+    try {
+        const { data } = await window.axios.get(route("online.users"));
+        onlineIds.value = new Set((data.ids ?? []).map(Number));
+    } catch (e) {}
+}
+
+const onlineCount = computed(() => {
+    let n = 0;
+    for (const u of props.users ?? []) {
+        if (onlineIds.value.has(Number(u.id))) n++;
+    }
+    return n;
+});
+
+onMounted(() => {
+    fetchOnlineUsers();
+    onlineTimer = setInterval(fetchOnlineUsers, 60000); // ogni 60s
+});
+onBeforeUnmount(() => {
+    if (onlineTimer) clearInterval(onlineTimer);
+});
 </script>
 
 <template>
     <AuthenticatedLayout>
         <div class="p-4 md:p-5 space-y-4">
-            <!-- Header -->
+            <!-- ============ HEADER: titolo + KPI allineate ============ -->
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <div class="text-xl font-bold text-slate-900">Utenti</div>
+                    <div class="text-sm text-slate-500">Gestione profili, listini e trasporto</div>
+                </div>
 
+                <!-- KPI: card uniformi, stessa larghezza, allineate -->
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                    <div class="flex flex-col items-center justify-center rounded-xl border bg-white px-3 py-2 shadow-sm">
+                        <span class="text-[11px] uppercase tracking-wide text-slate-500">Totale</span>
+                        <span class="text-lg font-bold text-slate-900">{{ totalUsers }}</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center rounded-xl border bg-white px-3 py-2 shadow-sm">
+                        <span class="text-[11px] uppercase tracking-wide text-slate-500">Admin</span>
+                        <span class="text-lg font-bold text-red-600">{{ totalAdmin }}</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center rounded-xl border bg-white px-3 py-2 shadow-sm">
+                        <span class="text-[11px] uppercase tracking-wide text-slate-500">Isomax</span>
+                        <span class="text-lg font-bold text-indigo-600">{{ totalIsomax }}</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center rounded-xl border bg-white px-3 py-2 shadow-sm">
+                        <span class="text-[11px] uppercase tracking-wide text-slate-500">Nurith</span>
+                        <span class="text-lg font-bold text-emerald-600">{{ totalNurith }}</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 shadow-sm">
+                        <span class="flex items-center gap-1 text-[11px] uppercase tracking-wide text-emerald-700">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Online
+                        </span>
+                        <span class="text-lg font-bold text-emerald-700">{{ onlineCount }}</span>
+                    </div>
+                </div>
+            </div>
 
             <!-- ============ RIGA: SmartGrid (sx) + Form (dx) ============ -->
             <div class="grid grid-cols-12 gap-4 items-start">
@@ -257,6 +318,21 @@ function delRow(id) {
                                     alt=""
                                 />
                                 <span v-else class="text-slate-300">—</span>
+                            </template>
+
+                            <template #cell-stato="{ value }">
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="w-2.5 h-2.5 rounded-full"
+                                        :class="onlineIds.has(Number(value)) ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'"
+                                    ></span>
+                                    <span
+                                        class="text-xs"
+                                        :class="onlineIds.has(Number(value)) ? 'text-emerald-700 font-semibold' : 'text-slate-400'"
+                                    >
+                                        {{ onlineIds.has(Number(value)) ? 'Online' : 'Offline' }}
+                                    </span>
+                                </div>
                             </template>
 
                             <template #cell-azioni="{ row }">
@@ -399,37 +475,11 @@ function delRow(id) {
                             <!-- Note -->
                             <div class="mt-3">
                                 <label :class="labelClass">Dati azienda</label>
-                                <textarea v-model="form.datiazienda" rows="3" :class="fieldClass" placeholder="Note, intestazione, riferimenti..."></textarea>
+                                <textarea v-model="form.datiazienda" rows="2" :class="fieldClass" placeholder="Note, intestazione, riferimenti..."></textarea>
                             </div>
                         </section>
                     </div>
                 </form>
-            </div>
-             <div class="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <div class="text-xl font-bold text-slate-900">Utenti</div>
-                    <div class="text-sm text-slate-500">Gestione profili, listini e trasporto</div>
-                </div>
-
-                <!-- KPI compatti inline -->
-                <div class="flex flex-wrap gap-2">
-                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
-                        <span class="text-xs text-slate-500">Totale</span>
-                        <span class="text-base font-bold text-slate-900">{{ totalUsers }}</span>
-                    </div>
-                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
-                        <span class="text-xs text-slate-500">Admin</span>
-                        <span class="text-base font-bold text-red-600">{{ totalAdmin }}</span>
-                    </div>
-                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
-                        <span class="text-xs text-slate-500">Isomax</span>
-                        <span class="text-base font-bold text-indigo-600">{{ totalIsomax }}</span>
-                    </div>
-                    <div class="flex items-center gap-2 rounded-xl border bg-white px-3 py-1.5 shadow-sm">
-                        <span class="text-xs text-slate-500">Nurith</span>
-                        <span class="text-base font-bold text-emerald-600">{{ totalNurith }}</span>
-                    </div>
-                </div>
             </div>
 
             <!-- Pivot preventivi (full width) -->
@@ -437,7 +487,7 @@ function delRow(id) {
                 <div class="text-base font-semibold text-slate-900">Preventivi / Documenti per utente</div>
                 <div class="text-xs text-slate-500 mb-2">Conteggio per TipoDoc (pivot)</div>
                 <div class="h-[440px]">
-                      <SmartGrid
+                    <SmartGrid
                         query-name="preventivi-pivot"
                         :rows="preventiviPivot"
                         :column-labels="pivotLabels"
