@@ -47,27 +47,7 @@ const props = defineProps({
 
 echarts.registerMap("italy-regions", italyRegions);
 
-const mapData = computed(() =>
-    props.ordiniPerRegione.map((r) => ({
-        name: r.regione,
-        value: Number(r.totale),
-    })),
-);
-
-const topTable = computed(() =>
-    [...props.ordiniPerRegione]
-        .sort((a, b) => Number(b.totale) - Number(a.totale))
-        .map((r, index) => ({
-            posizione: index + 1,
-            regione: r.regione,
-            totale: Number(r.totale),
-            percentuale:
-                props.totaleOrdini > 0
-                    ? ((Number(r.totale) / props.totaleOrdini) * 100).toFixed(1)
-                    : "0.0",
-        })),
-);
-
+/* ===================== Normalizzazione regioni ===================== */
 const normalizeName = (v) =>
     String(v ?? "")
         .trim()
@@ -76,6 +56,70 @@ const normalizeName = (v) =>
         .replaceAll("'", " ")
         .replace(/\s+/g, " ");
 
+/**
+ * Mappa i nomi "interni" (zone di trasporto) sul nome reale della regione.
+ * Es: Puglia1, Puglia2, "Puglia 1" -> Puglia
+ */
+function regioneReale(nome) {
+    const n = String(nome ?? "").trim();
+
+    // qualunque "Puglia" seguita da spazi/numeri -> Puglia
+    if (/^puglia\s*\d*$/i.test(n)) return "Puglia";
+
+    // 👉 aggiungi qui altre fusioni se in futuro nascono altri "Xxx1/Xxx2":
+    // if (/^sicilia\s*\d*$/i.test(n)) return "Sicilia";
+    // if (/^campania\s*\d*$/i.test(n)) return "Campania";
+
+    return n;
+}
+
+/* ===================== Aggregazione per regione reale ===================== */
+// Fonde i doppioni (Puglia1 + Puglia2 -> Puglia) sommando i totali.
+const ordiniPerRegioneNorm = computed(() => {
+    const map = new Map();
+    for (const r of props.ordiniPerRegione ?? []) {
+        const reg = regioneReale(r.regione);
+        map.set(reg, (map.get(reg) ?? 0) + Number(r.totale || 0));
+    }
+    return [...map.entries()]
+        .map(([regione, totale]) => ({ regione, totale }))
+        .sort((a, b) => b.totale - a.totale);
+});
+
+// Totale ricalcolato sui dati normalizzati (coerente con ciò che si vede).
+const totaleNorm = computed(() =>
+    ordiniPerRegioneNorm.value.reduce((s, r) => s + Number(r.totale || 0), 0),
+);
+
+// Massimo reale, per scalare colore e badge.
+const maxNorm = computed(() =>
+    ordiniPerRegioneNorm.value.reduce(
+        (m, r) => Math.max(m, Number(r.totale || 0)),
+        0,
+    ),
+);
+
+/* ===================== Dati per mappa / tabella ===================== */
+const mapData = computed(() =>
+    ordiniPerRegioneNorm.value.map((r) => ({
+        name: r.regione,
+        value: Number(r.totale),
+    })),
+);
+
+const topTable = computed(() =>
+    ordiniPerRegioneNorm.value.map((r, index) => ({
+        posizione: index + 1,
+        regione: r.regione,
+        totale: Number(r.totale),
+        percentuale:
+            totaleNorm.value > 0
+                ? ((Number(r.totale) / totaleNorm.value) * 100).toFixed(1)
+                : "0.0",
+    })),
+);
+
+/* ===================== GeoJSON: indice e centri ===================== */
 function flattenCoords(coords, out = []) {
     if (!Array.isArray(coords)) return out;
 
@@ -141,11 +185,17 @@ const featureIndex = computed(() => {
     return map;
 });
 
-const badgeData = computed(() =>
-    props.ordiniPerRegione
+/* ===================== Badge numerici sulla mappa ===================== */
+const badgeData = computed(() => {
+    const nonMappate = [];
+
+    const data = ordiniPerRegioneNorm.value
         .map((r) => {
             const feature = featureIndex.value.get(normalizeName(r.regione));
-            if (!feature) return null;
+            if (!feature) {
+                nonMappate.push(r.regione);
+                return null;
+            }
 
             const center = getFeatureCenter(feature);
             if (!center) return null;
@@ -155,49 +205,59 @@ const badgeData = computed(() =>
                 value: [...center, Number(r.totale)],
             };
         })
-        .filter(Boolean),
-);
+        .filter(Boolean);
 
-function getBreakdownHtml1(regione) {
-    const dettaglio = props.dettaglioPerRegioneTipoDoc?.[regione] ?? [];
-    if (!dettaglio.length) {
-        return `<div style="margin-top:6px;color:#6b7280;">Nessun dettaglio TipoDoc</div>`;
+    // Diagnostica: regioni che NON trovano corrispondenza nella cartina
+    if (nonMappate.length) {
+        console.warn(
+            "[Ordini per Regione] regioni non mappate nel GeoJSON:",
+            nonMappate,
+        );
     }
 
-    const rows = dettaglio
+    return data;
+});
+
+/* ===================== Tooltip: dettaglio per TipoDoc ===================== */
+function getBreakdownHtml(regione) {
+    const src = props.dettaglioPerRegioneTipoDoc ?? {};
+
+    // raccoglie tutte le chiavi che collassano su questa regione reale
+    const dettaglio = [];
+    for (const [key, arr] of Object.entries(src)) {
+        if (regioneReale(key) === regione) dettaglio.push(...(arr ?? []));
+    }
+    if (!dettaglio.length) return "";
+
+    // somma per tipoDoc (fonde Puglia1 + Puglia2 per ciascun tipo)
+    const perTipo = new Map();
+    for (const d of dettaglio) {
+        perTipo.set(
+            d.tipoDoc,
+            (perTipo.get(d.tipoDoc) ?? 0) + Number(d.totale || 0),
+        );
+    }
+
+    const rows = [...perTipo.entries()]
+        .sort((a, b) => b[1] - a[1])
         .map(
-            (item) => `
-                <div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;">
-                    <span>${item.tipoDoc}</span>
-                    <b>${item.totale}</b>
-                </div>
-            `,
+            ([tipoDoc, totale]) => `
+        <div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;">
+            <span>${tipoDoc}</span>
+            <b>${totale}</b>
+        </div>`,
         )
         .join("");
 
     return `
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
-            <div style="font-weight:700;margin-bottom:4px;">N. tot x TipoDoc</div>
+            <div style="font-weight:700;margin-bottom:2px;">N. per TipoDoc</div>
             ${rows}
         </div>
     `;
 }
-function getBreakdownHtml(regione) {
-    const dettaglio = props.dettaglioPerRegioneTipoDoc?.[regione] ?? [];
 
-    if (!dettaglio.length) return "";
-
-    return dettaglio
-        .map(
-            (d) => `
-        <div style="display:flex;justify-content:space-between">
-            <span>${d.tipoDoc}</span>
-            <b>${d.totale}</b>
-        </div>
-    `,
-        )
-        .join("");
-}
+/* ===================== Opzioni ECharts ===================== */
 const option = computed(() => ({
     backgroundColor: "#ffffff",
 
@@ -235,18 +295,13 @@ const option = computed(() => ({
 
     visualMap: {
         min: 0,
-        max: props.maxOrdini || 10,
+        max: maxNorm.value || props.maxOrdini || 10,
         left: 20,
         bottom: 20,
         text: ["Molti", "Pochi"],
         calculable: true,
         inRange: {
-            color: [
-                "#e0f2fe", // chiaro
-                "#60a5fa",
-                "#2563eb",
-                "#1e3a8a", // scuro
-            ],
+            color: ["#e0f2fe", "#60a5fa", "#2563eb", "#1e3a8a"],
         },
         textStyle: {
             color: "#374151",
@@ -292,11 +347,12 @@ const option = computed(() => ({
 
             symbol: "circle",
 
+            // Dimensione proporzionale al massimo reale (non soglie fisse)
             symbolSize: (val) => {
-                const n = val[2];
-                if (n > 100) return 40;
-                if (n > 20) return 34;
-                return 28;
+                const n = Number(val[2] || 0);
+                const max = maxNorm.value || 1;
+                const ratio = Math.min(1, n / max);
+                return 24 + Math.round(ratio * 20); // 24 -> 44 px
             },
 
             itemStyle: {
@@ -319,16 +375,18 @@ const option = computed(() => ({
     ],
 }));
 
+/* ===================== Interazioni ===================== */
 function onMapClick(params) {
     if (!params?.name) return;
 
     router.get(route("ordini.index"), {
-        regione: params.name,
+        regione: params.name, // nome reale (es. "Puglia")
         TipoDoc: props.filters?.TipoDoc ?? "Tutti",
         from: props.filters?.from,
         to: props.filters?.to,
     });
 }
+
 function applyFilters(partial = {}) {
     router.get(
         route("dashboard.ordini-regioni"),
@@ -343,8 +401,6 @@ function applyFilters(partial = {}) {
         },
     );
 }
-
-
 </script>
 
 <template>
@@ -360,90 +416,74 @@ function applyFilters(partial = {}) {
         <div class="py-6">
             <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
                 <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
-    <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <!-- FILTRI -->
-        <div class="flex flex-col gap-3 md:flex-row md:items-center">
-            <div class="flex items-center gap-2">
-                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
-                    Dal
-                </label>
-                <input
-                    type="date"
-                    :value="filters.from"
-                    @change="applyFilters({ from: $event.target.value })"
-                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm"
-                />
-            </div>
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <!-- FILTRI -->
+                        <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                    Dal
+                                </label>
+                                <input type="date" :value="filters.from"
+                                    @change="applyFilters({ from: $event.target.value })"
+                                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm" />
+                            </div>
 
-            <div class="flex items-center gap-2">
-                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
-                    Al
-                </label>
-                <input
-                    type="date"
-                    :value="filters.to"
-                    @change="applyFilters({ to: $event.target.value })"
-                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm"
-                />
-            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                    Al
+                                </label>
+                                <input type="date" :value="filters.to"
+                                    @change="applyFilters({ to: $event.target.value })"
+                                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm" />
+                            </div>
 
-            <div class="flex items-center gap-2">
-                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
-                    TipoDoc
-                </label>
-                <select
-                    :value="filters.TipoDoc || 'Tutti'"
-                    @change="applyFilters({ TipoDoc: $event.target.value })"
-                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm"
-                >
-                    <option value="Tutti">Tutti</option>
-                    <option
-                        v-for="tipo in tipiDoc"
-                        :key="tipo"
-                        :value="tipo"
-                    >
-                        {{ tipo }}
-                    </option>
-                </select>
-            </div>
-        </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                    TipoDoc
+                                </label>
+                                <select :value="filters.TipoDoc || 'Tutti'"
+                                    @change="applyFilters({ TipoDoc: $event.target.value })"
+                                    class="rounded-lg border-gray-300 px-3 py-2 text-sm shadow-sm">
+                                    <option value="Tutti">Tutti</option>
+                                    <option v-for="tipo in tipiDoc" :key="tipo" :value="tipo">
+                                        {{ tipo }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
 
-        <!-- KPI COMPATTI -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:min-w-[520px]">
-            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
-                <div class="text-xs text-gray-500">Totale ordini</div>
-                <div class="text-2xl font-bold text-blue-600">
-                    {{ totaleOrdini }}
+                        <!-- KPI COMPATTI -->
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:min-w-[520px]">
+                            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+                                <div class="text-xs text-gray-500">Totale ordini</div>
+                                <div class="text-2xl font-bold text-blue-600">
+                                    {{ totaleNorm }}
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+                                <div class="text-xs text-gray-500">Regioni attive</div>
+                                <div class="text-2xl font-bold text-green-600">
+                                    {{ ordiniPerRegioneNorm.length }}
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+                                <div class="text-xs text-gray-500">Regione top</div>
+                                <div class="text-xl font-bold text-amber-600 truncate">
+                                    {{ topTable[0]?.regione || "-" }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
-                <div class="text-xs text-gray-500">Regioni attive</div>
-                <div class="text-2xl font-bold text-green-600">
-                    {{ totaleRegioniAttive }}
-                </div>
-            </div>
-
-            <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
-                <div class="text-xs text-gray-500">Regione top</div>
-                <div class="text-xl font-bold text-amber-600 truncate">
-                    {{ regioneTop || "-" }}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
 
                 <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                    <div
-                        class="rounded-2xl bg-white p-5 shadow-sm xl:col-span-2"
-                    >
+                    <div class="rounded-2xl bg-white p-5 shadow-sm xl:col-span-2">
                         <VChart
                             :option="option"
                             autoresize
-                            style="height: 560px"
+                            style="height: 560px; cursor: pointer"
                             @click="onMapClick"
                         />
                     </div>
@@ -453,67 +493,42 @@ function applyFilters(partial = {}) {
                             Ordini per Regione
                         </div>
 
-                        <div
-                            class="overflow-hidden rounded-xl border border-gray-200"
-                        >
+                        <div class="overflow-hidden rounded-xl border border-gray-200">
                             <table class="min-w-full">
                                 <thead class="bg-slate-100">
                                     <tr>
-                                        <th
-                                            class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                                        >
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                                             #
                                         </th>
-                                        <th
-                                            class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                                        >
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                                             Regione
                                         </th>
-                                        <th
-                                            class="px-4 py-3 text-right text-sm font-semibold text-gray-700"
-                                        >
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">
                                             Ordini
                                         </th>
-                                        <th
-                                            class="px-4 py-3 text-right text-sm font-semibold text-gray-700"
-                                        >
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">
                                             %
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr
-                                        v-for="row in topTable"
-                                        :key="row.regione"
-                                        class="border-t border-gray-200"
-                                    >
-                                        <td
-                                            class="px-4 py-3 text-sm text-gray-500"
-                                        >
+                                    <tr v-for="row in topTable" :key="row.regione" class="border-t border-gray-200 hover:bg-slate-50">
+                                        <td class="px-4 py-3 text-sm text-gray-500">
                                             {{ row.posizione }}
                                         </td>
-                                        <td
-                                            class="px-4 py-3 text-sm font-medium text-gray-800"
-                                        >
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-800">
                                             {{ row.regione }}
                                         </td>
-                                        <td
-                                            class="px-4 py-3 text-right text-sm font-bold text-gray-900"
-                                        >
+                                        <td class="px-4 py-3 text-right text-sm font-bold text-gray-900">
                                             {{ row.totale }}
                                         </td>
-                                        <td
-                                            class="px-4 py-3 text-right text-sm text-gray-600"
-                                        >
+                                        <td class="px-4 py-3 text-right text-sm text-gray-600">
                                             {{ row.percentuale }}%
                                         </td>
                                     </tr>
 
                                     <tr v-if="!topTable.length">
-                                        <td
-                                            colspan="4"
-                                            class="px-4 py-6 text-center text-sm text-gray-500"
-                                        >
+                                        <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">
                                             Nessun dato disponibile
                                         </td>
                                     </tr>
