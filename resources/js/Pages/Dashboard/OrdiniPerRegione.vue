@@ -58,24 +58,23 @@ const normalizeName = (v) =>
 
 /**
  * Mappa i nomi "interni" (zone di trasporto) sul nome reale della regione.
- * Es: Puglia1, Puglia2, "Puglia 1" -> Puglia
+ * Es: Puglia1, Puglia2, "Puglia 1" -> Puglia.
+ * USATA SOLO PER LA CARTINA (mappa, badge, tooltip), NON per la tabella.
  */
 function regioneReale(nome) {
     const n = String(nome ?? "").trim();
 
-    // qualunque "Puglia" seguita da spazi/numeri -> Puglia
     if (/^puglia\s*\d*$/i.test(n)) return "Puglia";
 
-    // 👉 aggiungi qui altre fusioni se in futuro nascono altri "Xxx1/Xxx2":
+    // 👉 altre fusioni future:
     // if (/^sicilia\s*\d*$/i.test(n)) return "Sicilia";
-    // if (/^campania\s*\d*$/i.test(n)) return "Campania";
 
     return n;
 }
 
-/* ===================== Aggregazione per regione reale ===================== */
-// Fonde i doppioni (Puglia1 + Puglia2 -> Puglia) sommando i totali.
-const ordiniPerRegioneNorm = computed(() => {
+/* ===================== Aggregazione SOLO per la mappa ===================== */
+// Fonde i doppioni (Puglia1 + Puglia2 -> Puglia) per cartina/badge.
+const ordiniPerRegioneMappa = computed(() => {
     const map = new Map();
     for (const r of props.ordiniPerRegione ?? []) {
         const reg = regioneReale(r.regione);
@@ -86,36 +85,40 @@ const ordiniPerRegioneNorm = computed(() => {
         .sort((a, b) => b.totale - a.totale);
 });
 
-// Totale ricalcolato sui dati normalizzati (coerente con ciò che si vede).
-const totaleNorm = computed(() =>
-    ordiniPerRegioneNorm.value.reduce((s, r) => s + Number(r.totale || 0), 0),
-);
-
-// Massimo reale, per scalare colore e badge.
-const maxNorm = computed(() =>
-    ordiniPerRegioneNorm.value.reduce(
+const maxMappa = computed(() =>
+    ordiniPerRegioneMappa.value.reduce(
         (m, r) => Math.max(m, Number(r.totale || 0)),
         0,
     ),
 );
 
-/* ===================== Dati per mappa / tabella ===================== */
-const mapData = computed(() =>
-    ordiniPerRegioneNorm.value.map((r) => ({
-        name: r.regione,
-        value: Number(r.totale),
-    })),
+/* ===================== Tabella: dati GREZZI (Puglia1/Puglia2 separate) ===================== */
+const totaleTabella = computed(() =>
+    (props.ordiniPerRegione ?? []).reduce(
+        (s, r) => s + Number(r.totale || 0),
+        0,
+    ),
 );
 
 const topTable = computed(() =>
-    ordiniPerRegioneNorm.value.map((r, index) => ({
-        posizione: index + 1,
-        regione: r.regione,
-        totale: Number(r.totale),
-        percentuale:
-            totaleNorm.value > 0
-                ? ((Number(r.totale) / totaleNorm.value) * 100).toFixed(1)
-                : "0.0",
+    [...(props.ordiniPerRegione ?? [])]
+        .sort((a, b) => Number(b.totale) - Number(a.totale))
+        .map((r, index) => ({
+            posizione: index + 1,
+            regione: r.regione, // nome grezzo: Puglia1, Puglia2, ...
+            totale: Number(r.totale),
+            percentuale:
+                totaleTabella.value > 0
+                    ? ((Number(r.totale) / totaleTabella.value) * 100).toFixed(1)
+                    : "0.0",
+        })),
+);
+
+/* ===================== Dati mappa ===================== */
+const mapData = computed(() =>
+    ordiniPerRegioneMappa.value.map((r) => ({
+        name: r.regione,
+        value: Number(r.totale),
     })),
 );
 
@@ -189,7 +192,7 @@ const featureIndex = computed(() => {
 const badgeData = computed(() => {
     const nonMappate = [];
 
-    const data = ordiniPerRegioneNorm.value
+    const data = ordiniPerRegioneMappa.value
         .map((r) => {
             const feature = featureIndex.value.get(normalizeName(r.regione));
             if (!feature) {
@@ -207,7 +210,6 @@ const badgeData = computed(() => {
         })
         .filter(Boolean);
 
-    // Diagnostica: regioni che NON trovano corrispondenza nella cartina
     if (nonMappate.length) {
         console.warn(
             "[Ordini per Regione] regioni non mappate nel GeoJSON:",
@@ -229,7 +231,6 @@ function getBreakdownHtml(regione) {
     }
     if (!dettaglio.length) return "";
 
-    // somma per tipoDoc (fonde Puglia1 + Puglia2 per ciascun tipo)
     const perTipo = new Map();
     for (const d of dettaglio) {
         perTipo.set(
@@ -295,7 +296,7 @@ const option = computed(() => ({
 
     visualMap: {
         min: 0,
-        max: maxNorm.value || props.maxOrdini || 10,
+        max: maxMappa.value || props.maxOrdini || 10,
         left: 20,
         bottom: 20,
         text: ["Molti", "Pochi"],
@@ -328,7 +329,7 @@ const option = computed(() => ({
     },
 
     series: [
-        // 🔵 MAPPA BASE
+        // 🔵 MAPPA BASE (fusa)
         {
             name: "Ordini",
             type: "map",
@@ -337,7 +338,7 @@ const option = computed(() => ({
             data: mapData.value,
         },
 
-        // 🔥 BADGE NUMERICI
+        // 🔥 BADGE NUMERICI (fusi)
         {
             name: "Badge",
             type: "scatter",
@@ -347,10 +348,9 @@ const option = computed(() => ({
 
             symbol: "circle",
 
-            // Dimensione proporzionale al massimo reale (non soglie fisse)
             symbolSize: (val) => {
                 const n = Number(val[2] || 0);
-                const max = maxNorm.value || 1;
+                const max = maxMappa.value || 1;
                 const ratio = Math.min(1, n / max);
                 return 24 + Math.round(ratio * 20); // 24 -> 44 px
             },
@@ -381,6 +381,16 @@ function onMapClick(params) {
 
     router.get(route("ordini.index"), {
         regione: params.name, // nome reale (es. "Puglia")
+        TipoDoc: props.filters?.TipoDoc ?? "Tutti",
+        from: props.filters?.from,
+        to: props.filters?.to,
+    });
+}
+
+// Click su una riga della tabella: usa il nome grezzo (Puglia1 / Puglia2)
+function onRowClick(regioneGrezza) {
+    router.get(route("ordini.index"), {
+        regione: regioneGrezza,
         TipoDoc: props.filters?.TipoDoc ?? "Tutti",
         from: props.filters?.from,
         to: props.filters?.to,
@@ -457,21 +467,21 @@ function applyFilters(partial = {}) {
                             <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
                                 <div class="text-xs text-gray-500">Totale ordini</div>
                                 <div class="text-2xl font-bold text-blue-600">
-                                    {{ totaleNorm }}
+                                    {{ totaleTabella }}
                                 </div>
                             </div>
 
                             <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
-                                <div class="text-xs text-gray-500">Regioni attive</div>
+                                <div class="text-xs text-gray-500">Regioni (mappa)</div>
                                 <div class="text-2xl font-bold text-green-600">
-                                    {{ ordiniPerRegioneNorm.length }}
+                                    {{ ordiniPerRegioneMappa.length }}
                                 </div>
                             </div>
 
                             <div class="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
                                 <div class="text-xs text-gray-500">Regione top</div>
                                 <div class="text-xl font-bold text-amber-600 truncate">
-                                    {{ topTable[0]?.regione || "-" }}
+                                    {{ ordiniPerRegioneMappa[0]?.regione || "-" }}
                                 </div>
                             </div>
                         </div>
@@ -512,7 +522,12 @@ function applyFilters(partial = {}) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="row in topTable" :key="row.regione" class="border-t border-gray-200 hover:bg-slate-50">
+                                    <tr
+                                        v-for="row in topTable"
+                                        :key="row.regione"
+                                        class="border-t border-gray-200 hover:bg-slate-50 cursor-pointer"
+                                        @click="onRowClick(row.regione)"
+                                    >
                                         <td class="px-4 py-3 text-sm text-gray-500">
                                             {{ row.posizione }}
                                         </td>
