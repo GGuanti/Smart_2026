@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, router } from "@inertiajs/vue3";
-import { ref, watch, onMounted, nextTick } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import Chart from "chart.js/auto";
 
 const props = defineProps({
@@ -12,6 +12,19 @@ const props = defineProps({
     andamentoMensileTipo: Array,
     isAdmin: Boolean,
 });
+
+/* ===================== ONLINE BADGE ===================== */
+const online = ref(0);
+let onlineTimer = null;
+
+async function fetchOnline() {
+    try {
+        const { data } = await window.axios.get(route("online.count"));
+        online.value = data.online;
+    } catch (e) {
+        // silenzioso: se fallisce, lascia l'ultimo valore
+    }
+}
 
 const chartRef = ref(null);
 let chartInstance = null;
@@ -206,6 +219,14 @@ onMounted(async () => {
     renderChart();
 
     renderTrend();
+
+    // online badge: primo fetch + polling ogni 60s
+    fetchOnline();
+    onlineTimer = setInterval(fetchOnline, 60000);
+});
+
+onBeforeUnmount(() => {
+    if (onlineTimer) clearInterval(onlineTimer);
 });
 
 // 👉 2. Dopo filtri / reload Inertia
@@ -225,6 +246,19 @@ watch(
 
     <AuthenticatedLayout>
         <div class="p-6 space-y-6">
+            <!-- HEADER + BADGE ONLINE -->
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+                    title="Utenti attivi negli ultimi 5 minuti"
+                >
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    {{ online }} online
+                </span>
+            </div>
+
             <!-- KPI -->
             <div class="grid grid-cols-3 gap-4">
                 <div class="bg-white p-4 rounded shadow">

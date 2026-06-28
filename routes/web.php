@@ -69,10 +69,15 @@ Route::middleware('auth')->prefix('chat')->name('chat.')->group(function () {
     Route::delete('/messages/{message}',                  [ChatController::class, 'destroy'])->name('messages.destroy');
     Route::get('/attachments/{attachment}',               [ChatController::class, 'attachment'])->name('attachment');
     Route::delete('/conversations/{conversation}', [ChatController::class, 'destroyConversation'])->name('conversations.destroy');
+
 });
 
 Route::middleware(['auth'])->group(function () {
     Route::resource('anagrafica', AnagraficaController::class);
+        Route::get('/online-count', function () {
+    $count = \App\Models\User::where('last_seen_at', '>=', now()->subMinutes(5))->count();
+    return response()->json(['online' => $count]);
+})->middleware('auth')->name('online.count');
     // genera automaticamente:
     // GET    /anagrafica           → index
     // GET    /anagrafica/create    → create
